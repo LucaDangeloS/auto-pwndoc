@@ -56,7 +56,7 @@
                                 <q-toolbar>
                                     <div class="text-grey-8">{{$t('listOfLanguages')}}</div>
                                     <q-space />
-                                    <q-btn v-if="UserService.isAllowed('languages:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="editLanguage = true; editLanguages = $_.cloneDeep(languages)">
+                                    <q-btn v-if="UserService.isAllowed('languages:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="startEditingLanguages">
                                         <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.edit')}}</q-tooltip> 
                                     </q-btn>
                                 </q-toolbar>
@@ -94,7 +94,7 @@
                                 v-model="editLanguages"
                                 handle=".handle"
                                 ghost-class="drag-ghost"
-                                item-key="locale"
+                                item-key="_uniqueId"
                               >
                                 <template #item="{ element, index }">
                                   <q-item>
@@ -239,7 +239,7 @@
                                 <q-toolbar>
                                     <div class="text-grey-8">{{$t('listOfAuditTypes')}}</div>
                                     <q-space />
-                                    <q-btn v-if="UserService.isAllowed('audit-types:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="editAuditType = true; editAuditTypes = $_.cloneDeep(auditTypes)">
+                                    <q-btn v-if="UserService.isAllowed('audit-types:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="startEditingAuditTypes">
                                         <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.edit')}}</q-tooltip> 
                                     </q-btn>
                                 </q-toolbar>
@@ -314,7 +314,7 @@
                             </q-toolbar>
                             <q-separator />
                             <q-card-section>
-                                <draggable v-model="editAuditTypes" handle=".handle" ghost-class="drag-ghost" item-key="name">
+                                <draggable v-model="editAuditTypes" handle=".handle" ghost-class="drag-ghost" item-key="_uniqueId">
                                     <template #item="{ element: auditType, index }">
                                       <q-item>
                                         <q-item-section avatar>
@@ -646,7 +646,7 @@
                                 <q-toolbar>
                                     <div class="text-grey-8">{{$t('listOfCategories')}}</div>
                                     <q-space />
-                                    <q-btn v-if="UserService.isAllowed('vulnerability-categories:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="editCategory = true; editCategories = $_.cloneDeep(vulnCategories)">
+                                    <q-btn v-if="UserService.isAllowed('vulnerability-categories:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="startEditingCategories">
                                         <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.edit')}}</q-tooltip> 
                                     </q-btn>
                                 </q-toolbar>
@@ -697,7 +697,7 @@
                             </q-toolbar>
                             <q-separator />
                             <q-card-section>
-                                <draggable v-model="editCategories" handle=".handle" ghost-class="drag-ghost" item-key="name">
+                                <draggable v-model="editCategories" handle=".handle" ghost-class="drag-ghost" item-key="_uniqueId">
                                     <template #item="{ element: vulnCat }">
                                       <q-item>
                                         <q-item-section avatar>

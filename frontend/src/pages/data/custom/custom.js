@@ -1,4 +1,4 @@
-import { Dialog, Notify } from 'quasar';
+import { Dialog, Notify, uid } from 'quasar';
 import draggable from 'vuedraggable'
 import BasicEditor from 'components/editor';
 import CustomFields from 'components/custom-fields'
@@ -191,30 +191,42 @@ export default {
             })
         },
 
-         // Update Languages
-         updateLanguages: function() {
-            DataService.updateLanguages(this.editLanguages)
-            .then((data) => {
-                this.getLanguages()
-                this.editLanguage = false
-                Notify.create({
-                    message: 'Languages updated successfully',
-                    color: 'positive',
-                    textColor:'white',
-                    position: 'top-right'
-                })
-            })
-            .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                })
-            })
-        },
+        // Update Languages
+        updateLanguages: function() {
+           const cleanedLanguages = this.editLanguages.map(l => {
+               const { _uniqueId, ...rest } = l;
+               return rest;
+           });
+           DataService.updateLanguages(cleanedLanguages)
+           .then((data) => {
+               this.getLanguages()
+               this.editLanguage = false
+               Notify.create({
+                   message: 'Languages updated successfully',
+                   color: 'positive',
+                   textColor:'white',
+                   position: 'top-right'
+               })
+           })
+           .catch((err) => {
+               Notify.create({
+                   message: err.response.data.datas,
+                   color: 'negative',
+                   textColor: 'white',
+                   position: 'top-right'
+               })
+           })
+       },
 
-        // Remove Language
+       startEditingLanguages() {
+           this.editLanguages = this.$_.cloneDeep(this.languages).map(lang => ({
+               ...lang,
+               _uniqueId: uid()
+           }));
+           this.editLanguage = true;
+       },
+
+       // Remove Language
         removeLanguage: function(locale) {
             this.editLanguages = this.editLanguages.filter(e => e.locale !== locale)
         },
@@ -263,7 +275,11 @@ export default {
 
         // Update Audit Types
         updateAuditTypes: function() {
-            DataService.updateAuditTypes(this.editAuditTypes)
+            const cleanedAuditTypes = this.editAuditTypes.map(at => {
+                const { _uniqueId, ...rest } = at;
+                return rest;
+            });
+            DataService.updateAuditTypes(cleanedAuditTypes)
             .then((data) => {
                 this.getAuditTypes()
                 this.editAuditType = false
@@ -282,6 +298,14 @@ export default {
                     position: 'top-right'
                 })
             })
+        },
+
+        startEditingAuditTypes() {
+            this.editAuditTypes = this.$_.cloneDeep(this.auditTypes).map(at => ({
+                ...at,
+                _uniqueId: uid()
+            }));
+            this.editAuditType = true;
         },
 
         // Remove Audit Type
@@ -416,7 +440,11 @@ export default {
 
          // Update Vulnerability Categories
          updateVulnCategories: function() {
-            DataService.updateVulnerabilityCategories(this.editCategories)
+            const cleanedCategories = this.editCategories.map(cat => {
+                const { _uniqueId, ...rest } = cat;
+                return rest;
+            });
+            DataService.updateVulnerabilityCategories(cleanedCategories)
             .then((data) => {
                 this.getVulnerabilityCategories()
                 this.editCategory = false
@@ -437,6 +465,14 @@ export default {
             })
         },
         
+        startEditingCategories() {
+            this.editCategories = this.$_.cloneDeep(this.vulnCategories).map(cat => ({
+                ...cat,
+                _uniqueId: uid()
+            }));
+            this.editCategory = true;
+        },
+
         // Remove Category
         removeCategory: function(vulnCat) {
             this.editCategories = this.editCategories.filter(e => e.name !== vulnCat.name)

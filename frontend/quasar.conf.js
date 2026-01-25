@@ -55,6 +55,10 @@ module.exports = function (ctx) {
       },
       host: "0.0.0.0",
       port: 8081,
+      allowedHosts: 'all', // Allow localhost header through nginx
+      client: {
+        webSocketURL: 'auto://0.0.0.0:0/ws',
+      },
       proxy: {
         '/api': {
           target: 'https://pwndoc-ng-backend:5252',

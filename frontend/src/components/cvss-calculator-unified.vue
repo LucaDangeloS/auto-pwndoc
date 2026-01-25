@@ -46,7 +46,7 @@
                     <q-chip square color="blue-12" text-color="white">Impact:&nbsp;<span class="text-bold">{{roundUp1(cvss40.vulnerableSystemImpact)}}</span></q-chip>
                 </div>
                 <div class="scoreRating" :class="cvss40.baseSeverity">
-                    <span class="baseSeverity" v-if="!cvss40.baseMetricScore">Sélectionnez les métriques</span>
+                    <span class="baseSeverity" v-if="!cvss40.baseMetricScore">{{$t('cvss4.selectMetrics')}}</span>
                     <div v-else>
                         <span class="baseMetricScore">{{cvss40.baseMetricScore}}</span>
                         <span class="baseSeverity">({{cvss40.baseSeverity}})</span>
@@ -60,7 +60,7 @@
                 <div class="col-md-6">
                     <!-- Attack Vector -->
                     <div class="q-my-sm text-weight-bold">
-                        <span>Vecteur d'Attaque (AV)</span>
+                        <span>{{$t('cvss.attackVector')}} (AV)</span>
                     </div>
                     <q-btn-toggle
                         class="group-btn"
@@ -74,7 +74,7 @@
 
                     <!-- Attack Complexity -->
                     <div class="q-my-sm text-weight-bold">
-                        <span>Complexité d'Attaque (AC)</span>
+                        <span>{{$t('cvss.attackComplexity')}} (AC)</span>
                     </div>
                     <q-btn-toggle
                         class="group-btn"
@@ -88,7 +88,7 @@
 
                     <!-- Attack Requirements (NEW in 4.0) -->
                     <div class="q-my-sm text-weight-bold">
-                        <span>Exigences d'Attaque (AT)</span>
+                        <span>{{$t('cvss4.attackRequirements')}} (AT)</span>
                     </div>
                     <q-btn-toggle
                         class="group-btn"
@@ -102,7 +102,7 @@
 
                     <!-- Privileges Required -->
                     <div class="q-my-sm text-weight-bold">
-                        <span>Privilèges Requis (PR)</span>
+                        <span>{{$t('cvss.privilegesRequired')}} (PR)</span>
                     </div>
                     <q-btn-toggle
                         class="group-btn"
@@ -116,7 +116,7 @@
 
                     <!-- User Interaction (UPDATED in 4.0) -->
                     <div class="q-my-sm text-weight-bold">
-                        <span>Interaction Utilisateur (UI)</span>
+                        <span>{{$t('cvss.userInteraction')}} (UI)</span>
                     </div>
                     <q-btn-toggle
                         class="group-btn"
@@ -131,10 +131,10 @@
                 
                 <div class="col-md-6">
                     <!-- Vulnerable System Impact -->
-                    <div class="text-h6 q-mb-md text-primary">Impact Système Vulnérable</div>
+                    <div class="text-h6 q-mb-md text-primary">{{$t('cvss4.vulnerableSystemImpact')}}</div>
                     
                     <div class="q-my-sm text-weight-bold">
-                        <span>Confidentialité (VC)</span>
+                        <span>{{$t('cvss.confidentialityImpact')}} (VC)</span>
                     </div>
                     <q-btn-toggle
                         class="group-btn"
@@ -147,7 +147,7 @@
                     />
 
                     <div class="q-my-sm text-weight-bold">
-                        <span>Intégrité (VI)</span>
+                        <span>{{$t('cvss.integrityImpact')}} (VI)</span>
                     </div>
                     <q-btn-toggle
                         class="group-btn"
@@ -160,7 +160,7 @@
                     />
 
                     <div class="q-my-sm text-weight-bold">
-                        <span>Disponibilité (VA)</span>
+                        <span>{{$t('cvss.availabilityImpact')}} (VA)</span>
                     </div>
                     <q-btn-toggle
                         class="group-btn"
@@ -174,11 +174,11 @@
 
                     <!-- Subsequent Systems Impact (NEW in 4.0) -->
                     <div class="text-h6 q-mb-md text-secondary q-mt-lg">
-                        Impact Systèmes Subséquents
+                        {{$t('cvss4.subsequentSystemImpact')}}
                     </div>
                     
                     <div class="q-my-sm text-weight-bold">
-                        <span>Confidentialité (SC)</span>
+                        <span>{{$t('cvss.confidentialityImpact')}} (SC)</span>
                     </div>
                     <q-btn-toggle
                         class="group-btn"
@@ -191,7 +191,7 @@
                     />
 
                     <div class="q-my-sm text-weight-bold">
-                        <span>Intégrité (SI)</span>
+                        <span>{{$t('cvss.integrityImpact')}} (SI)</span>
                     </div>
                     <q-btn-toggle
                         class="group-btn"
@@ -204,7 +204,7 @@
                     />
 
                     <div class="q-my-sm text-weight-bold">
-                        <span>Disponibilité (SA)</span>
+                        <span>{{$t('cvss.availabilityImpact')}} (SA)</span>
                     </div>
                     <q-btn-toggle
                         class="group-btn"
@@ -221,17 +221,17 @@
             <!-- Threat and Environmental Metrics for CVSS 4.0 -->
             <q-expansion-item 
                 :default-opened="false"
-                label="Métriques de Menace et Environnementales CVSS 4.0"
+                :label="$t('cvss4.threatAndEnvironmentalTitle')"
                 header-class="bg-blue-grey-5 text-white" 
                 expand-icon-class="text-white">
                 
                 <q-card-section class="row">
                     <div class="col-md-6">
-                        <span class="text-h6">Métriques de Menace</span>
+                        <span class="text-h6">{{$t('cvss4.threatMetrics')}}</span>
                     </div>
                     <q-space />
                     <div class="scoreRating" :class="cvss40.threatSeverity">
-                        <span class="baseSeverity" v-if="!cvss40.threatMetricScore">Score de menace</span>
+                        <span class="baseSeverity" v-if="!cvss40.threatMetricScore">{{$t('cvss4.threatScore')}}</span>
                         <div v-else>
                             <span class="baseMetricScore">{{cvss40.threatMetricScore}}</span>
                             <span class="baseSeverity">({{cvss40.threatSeverity}})</span>
@@ -244,7 +244,7 @@
                     <div class="col">
                         <!-- Exploit Maturity -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Maturité d'Exploitation (E)</span>
+                            <span>{{$t('cvss4.exploitMaturity')}} (E)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -263,11 +263,11 @@
                 <!-- Environmental Section -->
                 <q-card-section class="row">
                     <div class="col-md-3" style="align-self:center">
-                        <span class="text-h6">Métriques Environnementales</span>
+                        <span class="text-h6">{{$t('cvss4.environmentalMetrics')}}</span>
                     </div>
                     <q-space />
                     <div class="scoreRating" :class="cvss40.environmentalSeverity">
-                        <span class="baseSeverity" v-if="!cvss40.environmentalMetricScore">Score environnemental</span>
+                        <span class="baseSeverity" v-if="!cvss40.environmentalMetricScore">{{$t('cvss4.environmentalScore')}}</span>
                         <div v-else>
                             <span class="baseMetricScore">{{cvss40.environmentalMetricScore}}</span>
                             <span class="baseSeverity">({{cvss40.environmentalSeverity}})</span>
@@ -280,7 +280,7 @@
                     <div class="col-md-6">
                         <!-- Requirements -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Exigence de Confidentialité (CR)</span>
+                            <span>{{$t('cvss.confidentialityRequirement')}} (CR)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -293,7 +293,7 @@
                         />
 
                         <div class="q-my-sm text-weight-bold">
-                            <span>Exigence d'Intégrité (IR)</span>
+                            <span>{{$t('cvss.integrityRequirement')}} (IR)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -306,7 +306,7 @@
                         />
 
                         <div class="q-my-sm text-weight-bold">
-                            <span>Exigence de Disponibilité (AR)</span>
+                            <span>{{$t('cvss.availabilityRequirement')}} (AR)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -322,7 +322,7 @@
                     <div class="col-md-6">
                         <!-- Modified Attack Vector -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Vecteur d'Attaque Modifié (MAV)</span>
+                            <span>{{$t('cvss.modifiedAttackVector')}} (MAV)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -336,7 +336,7 @@
 
                         <!-- Modified Attack Complexity -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Complexité d'Attaque Modifiée (MAC)</span>
+                            <span>{{$t('cvss.modifiedAttackComplexity')}} (MAC)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -350,7 +350,7 @@
 
                         <!-- Modified Attack Requirements -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Exigences d'Attaque Modifiées (MAT)</span>
+                            <span>{{$t('cvss4.modifiedAttackRequirements')}} (MAT)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -371,7 +371,7 @@
                     <div class="col-md-6">
                         <!-- Modified Privileges Required -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Privilèges Requis Modifiés (MPR)</span>
+                            <span>{{$t('cvss.modifiedPrivilegesRequired')}} (MPR)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -385,7 +385,7 @@
 
                         <!-- Modified User Interaction -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Interaction Utilisateur Modifiée (MUI)</span>
+                            <span>{{$t('cvss.modifiedUserInteraction')}} (MUI)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -399,7 +399,7 @@
 
                         <!-- Modified Vulnerable System Confidentiality -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Confidentialité Système Vulnérable Modifiée (MVC)</span>
+                            <span>{{$t('cvss4.modifiedVulnerableSystemConfidentiality')}} (MVC)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -413,7 +413,7 @@
 
                         <!-- Modified Vulnerable System Integrity -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Intégrité Système Vulnérable Modifiée (MVI)</span>
+                            <span>{{$t('cvss4.modifiedVulnerableSystemIntegrity')}} (MVI)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -427,7 +427,7 @@
 
                         <!-- Modified Vulnerable System Availability -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Disponibilité Système Vulnérable Modifiée (MVA)</span>
+                            <span>{{$t('cvss4.modifiedVulnerableSystemAvailability')}} (MVA)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -443,7 +443,7 @@
                     <div class="col-md-6">
                         <!-- Modified Subsequent System Confidentiality -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Confidentialité Système Subséquent Modifiée (MSC)</span>
+                            <span>{{$t('cvss4.modifiedSubsequentSystemConfidentiality')}} (MSC)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -457,7 +457,7 @@
 
                         <!-- Modified Subsequent System Integrity -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Intégrité Système Subséquent Modifiée (MSI)</span>
+                            <span>{{$t('cvss4.modifiedSubsequentSystemIntegrity')}} (MSI)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -471,7 +471,7 @@
 
                         <!-- Modified Subsequent System Availability -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Disponibilité Système Subséquent Modifiée (MSA)</span>
+                            <span>{{$t('cvss4.modifiedSubsequentSystemAvailability')}} (MSA)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -490,7 +490,7 @@
                 <!-- Supplemental Metrics -->
                 <q-card-section class="row">
                     <div class="col-md-3" style="align-self:center">
-                        <span class="text-h6">Métriques Supplémentaires</span>
+                        <span class="text-h6">{{$t('cvss4.supplementalMetrics')}}</span>
                     </div>
                     <q-space />
                 </q-card-section>
@@ -500,7 +500,7 @@
                     <div class="col-md-6">
                         <!-- Safety -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Sécurité (S)</span>
+                            <span>{{$t('cvss4.safety')}} (S)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -514,7 +514,7 @@
 
                         <!-- Automatable -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Automatisable (AU)</span>
+                            <span>{{$t('cvss4.automatable')}} (AU)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -528,7 +528,7 @@
 
                         <!-- Recovery -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Récupération (R)</span>
+                            <span>{{$t('cvss4.recovery')}} (R)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -544,7 +544,7 @@
                     <div class="col-md-6">
                         <!-- Value Density -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Densité de Valeur (V)</span>
+                            <span>{{$t('cvss4.valueDensity')}} (V)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -558,7 +558,7 @@
 
                         <!-- Response Effort -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Effort de Réponse (RE)</span>
+                            <span>{{$t('cvss4.responseEffort')}} (RE)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -572,7 +572,7 @@
 
                         <!-- Provider Urgency -->
                         <div class="q-my-sm text-weight-bold">
-                            <span>Urgence du Fournisseur (U)</span>
+                            <span>{{$t('cvss4.providerUrgency')}} (U)</span>
                         </div>
                         <q-btn-toggle
                             class="group-btn"
@@ -628,202 +628,6 @@ export default defineComponent({
       internalCvss3Vector: '',
       internalCvss4Vector: '',
       
-      // CVSS 4.0 Items
-      cvss40Items: {
-        AV: [
-          { label: 'Network', value: 'N' },
-          { label: 'Adjacent', value: 'A' },
-          { label: 'Local', value: 'L' },
-          { label: 'Physical', value: 'P' }
-        ],
-        AC: [
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        AT: [  // New in 4.0
-          { label: 'None', value: 'N' },
-          { label: 'Present', value: 'P' }
-        ],
-        PR: [
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        UI: [  // Modified in 4.0
-          { label: 'None', value: 'N' },
-          { label: 'Passive', value: 'P' },
-          { label: 'Active', value: 'A' }
-        ],
-        
-        // Vulnerable System Impact
-        VC: [
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        VI: [
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        VA: [
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        
-        // Subsequent Systems Impact (New in 4.0)
-        SC: [
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        SI: [
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        SA: [
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        
-        // Threat Metrics
-        E: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'Attacked', value: 'A' },
-          { label: 'Unreported', value: 'U' },
-          { label: 'Proof-of-Concept', value: 'P' },
-          { label: 'Functional', value: 'F' },
-          { label: 'High', value: 'H' }
-        ],
-        
-        // Environmental Requirements
-        CR: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'Low', value: 'L' },
-          { label: 'Medium', value: 'M' },
-          { label: 'High', value: 'H' }
-        ],
-        IR: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'Low', value: 'L' },
-          { label: 'Medium', value: 'M' },
-          { label: 'High', value: 'H' }
-        ],
-        AR: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'Low', value: 'L' },
-          { label: 'Medium', value: 'M' },
-          { label: 'High', value: 'H' }
-        ],
-        
-        // Modified Base Metrics (Environmental)
-        MAV: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'Network', value: 'N' },
-          { label: 'Adjacent', value: 'A' },
-          { label: 'Local', value: 'L' },
-          { label: 'Physical', value: 'P' }
-        ],
-        MAC: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        MAT: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'None', value: 'N' },
-          { label: 'Present', value: 'P' }
-        ],
-        MPR: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        MUI: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'None', value: 'N' },
-          { label: 'Passive', value: 'P' },
-          { label: 'Active', value: 'A' }
-        ],
-        MVC: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        MVI: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        MVA: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        MSC: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        MSI: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        MSA: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'None', value: 'N' },
-          { label: 'Low', value: 'L' },
-          { label: 'High', value: 'H' }
-        ],
-        
-        // Supplemental Metrics
-        S: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'None', value: 'N' },
-          { label: 'Present', value: 'P' },
-          { label: 'High', value: 'H' }
-        ],
-        AU: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'None', value: 'N' },
-          { label: 'Yes', value: 'Y' }
-        ],
-        R: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'Automatic', value: 'A' },
-          { label: 'User', value: 'U' },
-          { label: 'Irrecoverable', value: 'I' }
-        ],
-        V: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'Diffuse', value: 'D' },
-          { label: 'Concentrated', value: 'C' }
-        ],
-        RE: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'Low', value: 'L' },
-          { label: 'Medium', value: 'M' },
-          { label: 'High', value: 'H' }
-        ],
-        U: [
-          { label: 'Not Defined', value: 'X' },
-          { label: 'Clear', value: 'C' },
-          { label: 'Green', value: 'G' },
-          { label: 'Functional', value: 'F' },
-          { label: 'Red', value: 'R' }
-        ]
-      },
-
       // CVSS 4.0 Object
       cvss40Obj: {
         version: '4.0',
@@ -865,6 +669,205 @@ export default defineComponent({
       // Flag to prevent watcher from triggering during initialization
       isInitializing: true
     };
+  },
+
+  computed: {
+    cvss40Items() {
+      return {
+        AV: [
+          { label: this.$t('cvss4.values.network'), value: 'N' },
+          { label: this.$t('cvss4.values.adjacent'), value: 'A' },
+          { label: this.$t('cvss4.values.local'), value: 'L' },
+          { label: this.$t('cvss4.values.physical'), value: 'P' }
+        ],
+        AC: [
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        AT: [
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.present'), value: 'P' }
+        ],
+        PR: [
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        UI: [
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.passive'), value: 'P' },
+          { label: this.$t('cvss4.values.active'), value: 'A' }
+        ],
+        
+        // Vulnerable System Impact
+        VC: [
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        VI: [
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        VA: [
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        
+        // Subsequent Systems Impact
+        SC: [
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        SI: [
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        SA: [
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        
+        // Threat Metrics
+        E: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.attacked'), value: 'A' },
+          { label: this.$t('cvss4.values.unreported'), value: 'U' },
+          { label: this.$t('cvss4.values.proofOfConcept'), value: 'P' },
+          { label: this.$t('cvss4.values.functional'), value: 'F' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        
+        // Environmental Requirements
+        CR: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.medium'), value: 'M' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        IR: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.medium'), value: 'M' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        AR: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.medium'), value: 'M' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        
+        // Modified Base Metrics (Environmental)
+        MAV: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.network'), value: 'N' },
+          { label: this.$t('cvss4.values.adjacent'), value: 'A' },
+          { label: this.$t('cvss4.values.local'), value: 'L' },
+          { label: this.$t('cvss4.values.physical'), value: 'P' }
+        ],
+        MAC: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        MAT: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.present'), value: 'P' }
+        ],
+        MPR: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        MUI: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.passive'), value: 'P' },
+          { label: this.$t('cvss4.values.active'), value: 'A' }
+        ],
+        MVC: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        MVI: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        MVA: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        MSC: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        MSI: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        MSA: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        
+        // Supplemental Metrics
+        S: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.present'), value: 'P' },
+          { label: this.$t('cvss4.values.high'), value: 'H' } // Assuming 'Safety' high is translated as High
+        ],
+        AU: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.none'), value: 'N' },
+          { label: this.$t('cvss4.values.yes'), value: 'Y' }
+        ],
+        R: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.automatic'), value: 'A' },
+          { label: this.$t('cvss4.values.user'), value: 'U' },
+          { label: this.$t('cvss4.values.irrecoverable'), value: 'I' }
+        ],
+        V: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.diffuse'), value: 'D' },
+          { label: this.$t('cvss4.values.concentrated'), value: 'C' }
+        ],
+        RE: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.low'), value: 'L' },
+          { label: this.$t('cvss4.values.medium'), value: 'M' },
+          { label: this.$t('cvss4.values.high'), value: 'H' }
+        ],
+        U: [
+          { label: this.$t('cvss4.values.notDefined'), value: 'X' },
+          { label: this.$t('cvss4.values.clear'), value: 'C' },
+          { label: this.$t('cvss4.values.green'), value: 'G' },
+          { label: this.$t('cvss4.values.functional'), value: 'F' }, // Reusing functional? Or is it different for Urgency? It says "Functional" in original.
+          { label: this.$t('cvss4.values.red'), value: 'R' }
+        ]
+      };
+    }
   },
 
   created() {

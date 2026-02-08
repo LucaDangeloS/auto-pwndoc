@@ -11,6 +11,18 @@ services:
     environment:
       - MONGO_DB=pwndoc
 
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: pwndoc-chroma
+    ports:
+      - 127.0.0.1:8000:8000
+    volumes:
+      - chroma-data-dev:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ALLOW_RESET=TRUE
+    restart: always
+
   backend:
     build:
       context: ./backend/
@@ -65,3 +77,4 @@ services:
 
 volumes:
   mongo-data-dev:
+  chroma-data-dev:

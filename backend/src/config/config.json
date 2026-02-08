@@ -7,7 +7,27 @@
             "server": "mongo-pwndoc-ng",
             "port": "27017"
         },
-        "apidoc": true
+        "apidoc": true,
+        "jwtSecret": "30af46140cbdcedda17bdc5ec3e444a32511b69e884a7430f0f8187492d9a8fa",
+        "jwtRefreshSecret": "721ee96789df229ebc5595d5a4bfc2605b3c27a75566b07da98dfbb8cc65bf31",
+        "ai": {
+            "enabled": false,
+            "vectorStore": {
+                "url": "http://pwndoc-chroma:8000",
+                "collection": "pwndoc-findings"
+            },
+            "generation": {
+                "baseUrl": "http://host.docker.internal:11434/v1",
+                "apiKey": "ollama",
+                "model": "deepseek-r1:7b",
+                "temperature": 0.7
+            },
+            "embeddings": {
+                "baseUrl": "http://host.docker.internal:11434/v1",
+                "apiKey": "ollama",
+                "model": "nomic-embed-text"
+            }
+        }
     },
     "prod": {
         "port": 4242,

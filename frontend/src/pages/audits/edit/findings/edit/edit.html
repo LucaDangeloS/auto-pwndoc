@@ -94,7 +94,16 @@
                   outlined
                   :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                 />
-                <q-field class="col-md-12 basic-editor" borderless :label="$t('description')" stack-label>
+                <div class="col-md-12 row items-center justify-between q-mt-sm">
+                  <span class="text-subtitle2 text-grey-7">{{$t('description')}}</span>
+                  <q-btn 
+                    v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                    flat dense color="purple" icon="auto_awesome" :label="$t('aiSuggest')" 
+                    @click="generateAiDescription" 
+                    :loading="aiLoading"
+                  />
+                </div>
+                <q-field class="col-md-12 basic-editor" borderless stack-label>
                   <template #control>
                     <basic-editor
                       ref="basiceditor_description"

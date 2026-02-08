@@ -11,7 +11,7 @@
         "jwtSecret": "30af46140cbdcedda17bdc5ec3e444a32511b69e884a7430f0f8187492d9a8fa",
         "jwtRefreshSecret": "721ee96789df229ebc5595d5a4bfc2605b3c27a75566b07da98dfbb8cc65bf31",
         "ai": {
-            "enabled": false,
+            "enabled": true,
             "vectorStore": {
                 "url": "http://pwndoc-chroma:8000",
                 "collection": "pwndoc-findings"

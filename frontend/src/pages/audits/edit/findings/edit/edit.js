@@ -10,6 +10,7 @@ import CustomFields from 'components/custom-fields';
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
 import VulnService from '@/services/vulnerability';
+import AiService from '@/services/ai';
 import Utils from '@/services/utils';
 
 import { $t } from '@/boot/i18n';
@@ -48,6 +49,7 @@ export default {
       filteredVulnTypes: [],
       readyToSave: false,
       needSave: false,
+      aiLoading: false,
       AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
     };
   },
@@ -368,5 +370,48 @@ export default {
     unsavedChanges() {
       return this.needSave;
     },
+
+    generateAiDescription() {
+      if (!this.finding.title) {
+          Notify.create({
+              message: $t('msg.fieldRequired'),
+              color: 'negative',
+              textColor: 'white',
+              position: 'top-right'
+          })
+          return
+      }
+      
+      this.aiLoading = true
+      AiService.generate(`Write a detailed description for a vulnerability titled "${this.finding.title}".`)
+      .then((response) => {
+          if (this.finding.description) {
+              this.finding.description += "<br><br>" + response.data.datas.replace(/\n/g, "<br>")
+          } else {
+              this.finding.description = response.data.datas.replace(/\n/g, "<br>")
+          }
+          if (this.$refs.basiceditor_description)
+            this.$refs.basiceditor_description.updateHTML() 
+          this.needSave = true
+          Notify.create({
+              message: 'AI Generation Successful',
+              color: 'positive',
+              textColor: 'white',
+              position: 'top-right'
+          })
+      })
+      .catch((err) => {
+          console.error(err)
+          Notify.create({
+              message: err.response?.data?.datas || 'AI Generation Failed',
+              color: 'negative',
+              textColor: 'white',
+              position: 'top-right'
+          })
+      })
+      .finally(() => {
+          this.aiLoading = false
+      })
+    }
   },
 };

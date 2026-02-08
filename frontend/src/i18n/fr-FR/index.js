@@ -401,6 +401,7 @@ export default {
     critical: 'Critique',
     informational: 'Informationnel',
     reviews: 'Commentaires',
+    aiSuggest: 'Suggestion AI',
     auditUpdateAfterApproval: 'Mise à jour de l\'Audit après Approbation',
     changeApproveBehaviorIfAuditUpdated: 'Modifier le comportement d\'un Audit approuvé qui est mis à jour. Si un audit est mis à jour: ',
     removeAllPriorApprovals: 'Toutes ses approbations préalables sont supprimées.',

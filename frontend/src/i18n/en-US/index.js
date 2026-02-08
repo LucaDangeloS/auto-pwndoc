@@ -518,6 +518,7 @@ export default {
     critical: 'Critical',
     informational: 'Informational',
     reviews: 'Reviews',
+    aiSuggest: 'AI Suggest',
     auditUpdateAfterApproval: 'Audit Update After Approval',
     changeApproveBehaviorIfAuditUpdated: 'Changes the behavior for an approved audit that gets updated. If an audit is updated : ',
     removeAllPriorApprovals: 'All its prior approvals are removed.',

@@ -1,4 +1,4 @@
-var jwtDecode = require('jwt-decode');
+import { jwtDecode } from 'jwt-decode';
 import { api } from 'boot/axios'
 import User from '@/services/user';
 

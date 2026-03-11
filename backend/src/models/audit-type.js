@@ -1,11 +1,10 @@
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 
-var Template = {
-    _id: false,
+var Template = new Schema({
     template: {type: Schema.Types.ObjectId, ref: 'Template'},
     locale: String
-}
+}, { _id: false });
 
 var AuditTypeSchema = new Schema({
     name:   {type: String, unique: true},

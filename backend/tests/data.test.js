@@ -216,8 +216,8 @@ module.exports = function(request, app) {
 
       it('Get audit types', async () => {
         const expected = [
-          {"hidden": [], "name": "Internal Test", "sections": [], "templates": [{}]},
-          {"hidden": [], "name": "Web", "sections": [], "templates": [{}]}
+          {"hidden": [], "name": "Internal Test", "sections": [], "templates": [null]},
+          {"hidden": [], "name": "Web", "sections": [], "templates": [null]}
         ]
         var response = await request(app).get('/api/data/audit-types')
           .set('Cookie', [

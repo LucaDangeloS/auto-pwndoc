@@ -165,7 +165,7 @@ if(config.apidoc) {
 }
 
 
-app.get("*", function(req, res) {
+app.use(function(req, res) {
     res.status(404).json({"status": "error", "data": "Route undefined"});
 })
 

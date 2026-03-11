@@ -54,11 +54,11 @@ module.exports = function(request, app) {
         expect(response.status).toBe(200)
 
         var response = await request(app).post('/api/users/init')
-        expect(response.status).toBe(422)
+        console.log(response.body); expect(response.status).toBe(422)
 
         // Login
         response = await request(app).post('/api/users/token')
-        expect(response.status).toBe(422)
+        console.log(response.body); expect(response.status).toBe(422)
       })
     })
 

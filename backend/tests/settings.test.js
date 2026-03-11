@@ -20,6 +20,7 @@ module.exports = function(request, app) {
                 "mediumColor": "#f9a009",
                 "noneColor": "#4a86e8",
               },
+              "defaultCvssVersion": "3.1",
               "extendCvssTemporalEnvironment": false,
               "remediationColorsComplexity": {
                 "highColor": "#FF2F2F",
@@ -67,6 +68,7 @@ module.exports = function(request, app) {
                 "mediumColor": "#f9a009",
                 "noneColor": "#4a86e8",
               },
+              "defaultCvssVersion": "3.1",
               "extendCvssTemporalEnvironment": false,
               "remediationColorsComplexity": {
                 "highColor": "#FF2F2F",
@@ -136,10 +138,11 @@ module.exports = function(request, app) {
                   "highColor": "#123456",
                   "lowColor": "#123456",
                   "mediumColor": "#123456",
-                  "noneColor": "#123456",
-                },
-                "extendCvssTemporalEnvironment": false,
-                "remediationColorsComplexity": {
+                "noneColor": "#123456",
+              },
+              "defaultCvssVersion": "3.1",
+              "extendCvssTemporalEnvironment": false,
+              "remediationColorsComplexity": {
                   "highColor": "#FF2F2F",
                   "lowColor": "#4472c4",
                   "mediumColor": "#ffc000",

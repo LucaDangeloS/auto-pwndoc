@@ -180,7 +180,7 @@ AuditSchema.statics.create = (audit, userId) => {
         .then((row) => {
             if (row) {
                 auditTypeSections = row.sections
-                var auditTypeTemplate = row.templates.find(e => e.locale === audit.language)
+                var auditTypeTemplate = row.templates.find(e => e && e.locale === audit.language)
                 if (auditTypeTemplate)
                     audit.template = auditTypeTemplate.template
                 var Section = mongoose.model('CustomSection')

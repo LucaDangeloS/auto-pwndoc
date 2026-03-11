@@ -236,7 +236,7 @@ module.exports = function(app) {
     app.post("/api/users/init", function(req, res) {
         // #swagger.tags = ['User']
 
-        if (!req.body.username || !req.body.password || !req.body.firstname || !req.body.lastname) {
+        if (!req.body || !req.body.username || !req.body.password || !req.body.firstname || !req.body.lastname) {
             Response.BadParameters(res, 'Missing some required parameters');
             return;
         }

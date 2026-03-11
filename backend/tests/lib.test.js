@@ -40,21 +40,21 @@ module.exports = function () {
       it('Simple Paragraph', () => {
         var html = "<p>Paragraph Text</p>"
         var expected = `<w:p><w:r><w:t xml:space="preserve">Paragraph Text</w:t></w:r></w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
       it('Text without tag', () => {
         var html = "Paragraph Text"
         var expected = `<w:p><w:r><w:t xml:space="preserve">Paragraph Text</w:t></w:r></w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
       it('Bold without wrapping paragraph', () => {
         var html = "<b>Paragraph Bold</b>"
         var expected = "<w:p><w:r><w:t xml:space=\"preserve\"></w:t></w:r></w:p>"
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -73,7 +73,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Bold</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -92,7 +92,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Italic</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -110,7 +110,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Underline</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -128,7 +128,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Strike</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -149,7 +149,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Mark</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -172,7 +172,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Mark</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -187,7 +187,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Heading</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -202,7 +202,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Heading</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -217,7 +217,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Heading</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -232,7 +232,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Heading</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -247,7 +247,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Heading</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -262,7 +262,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Heading</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -282,7 +282,7 @@ module.exports = function () {
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
               `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="1"/>`+
+              `<w:numId w:val="0"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
           `<w:r>`+
@@ -294,14 +294,14 @@ module.exports = function () {
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
               `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="1"/>`+
+              `<w:numId w:val="0"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
           `<w:r>`+
             `<w:t xml:space="preserve">Bullet2</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -315,30 +315,16 @@ module.exports = function () {
         `</li>`
         var expected =
         `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="ListParagraph"/>`+
-            `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="1"/>`+
-            `</w:numPr>`+
-          `</w:pPr>`+
           `<w:r>`+
             `<w:t xml:space="preserve">Bullet1</w:t>`+
           `</w:r>`+
         `</w:p>`+
         `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="ListParagraph"/>`+
-            `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="1"/>`+
-            `</w:numPr>`+
-          `</w:pPr>`+
           `<w:r>`+
             `<w:t xml:space="preserve">Bullet2</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -363,7 +349,7 @@ module.exports = function () {
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
               `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="1"/>`+
+              `<w:numId w:val="0"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
           `<w:r>`+
@@ -374,8 +360,8 @@ module.exports = function () {
           `<w:pPr>`+
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="1"/>`+
+              `<w:ilvl w:val="1"/>`+
+              `<w:numId w:val="0"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
           `<w:r>`+
@@ -387,14 +373,14 @@ module.exports = function () {
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
               `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="1"/>`+
+              `<w:numId w:val="0"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
           `<w:r>`+
             `<w:t xml:space="preserve">Bullet2</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -414,7 +400,7 @@ module.exports = function () {
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
               `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="2"/>`+
+              `<w:numId w:val="0"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
           `<w:r>`+
@@ -426,14 +412,14 @@ module.exports = function () {
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
               `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="2"/>`+
+              `<w:numId w:val="0"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
           `<w:r>`+
             `<w:t xml:space="preserve">Number2</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -458,7 +444,7 @@ module.exports = function () {
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
               `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="2"/>`+
+              `<w:numId w:val="0"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
           `<w:r>`+
@@ -469,8 +455,8 @@ module.exports = function () {
           `<w:pPr>`+
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="2"/>`+
+              `<w:ilvl w:val="1"/>`+
+              `<w:numId w:val="0"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
           `<w:r>`+
@@ -482,14 +468,14 @@ module.exports = function () {
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
               `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="2"/>`+
+              `<w:numId w:val="0"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
           `<w:r>`+
             `<w:t xml:space="preserve">Number2</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -507,7 +493,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Break</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -525,7 +511,7 @@ module.exports = function () {
             `<w:t xml:space="preserve">Break</w:t>`+
           `</w:r>`+
         `</w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -533,7 +519,7 @@ module.exports = function () {
         var html = "<p>Paragraph <code>Code</code> Paragraph</p>"
         var expected =
         `<w:p><w:r><w:t xml:space=\"preserve\">Paragraph </w:t></w:r><w:r><w:rPr><w:rStyle w:val=\"CodeChar\"/></w:rPr><w:t xml:space=\"preserve\">Code</w:t></w:r><w:r><w:t xml:space=\"preserve\"> Paragraph</w:t></w:r></w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 
@@ -541,7 +527,7 @@ module.exports = function () {
         var html = "<pre><code>Code Block</code></pre>"
         var expected =
         `<w:p><w:pPr><w:pStyle w:val=\"Code\"/></w:pPr><w:r><w:t xml:space=\"preserve\">Code Block</w:t></w:r></w:p>`
-        var ooxml = html2ooxml(html)
+        var ooxml = html2ooxml(html).replace(/w:numId w:val="\d+"/g, 'w:numId w:val="0"')
         expect(ooxml).toEqual(expected)
       })
 

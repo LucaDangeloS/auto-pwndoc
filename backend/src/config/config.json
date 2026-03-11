@@ -27,6 +27,8 @@
             "server": "127.0.0.1",
             "port": "27017"
         },
-        "apidoc": true
+        "apidoc": true,
+        "jwtSecret": "84423c9d19bf84fdd044d079a14f17c0a1e7b135bebfd64b3eec4e7c76be23dc",
+        "jwtRefreshSecret": "fa6bf4b4a59321dec185b0a91f09dcfeeb126404bc865df945cfc51a65f3be91"
     }
 }

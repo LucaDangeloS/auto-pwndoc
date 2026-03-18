@@ -1,7 +1,25 @@
 <div v-if="!loading" class="row">
-    <div class="col-md-8 col-12 offset-md-2 q-mt-md">
 
-        <q-card class="q-my-md">
+    <div class="col-md-2 gt-sm q-mt-md q-pr-md">
+        <q-list class="settings-nav" dense>
+            <q-item
+                v-for="s in settingsSections"
+                :key="s.id"
+                clickable
+                :active="activeSection === s.id"
+                active-class="settings-nav-active"
+                @click="scrollTo(s.id)"
+            >
+                <q-item-section>
+                    <q-item-label class="text-caption text-weight-medium">{{$t(s.label)}}</q-item-label>
+                </q-item-section>
+            </q-item>
+        </q-list>
+    </div>
+
+    <div class="col-md-8 col-12 q-mt-md q-px-md">
+
+        <q-card id="section-general" class="q-my-md">
           <q-card-section class="q-py-none bg-blue-grey-5 text-white">
               <q-item style="padding:0px;">
                   <q-item-section class="col-md-11">
@@ -52,7 +70,7 @@
         </q-card>
 
 <!-- Danger Settings START  -->
-<q-card v-if="UserService.isAllowed('settings:read')" class="q-my-mg">
+<q-card id="section-danger" v-if="UserService.isAllowed('settings:read')" class="q-my-mg">
     <q-card-section class="q-py-none bg-red text-white">
         <q-item style="padding:0px;">
             <q-item-section class="col-11">
@@ -86,7 +104,7 @@
 </q-card>
 <!-- Danger Settings END  -->
 
-        <q-card v-if="UserService.isAllowed('settings:read')" class="q-my-md">
+        <q-card id="section-reports" v-if="UserService.isAllowed('settings:read')" class="q-my-md">
             <q-card-section class="q-py-none bg-blue-grey-5 text-white">
                 <q-item style="padding:0px;">
                     <q-item-section class="col-md-11">
@@ -302,7 +320,7 @@
             </div>
         </q-card>
 
-        <q-card v-if="UserService.isAllowed('settings:read')" class="q-my-lg">
+        <q-card id="section-reviews" v-if="UserService.isAllowed('settings:read')" class="q-my-lg">
             <q-card-section class="q-py-none bg-blue-grey-5 text-white">
                 <q-item style="padding:0px;">
                     <q-item-section class="col-11">
@@ -377,7 +395,7 @@
             </q-card-section>
         </q-card>
 
-        <q-card class="q-my-lg" v-if="canEdit" align="center">
+        <q-card id="section-actions" class="q-my-lg" v-if="canEdit" align="center">
             <q-card-section >
                 <q-item>
                     <q-item-section class="q-px-md">
@@ -444,4 +462,4 @@
             </q-card-section>
         </q-card>
     </div>
-</div>        
+</div>

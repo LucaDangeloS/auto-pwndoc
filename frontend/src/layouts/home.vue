@@ -85,7 +85,8 @@ export default defineComponent({
 </script>
 
 <style lang="stylus" scoped>
+@import 'src/css/quasar.variables.styl'
 .home-background {
-    background-color: #e6ecf0;
+    background-color: $slate100;
 }
 </style>

@@ -106,3 +106,32 @@
 .loading-error:before {
     opacity: 0.7;
 }
+
+// Settings page side navigation
+.settings-nav
+    position: sticky
+    top: 70px
+
+    .q-item
+        border-radius: 0 8px 8px 0
+        min-height: 36px
+        padding: 4px 12px
+        margin-bottom: 2px
+        border-left: 3px solid transparent
+        transition: all 0.15s ease
+
+.settings-nav-active
+    border-left-color: $secondary !important
+    background: rgba($secondary, 0.08) !important
+    color: $secondary !important
+    .q-item__label,
+    .q-item-label
+        color: $secondary !important
+        font-weight: 600
+
+.body--dark .settings-nav-active
+    background: rgba($secondary, 0.15) !important
+    color: #5eeadb !important
+    .q-item__label,
+    .q-item-label
+        color: #5eeadb !important

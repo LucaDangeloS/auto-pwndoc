@@ -11,9 +11,22 @@ export default {
         return {
             loading: true,
             UserService: UserService,
-            settings: {danger:{enabled:false,public:{nbdaydelete: 0}},reviews:{enabled:false}},
+            settings: {
+                danger:{enabled:false,public:{nbdaydelete: 0}},
+                reviews:{enabled:false}
+            },
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false}},
             canEdit: false,
+            activeSection: 'section-general',
+            sectionObserver: null,
+            scrollingTo: null,
+            settingsSections: [
+                { id: 'section-general', label: 'generalSettings' },
+                { id: 'section-danger', label: 'dangerSettings' },
+                { id: 'section-reports', label: 'reports' },
+                { id: 'section-reviews', label: 'reviews' },
+                { id: 'section-actions', label: 'saveSettings' }
+            ],
             cvssVersionOptions: [
                 { label: 'CVSS 3.1', value: '3.1' },
                 { label: 'CVSS 4.0', value: '4.0' }
@@ -49,8 +62,9 @@ export default {
         }
     },
 
-    destroyed: function() {
+    unmounted: function() {
         document.removeEventListener('keydown', this._listener, false)
+        if (this.sectionObserver) this.sectionObserver.disconnect();
     },
 
     methods: {
@@ -59,6 +73,33 @@ export default {
                 e.preventDefault();
                 this.updateSettings();
             }
+        },
+
+        scrollTo: function(sectionId) {
+            this.activeSection = sectionId;
+            this.scrollingTo = sectionId;
+            var self = this;
+            var el = document.getElementById(sectionId);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(function() { self.scrollingTo = null; }, 800);
+        },
+
+        initSectionObserver: function() {
+            var self = this;
+            this.sectionObserver = new IntersectionObserver(function(entries) {
+                if (self.scrollingTo) return;
+                var visible = entries.filter(function(e) { return e.isIntersecting; });
+                if (visible.length > 0) {
+                    var topmost = visible.reduce(function(a, b) {
+                        return a.boundingClientRect.top <= b.boundingClientRect.top ? a : b;
+                    });
+                    self.activeSection = topmost.target.id;
+                }
+            }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+            this.settingsSections.forEach(function(s) {
+                var el = document.getElementById(s.id);
+                if (el) self.sectionObserver.observe(el);
+            });
         },
 
         getSettings: function() {
@@ -74,6 +115,7 @@ export default {
                   
                 this.settingsOrig = this.$_.cloneDeep(this.settings);
                 this.loading = false
+                this.$nextTick(() => this.initSectionObserver());
             })
             .catch((err) => {
                 Notify.create({

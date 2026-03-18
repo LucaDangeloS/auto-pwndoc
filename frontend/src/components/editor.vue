@@ -707,7 +707,14 @@ export default defineComponent({
 
   watch: {
     async modelValue(value) {
-      await this.updateInitialeValue(value)
+      if (!this.collab && this.initialeDataUpdated) {
+        // For non-collaborative editors, sync editor content whenever modelValue changes
+        if (this.editor && this.editor.getHTML() !== value) {
+          this.editor.commands.setContent(value || '', false);
+        }
+      } else {
+        await this.updateInitialeValue(value)
+      }
     },
     editable(value) {
       //this.editor.setOptions({ editable: this.editable });

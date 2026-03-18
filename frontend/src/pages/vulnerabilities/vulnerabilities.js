@@ -272,6 +272,38 @@ export default {
             })
         },
 
+        acceptUpdate: function(update) {
+            if (update.cvssv3 !== undefined) this.currentVulnerability.cvssv3 = update.cvssv3;
+            if (update.cvssv4 !== undefined) this.currentVulnerability.cvssv4 = update.cvssv4;
+            if (update.priority !== undefined) this.currentVulnerability.priority = update.priority;
+            if (update.remediationComplexity !== undefined) this.currentVulnerability.remediationComplexity = update.remediationComplexity;
+            if (update.category !== undefined) this.currentVulnerability.category = update.category;
+
+            var index = this.currentVulnerability.details.findIndex(obj => obj.locale === update.locale);
+            if (index < 0) {
+                this.currentVulnerability.details.push({
+                    locale: update.locale,
+                    title: update.title,
+                    vulnType: update.vulnType,
+                    description: update.description,
+                    observation: update.observation,
+                    remediation: update.remediation,
+                    references: update.references,
+                    customFields: update.customFields
+                });
+            } else {
+                if (update.title !== undefined) this.currentVulnerability.details[index].title = update.title;
+                if (update.vulnType !== undefined) this.currentVulnerability.details[index].vulnType = update.vulnType;
+                if (update.description !== undefined) this.currentVulnerability.details[index].description = update.description;
+                if (update.observation !== undefined) this.currentVulnerability.details[index].observation = update.observation;
+                if (update.remediation !== undefined) this.currentVulnerability.details[index].remediation = update.remediation;
+                if (update.references !== undefined) this.currentVulnerability.details[index].references = update.references;
+                if (update.customFields !== undefined) this.currentVulnerability.details[index].customFields = update.customFields;
+            }
+
+            this.updateVulnerability();
+        },
+
         deleteVulnerability: function(vulnerabilityId) {
             VulnerabilityService.deleteVulnerability(vulnerabilityId)
             .then(() => {

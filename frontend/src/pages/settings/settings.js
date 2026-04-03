@@ -2,6 +2,7 @@ import { Notify, Dialog } from 'quasar'
 
 import SettingsService from '@/services/settings'
 import UserService from '@/services/user'
+import AiService from '@/services/ai'
 
 import { $t } from 'boot/i18n'
 import LanguageSelector from '@/components/language-selector';
@@ -13,10 +14,15 @@ export default {
             UserService: UserService,
             settings: {
                 danger:{enabled:false,public:{nbdaydelete: 0}},
-                reviews:{enabled:false}
+                reviews:{enabled:false},
+                ai:{enabled:false,embeddingEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:4096,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'}}}
             },
-            settingsOrig : {danger:{enabled:false},reviews:{enabled:false}},
+            settingsOrig : {danger:{enabled:false},reviews:{enabled:false},ai:{enabled:false}},
             canEdit: false,
+            showApiKey: false,
+            showEmbeddingApiKey: false,
+            reindexing: false,
+            reindexStarted: false,
             activeSection: 'section-general',
             sectionObserver: null,
             scrollingTo: null,
@@ -25,11 +31,19 @@ export default {
                 { id: 'section-danger', label: 'dangerSettings' },
                 { id: 'section-reports', label: 'reports' },
                 { id: 'section-reviews', label: 'reviews' },
+                { id: 'section-ai', label: 'aiSettings' },
                 { id: 'section-actions', label: 'saveSettings' }
             ],
             cvssVersionOptions: [
                 { label: 'CVSS 3.1', value: '3.1' },
                 { label: 'CVSS 4.0', value: '4.0' }
+            ],
+            aiProviderOptions: [
+                { label: 'OpenAI', value: 'openai' },
+                { label: 'Anthropic', value: 'anthropic' },
+                { label: 'Ollama', value: 'ollama' },
+                { label: 'Azure OpenAI', value: 'azure-openai' },
+                { label: 'OpenAI Compatible', value: 'openai-compatible' }
             ]
         }
     },
@@ -49,6 +63,29 @@ export default {
         }
         else
             next()
+    },
+
+    computed: {
+        aiDefaultUrl: function() {
+            var defaults = {
+                'openai': 'https://api.openai.com/v1',
+                'anthropic': 'https://api.anthropic.com/v1',
+                'ollama': 'http://localhost:11434',
+                'azure-openai': 'https://<instance>.openai.azure.com',
+                'openai-compatible': ''
+            };
+            return defaults[this.settings.ai.public.provider] || '';
+        },
+        embeddingDefaultUrl: function() {
+            var defaults = {
+                'openai': 'https://api.openai.com/v1',
+                'anthropic': '',
+                'ollama': 'http://localhost:11434/v1',
+                'azure-openai': 'https://<instance>.openai.azure.com',
+                'openai-compatible': 'http://<host>:<port>/v1'
+            };
+            return defaults[this.settings.ai.public.embeddingProvider] || '';
+        }
     },
 
     mounted: function() {
@@ -108,7 +145,8 @@ export default {
                 this.settings = this.$_.merge(
                     {
                       danger: { enabled: false, public:{nbdaydelete: 0}},
-                      reviews: { enabled: false, public: { minReviewers: 1 } }
+                      reviews: { enabled: false, public: { minReviewers: 1 } },
+                      ai: { enabled: false, embeddingEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 4096, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8 }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' } } }
                     },
                     data.data.datas
                   );
@@ -225,6 +263,30 @@ export default {
             document.body.appendChild(link);
             link.click();
             link.remove();
+        },
+
+        reindexAll: function() {
+            this.reindexing = true;
+            this.reindexStarted = false;
+            AiService.reindexAll()
+            .then(() => {
+                this.reindexStarted = true;
+                Notify.create({
+                    message: $t('aiReindexStarted'),
+                    color: 'positive',
+                    textColor: 'white',
+                    position: 'top-right'
+                });
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response?.data?.datas || $t('aiError'),
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                });
+            })
+            .finally(() => { this.reindexing = false; });
         },
 
         unsavedChanges() {

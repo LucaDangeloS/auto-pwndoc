@@ -61,8 +61,7 @@
 
     thead tr:first-child th
         border-bottom: 0
-        // border-bottom: 1px solid rgba(0,0,0,0.12)
-    
+
     thead tr:first-child th
         position: sticky
         z-index: 1
@@ -74,6 +73,13 @@
 
     tr
         cursor: initial !important
+
+    /* Sticky action column — always visible on the right */
+    th:last-child,
+    td:last-child
+        position: sticky
+        right: 0
+        z-index: 1
 
 .sticky-header-table-addfinding
     /* height or max-height is important */
@@ -107,6 +113,17 @@
     opacity: 0.7;
 }
 
+// Global page content side margins on mobile
+// Quasar xs breakpoint is < 600px, sm is 600–1023px
+@media (max-width: 1023px)
+    .q-page-container .row > .col-12
+        padding-left: 12px
+        padding-right: 12px
+
+// Settings page scroll offset for sticky header
+[id^="section-"]
+    scroll-margin-top: 16px
+
 // Settings page side navigation
 .settings-nav
     position: sticky
@@ -135,3 +152,19 @@
     .q-item__label,
     .q-item-label
         color: #5eeadb !important
+
+// AI loading animation
+@keyframes ai-pulse
+    0%, 100%
+        opacity: 0.4
+    50%
+        opacity: 1
+
+p.ai-loading
+    color: $secondary
+    font-style: italic
+    animation: ai-pulse 1.2s ease-in-out infinite
+
+    &::before
+        content: '✦ '
+        font-style: normal

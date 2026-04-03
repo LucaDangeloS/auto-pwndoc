@@ -348,14 +348,14 @@
                 <q-btn-toggle
                     :disable="!canEdit || !settings.reviews.enabled"
                     v-model="settings.reviews.private.removeApprovalsUponUpdate"
-                    class="toggleButton"
-                    spread
+                    class="toggleButton full-width"
                     no-caps
                     rounded
                     unelevated
                     toggle-color="primary"
-                    color="white"
-                    text-color="primary"
+                    color="transparent"
+                    text-color="grey-6"
+                    style="border: 1px solid rgba(100,116,139,0.3); border-radius: 10px; overflow: hidden;"
                     :options="[
                     {label: $t('removeAllPriorApprovals'), value: true},
                     {label: $t('keepAllPriorApprovals'), value: false}
@@ -369,18 +369,17 @@
                 <div class="text-grey-8" v-html="$t('mandatoryReviewInfo')"></div>
             </q-card-section>
             <q-card-section>
-                <q-item>
-                    <q-item-section class="col-2">
+                <div class="row items-center q-col-gutter-md">
+                    <div class="col-auto">
                         <q-toggle
                             :label="$t('btn.enable')"
                             v-model="settings.reviews.public.mandatoryReview"
                             color="primary"
                             keep-color
-                            id="toggle"
                             :disable="!canEdit || !settings.reviews.enabled"
                         />
-                    </q-item-section>
-                    <q-item-section class="col-2">
+                    </div>
+                    <div class="col-xs-12 col-sm-auto">
                         <q-input
                             v-model.number="settings.reviews.public.minReviewers"
                             type="number"
@@ -389,9 +388,283 @@
                             :min="1"
                             :max="99"
                             :hint="$t('minimalNumberOfReviewers')"
+                            style="max-width: 140px"
+                        />
+                    </div>
+                </div>
+            </q-card-section>
+        </q-card>
+
+        <q-card id="section-ai" v-if="UserService.isAllowed('settings:read')" class="q-my-lg">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section class="col-11">
+                        <div class="text-h6">{{$t('aiSettings')}}</div>
+                    </q-item-section>
+                    <q-item-section class="col-md-1 items-center">
+                        <q-toggle
+                            color="primary"
+                            keep-color
+                            :disable="!canEdit"
+                            v-model="settings.ai.enabled"
                         />
                     </q-item-section>
                 </q-item>
+            </q-card-section>
+            <q-separator />
+            <q-card-section>
+                <div class="text-bold">{{$t('aiProvider')}}</div>
+                <br/>
+                <div class="text-grey-8">{{$t('aiProviderDescription')}}</div>
+            </q-card-section>
+            <q-card-section class="q-col-gutter-md row">
+                <q-select
+                    class="col-md-4"
+                    :label="$t('aiProviderLabel')"
+                    v-model="settings.ai.public.provider"
+                    :options="aiProviderOptions"
+                    map-options
+                    emit-value
+                    options-sanitize
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled"
+                />
+                <q-input
+                    class="col-md-4"
+                    :label="$t('aiModel')"
+                    v-model="settings.ai.public.model"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled"
+                    :hint="$t('aiModelHint')"
+                />
+                <q-input
+                    class="col-md-4"
+                    :label="$t('aiApiUrl')"
+                    v-model="settings.ai.private.apiUrl"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled"
+                    :placeholder="aiDefaultUrl"
+                    :hint="$t('aiApiUrlHint')"
+                />
+            </q-card-section>
+            <q-card-section class="q-col-gutter-md row">
+                <q-input
+                    class="col-md-4"
+                    :label="$t('aiApiKey')"
+                    v-model="settings.ai.private.apiKey"
+                    outlined
+                    :type="showApiKey ? 'text' : 'password'"
+                    :disable="!canEdit || !settings.ai.enabled"
+                    :hint="$t('aiApiKeyHint')"
+                >
+                    <template v-slot:append>
+                        <q-icon
+                            :name="showApiKey ? 'visibility_off' : 'visibility'"
+                            class="cursor-pointer"
+                            @click="showApiKey = !showApiKey"
+                        />
+                    </template>
+                </q-input>
+            </q-card-section>
+            <q-card-section v-if="settings.ai.public.provider === 'azure-openai'">
+                <div class="text-bold">{{$t('aiAzureSettings')}}</div>
+            </q-card-section>
+            <q-card-section v-if="settings.ai.public.provider === 'azure-openai'" class="q-col-gutter-md row">
+                <q-input
+                    class="col-md-6"
+                    :label="$t('aiAzureDeploymentName')"
+                    v-model="settings.ai.private.azure.deploymentName"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled"
+                />
+                <q-input
+                    class="col-md-6"
+                    :label="$t('aiAzureApiVersion')"
+                    v-model="settings.ai.private.azure.apiVersion"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled"
+                />
+            </q-card-section>
+            <q-separator />
+            <q-card-section>
+                <div class="row items-center justify-between">
+                    <div class="text-bold">{{$t('aiEmbeddingSection')}}</div>
+                    <q-toggle
+                        color="primary"
+                        keep-color
+                        :disable="!canEdit || !settings.ai.enabled"
+                        v-model="settings.ai.embeddingEnabled"
+                        :label="$t('btn.enable')"
+                    />
+                </div>
+                <br/>
+                <div class="text-grey-8">{{$t('aiEmbeddingDescription')}}</div>
+            </q-card-section>
+            <q-card-section class="q-col-gutter-md row">
+                <q-select
+                    class="col-12 col-md-6"
+                    :label="$t('aiEmbeddingProvider')"
+                    v-model="settings.ai.public.embeddingProvider"
+                    :options="aiProviderOptions"
+                    map-options
+                    emit-value
+                    options-sanitize
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                />
+                <q-input
+                    class="col-12 col-md-6"
+                    :label="$t('aiEmbeddingModel')"
+                    v-model="settings.ai.public.embeddingModel"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                    :hint="$t('aiEmbeddingModelHint')"
+                />
+                <q-input
+                    class="col-12"
+                    :label="$t('aiEmbeddingApiUrl')"
+                    v-model="settings.ai.private.embeddingApiUrl"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                    :placeholder="embeddingDefaultUrl"
+                    :hint="$t('aiEmbeddingApiUrlHint')"
+                />
+                <q-input
+                    class="col-12"
+                    :label="$t('aiEmbeddingApiKey')"
+                    v-model="settings.ai.private.embeddingApiKey"
+                    outlined
+                    :type="showEmbeddingApiKey ? 'text' : 'password'"
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                    :hint="$t('aiEmbeddingApiKeyHint')"
+                >
+                    <template v-slot:append>
+                        <q-icon
+                            :name="showEmbeddingApiKey ? 'visibility_off' : 'visibility'"
+                            class="cursor-pointer"
+                            @click="showEmbeddingApiKey = !showEmbeddingApiKey"
+                        />
+                    </template>
+                </q-input>
+            </q-card-section>
+            <q-card-section v-if="settings.ai.public.embeddingProvider === 'azure-openai' && settings.ai.embeddingEnabled">
+                <div class="text-bold">{{$t('aiEmbeddingAzureSettings')}}</div>
+            </q-card-section>
+            <q-card-section v-if="settings.ai.public.embeddingProvider === 'azure-openai' && settings.ai.embeddingEnabled" class="q-col-gutter-md row">
+                <q-input
+                    class="col-md-6"
+                    :label="$t('aiAzureDeploymentName')"
+                    v-model="settings.ai.private.embeddingAzure.deploymentName"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                />
+                <q-input
+                    class="col-md-6"
+                    :label="$t('aiAzureApiVersion')"
+                    v-model="settings.ai.private.embeddingAzure.apiVersion"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                />
+            </q-card-section>
+            <q-card-section class="q-col-gutter-md row">
+                <div class="col-12 col-md-6">
+                    <div class="row items-center q-col-gutter-sm">
+                        <div class="col">
+                            <q-slider
+                                v-model="settings.ai.public.embeddingMaxDistance"
+                                :min="0.01"
+                                :max="2"
+                                :step="0.01"
+                                label-always
+                                color="primary"
+                                :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                            />
+                        </div>
+                        <div class="col-auto text-caption text-grey-8" style="min-width:140px">
+                            {{$t('aiEmbeddingMaxDistance')}}: {{settings.ai.public.embeddingMaxDistance}}
+                        </div>
+                    </div>
+                    <div class="text-caption text-grey-7 q-mt-xs">{{$t('aiEmbeddingMaxDistanceHint')}}</div>
+                </div>
+                <div class="col-12 col-md-6 flex items-center" v-if="canEdit && settings.ai.enabled && settings.ai.embeddingEnabled">
+                    <q-btn
+                        color="primary"
+                        no-caps
+                        outline
+                        icon="sync"
+                        :label="$t('aiReindexAll')"
+                        :loading="reindexing"
+                        @click="reindexAll"
+                    />
+                    <span v-if="reindexStarted" class="q-ml-sm text-positive text-caption">{{$t('aiReindexStarted')}}</span>
+                </div>
+            </q-card-section>
+            <q-separator />
+            <q-card-section>
+                <div class="text-bold">{{$t('aiGenerationParameters')}}</div>
+                <br/>
+                <div class="text-grey-8">{{$t('aiGenerationParametersDescription')}}</div>
+            </q-card-section>
+            <q-card-section class="q-col-gutter-md row">
+                <div class="col-md-6">
+                    <div class="row items-center q-col-gutter-sm">
+                        <div class="col">
+                            <q-slider
+                                :label="$t('aiTemperature')"
+                                v-model="settings.ai.public.temperature"
+                                :min="0"
+                                :max="2"
+                                :step="0.1"
+                                label-always
+                                color="primary"
+                                :disable="!canEdit || !settings.ai.enabled"
+                            />
+                        </div>
+                        <div class="col-auto text-caption text-grey-8" style="min-width:100px">
+                            {{$t('aiTemperature')}}: {{settings.ai.public.temperature}}
+                        </div>
+                    </div>
+                </div>
+                <q-input
+                    class="col-md-6"
+                    :label="$t('aiMaxTokens')"
+                    v-model.number="settings.ai.public.maxTokens"
+                    type="number"
+                    outlined
+                    :min="1"
+                    :max="128000"
+                    :disable="!canEdit || !settings.ai.enabled"
+                />
+            </q-card-section>
+            <q-separator />
+            <q-card-section>
+                <div class="text-bold">{{$t('aiAdvancedSettings')}}</div>
+                <br/>
+                <div class="text-grey-8">{{$t('aiAdvancedSettingsDescription')}}</div>
+            </q-card-section>
+            <q-card-section class="q-col-gutter-md row">
+                <q-input
+                    class="col-12"
+                    :label="$t('aiSystemPrompt')"
+                    v-model="settings.ai.private.systemPrompt"
+                    outlined
+                    type="textarea"
+                    autogrow
+                    :disable="!canEdit || !settings.ai.enabled"
+                    :hint="$t('aiSystemPromptHint')"
+                />
+            </q-card-section>
+            <q-card-section class="q-col-gutter-md row">
+                <q-input
+                    class="col-12"
+                    :label="$t('aiUserPrompt')"
+                    v-model="settings.ai.private.userPrompt"
+                    outlined
+                    type="textarea"
+                    autogrow
+                    :disable="!canEdit || !settings.ai.enabled"
+                    :hint="$t('aiUserPromptHint')"
+                />
             </q-card-section>
         </q-card>
 

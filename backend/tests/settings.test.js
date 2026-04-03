@@ -48,6 +48,19 @@ module.exports = function(request, app) {
             "nbdaydelete": 1,
             },
          },
+        "ai": {
+          "enabled": false,
+          "embeddingEnabled": false,
+          "public": {
+            "provider": "openai",
+            "model": "gpt-4o",
+            "temperature": 0.7,
+            "maxTokens": 4096,
+            "embeddingProvider": "openai",
+            "embeddingModel": "text-embedding-3-small",
+            "embeddingMaxDistance": 0.8,
+          },
+        },
       };
 
       const defaultSettings = {
@@ -99,6 +112,35 @@ module.exports = function(request, app) {
             "nbdaydelete": 1,
             },
          },
+        "ai": {
+          "enabled": false,
+          "embeddingEnabled": false,
+          "public": {
+            "provider": "openai",
+            "model": "gpt-4o",
+            "temperature": 0.7,
+            "maxTokens": 4096,
+            "embeddingProvider": "openai",
+            "embeddingModel": "text-embedding-3-small",
+            "embeddingMaxDistance": 0.8,
+          },
+          "private": {
+            "apiUrl": "",
+            "apiKey": "",
+            "systemPrompt": "",
+            "userPrompt": "",
+            "azure": {
+              "deploymentName": "",
+              "apiVersion": "2024-06-01",
+            },
+            "embeddingApiUrl": "",
+            "embeddingApiKey": "",
+            "embeddingAzure": {
+              "deploymentName": "",
+              "apiVersion": "2024-06-01",
+            },
+          },
+        },
       };
 
       it('Get settings', async () => {
@@ -169,6 +211,35 @@ module.exports = function(request, app) {
             "enabled": true,
             "public": {
               "nbdaydelete": 2,
+            },
+          },
+          "ai": {
+            "enabled": true,
+            "embeddingEnabled": false,
+            "public": {
+              "provider": "ollama",
+              "model": "llama3",
+              "temperature": 0.5,
+              "maxTokens": 8192,
+              "embeddingProvider": "openai",
+              "embeddingModel": "text-embedding-3-small",
+              "embeddingMaxDistance": 0.8,
+            },
+            "private": {
+              "apiUrl": "http://localhost:11434",
+              "apiKey": "",
+              "systemPrompt": "",
+              "userPrompt": "",
+              "azure": {
+                "deploymentName": "",
+                "apiVersion": "2024-06-01",
+              },
+              "embeddingApiUrl": "",
+              "embeddingApiKey": "",
+              "embeddingAzure": {
+                "deploymentName": "",
+                "apiVersion": "2024-06-01",
+              },
             },
           },
         };

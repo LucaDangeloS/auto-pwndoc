@@ -6,10 +6,12 @@ import Breadcrumb from 'components/breadcrumb';
 import CvssCalculatorUnified from 'components/cvss-calculator-unified';
 import TextareaArray from 'components/textarea-array';
 import CustomFields from 'components/custom-fields';
+import SimilarVulnModal from 'components/similar-vuln-modal';
 
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
 import VulnService from '@/services/vulnerability';
+import AiService from '@/services/ai';
 import Utils from '@/services/utils';
 
 import { $t } from '@/boot/i18n';
@@ -49,6 +51,10 @@ export default {
       readyToSave: false,
       needSave: false,
       AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
+      similarVulnModalOpen: false,
+      similarVulnResults: [],
+      similarVulnLoading: false,
+      similarVulnError: '',
     };
   },
 
@@ -58,6 +64,7 @@ export default {
     CvssCalculatorUnified,
     TextareaArray,
     CustomFields,
+    SimilarVulnModal,
   },
 
   mounted() {
@@ -367,6 +374,54 @@ export default {
 
     unsavedChanges() {
       return this.needSave;
+    },
+
+    searchSimilarVulns() {
+      if (!this.finding.title) {
+        Notify.create({
+          message: $t('similarVulnNeedTitle'),
+          color: 'warning',
+          textColor: 'white',
+          position: 'top-right',
+        });
+        return;
+      }
+      Utils.syncEditors(this.$refs);
+      const locale = this.localAudit.language || 'en';
+      const query = [this.finding.title, this.finding.description ? this.finding.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : ''].filter(Boolean).join('\n').slice(0, 500);
+      this.similarVulnResults = [];
+      this.similarVulnError = '';
+      this.similarVulnLoading = true;
+      this.similarVulnModalOpen = true;
+      AiService.searchSimilar(query, locale)
+        .then((data) => {
+          this.similarVulnResults = data.data.datas || [];
+        })
+        .catch((err) => {
+          this.similarVulnError = err.response?.data?.datas || $t('aiError');
+        })
+        .finally(() => {
+          this.similarVulnLoading = false;
+        });
+    },
+
+    applySimilarVuln(result) {
+      if (result.description !== undefined) this.finding.description = result.description;
+      if (result.observation !== undefined) this.finding.observation = result.observation;
+      if (result.remediation !== undefined) this.finding.remediation = result.remediation;
+      if (result.references !== undefined) this.finding.references = result.references;
+      if (result.cvssv3 !== undefined) this.finding.cvssv3 = result.cvssv3;
+      if (result.cvssv4 !== undefined) this.finding.cvssv4 = result.cvssv4;
+      nextTick(() => {
+        Utils.syncEditors(this.$refs);
+        this.needSave = true;
+      });
+      Notify.create({
+        message: $t('similarVulnApplied'),
+        color: 'positive',
+        textColor: 'white',
+        position: 'top-right',
+      });
     },
   },
 };

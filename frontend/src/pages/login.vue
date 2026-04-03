@@ -3,7 +3,7 @@
     <div v-if="loaded === true" style="margin:auto">
         <q-card align="center" style="width:350px">
             <q-card-section>
-                <q-img :src="$q.dark.isActive ? 'pwndoc-logo-white.png' : 'pwndoc-logo.png'" />
+                <q-img src="logo_transparent.png" />
             </q-card-section>
 
             <q-card-section v-if="errors.alert">

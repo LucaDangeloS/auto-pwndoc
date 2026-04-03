@@ -1,11 +1,24 @@
 <template>
   <div>
-    <q-drawer side="left" :modelValue="true" :width="400">
+    <q-btn
+      v-if="!drawerOpen"
+      class="drawer-toggle-btn"
+      round
+      dense
+      color="primary"
+      icon="fa fa-chevron-right"
+      size="sm"
+      @click="drawerOpen = true"
+    />
+    <q-drawer side="left" v-model="drawerOpen" :width="400" :breakpoint="1024" bordered>
       <q-splitter horizontal v-model="splitterRatio" :limits="[50, 80]" style="height: 100%">
         <template v-slot:before>
           <q-list class="home-drawer">
             <q-item style="padding:0px">
               <q-item-section class="q-mx-md">{{$t('sections')}}</q-item-section>
+              <q-item-section side>
+                <q-btn flat dense round icon="fa fa-chevron-left" size="xs" @click="drawerOpen = false" />
+              </q-item-section>
               <template v-if="$settings.reviews.enabled">
               <q-item-section side class="topButtonSection" v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT">
                 <q-btn class="q-mx-xs q-px-xs" size="11px" unelevated dense color="secondary" :label="$t('btn.topButtonSection.submitReview')" no-caps @click="toggleAskReview" >
@@ -269,6 +282,7 @@ import { $t } from '@/boot/i18n';
 export default defineComponent({
   data () {
       return {
+        drawerOpen: true,
         auditId: "",
         findings: [],
         users: [],
@@ -893,6 +907,14 @@ export default defineComponent({
   .topButtonSection {
       padding-left: 0px!important;
     padding-right: 0px!important;
+  }
+
+  .drawer-toggle-btn {
+    position: fixed;
+    top: 66px;
+    left: 8px;
+    z-index: 3;
+    opacity: 0.85;
   }
   </style>
   

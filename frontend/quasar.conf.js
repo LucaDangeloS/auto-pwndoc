@@ -57,7 +57,16 @@ module.exports = function (ctx) {
       port: 8081,
       allowedHosts: 'all', // Allow localhost header through nginx
       client: {
-        webSocketURL: 'auto://0.0.0.0:0/ws',
+        // The dev server listens on 0.0.0.0:8081 inside Docker, but the
+        // browser reaches it through nginx on localhost:8443.  The WDS
+        // client resolves hostname "0.0.0.0" and port "0" at runtime from
+        // window.location, so HMR WebSocket connects to wss://localhost:8443/ws
+        // which nginx proxies back to the dev server.
+        webSocketURL: {
+          hostname: '0.0.0.0',
+          port: 0,
+          pathname: '/ws',
+        },
       },
       proxy: {
         '/api': {

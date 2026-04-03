@@ -173,9 +173,14 @@ light-mode-colors()
     .q-table__container
         background $slate50
 
-    // [Fix #7] Unified table backgrounds in light mode
+    // Unified table backgrounds in light mode — no accent band
     .q-table__top,
     .q-table__container thead tr
+        background: $slate50
+
+    // Sticky action column background in light mode
+    .sticky-header-table th:last-child,
+    .sticky-header-table td:last-child
         background: $slate50
 
     // Hack for white text on white bg in q-btn elements
@@ -197,6 +202,10 @@ light-mode-colors()
 $darkBorder = rgba($slate400, 0.18)
 
 dark-mode-colors()
+    // Override Quasar's internal dark variables so every component uses our slate palette
+    --q-dark: $cDark
+    --q-dark-page: $cDark
+
     // Replace shadows with subtle borders on elevated components
     .q-card,
     .q-table__container,
@@ -234,9 +243,18 @@ dark-mode-colors()
 
     --q-color-primary: $darkPrimary
 
-    // [Fix #7] Unified table backgrounds in dark mode — same color everywhere
+    // Unified table backgrounds in dark mode — every part of the table uses the same surface
+    .q-table__container
+        background: $darkSurface !important
     .q-table__top,
-    .q-table__container thead tr
+    .q-table__container thead tr,
+    .q-table__container tbody tr,
+    .q-table__bottom
+        background: $darkSurface !important
+
+    // Sticky action column background in dark mode
+    .sticky-header-table th:last-child,
+    .sticky-header-table td:last-child
         background: $darkSurface
 
     .q-field:not(.basic-editor) .q-field__control,

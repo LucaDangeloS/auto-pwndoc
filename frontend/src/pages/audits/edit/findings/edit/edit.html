@@ -168,6 +168,18 @@
             <div class="q-col-gutter-md row">
               <div class="col-12">
                 <q-card>
+                  <q-card-section v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && $settings && $settings.ai && $settings.ai.enabled && $settings.ai.visionEnabled" class="q-pb-none row justify-end">
+                    <q-btn
+                      color="secondary"
+                      no-caps
+                      icon="image_search"
+                      :label="$t('searchSimilarFromProofs')"
+                      :loading="similarVulnLoading && similarVulnIsProofMode"
+                      @click="searchSimilarFromProofs()"
+                      size="sm"
+                      outline
+                    />
+                  </q-card-section>
                   <q-card-section>
                     <basic-editor
                       ref="basiceditor_poc"
@@ -279,7 +291,12 @@
         :loading="similarVulnLoading"
         :error="similarVulnError"
         :current-finding="finding"
+        :is-proof-mode="similarVulnIsProofMode"
+        :vision-summary="proofVisionSummary"
+        :generated-poc="proofGeneratedPoc"
+        :poc-loading="proofPocLoading"
         @apply="applySimilarVuln"
+        @select="onProofResultSelected"
       />
     </div>
   </template>

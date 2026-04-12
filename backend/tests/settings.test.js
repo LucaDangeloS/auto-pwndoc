@@ -60,6 +60,11 @@ module.exports = function(request, app) {
             "embeddingModel": "text-embedding-3-small",
             "embeddingMaxDistance": 0.8,
           },
+          "visionEnabled": false,
+          "visionPublic": {
+            "visionProvider": "openai",
+            "visionModel": "gpt-4o",
+          },
         },
       };
 
@@ -139,6 +144,20 @@ module.exports = function(request, app) {
               "deploymentName": "",
               "apiVersion": "2024-06-01",
             },
+            "visionApiUrl": "",
+            "visionApiKey": "",
+            "visionAzure": {
+              "deploymentName": "",
+              "apiVersion": "2024-06-01",
+            },
+            "visionSystemPrompt": "",
+            "visionAnonymizeLlm": false,
+            "visionAnonymizeRegex": false,
+          },
+          "visionEnabled": false,
+          "visionPublic": {
+            "visionProvider": "openai",
+            "visionModel": "gpt-4o",
           },
         },
       };
@@ -240,6 +259,20 @@ module.exports = function(request, app) {
                 "deploymentName": "",
                 "apiVersion": "2024-06-01",
               },
+              "visionApiUrl": "",
+              "visionApiKey": "",
+              "visionAzure": {
+                "deploymentName": "",
+                "apiVersion": "2024-06-01",
+              },
+              "visionSystemPrompt": "",
+              "visionAnonymizeLlm": false,
+              "visionAnonymizeRegex": false,
+            },
+            "visionEnabled": false,
+            "visionPublic": {
+              "visionProvider": "openai",
+              "visionModel": "gpt-4o",
             },
           },
         };

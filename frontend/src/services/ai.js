@@ -11,5 +11,9 @@ export default {
 
     reindexAll: function() {
         return api.post('ai/reindex-all', {})
+    },
+
+    analyzeProofs: function(pocHtml, locale) {
+        return api.post('ai/analyze-proofs', { pocHtml, locale })
     }
 }

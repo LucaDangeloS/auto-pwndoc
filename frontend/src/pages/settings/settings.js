@@ -15,12 +15,13 @@ export default {
             settings: {
                 danger:{enabled:false,public:{nbdaydelete: 0}},
                 reviews:{enabled:false},
-                ai:{enabled:false,embeddingEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:4096,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'}}}
+                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:4096,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o'},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:'',visionAnonymizeLlm:false,visionAnonymizeRegex:false}}
             },
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false},ai:{enabled:false}},
             canEdit: false,
             showApiKey: false,
             showEmbeddingApiKey: false,
+            showVisionApiKey: false,
             reindexing: false,
             reindexStarted: false,
             activeSection: 'section-general',
@@ -85,6 +86,16 @@ export default {
                 'openai-compatible': 'http://<host>:<port>/v1'
             };
             return defaults[this.settings.ai.public.embeddingProvider] || '';
+        },
+        visionDefaultUrl: function() {
+            var defaults = {
+                'openai': 'https://api.openai.com/v1',
+                'anthropic': 'https://api.anthropic.com/v1',
+                'ollama': 'http://localhost:11434',
+                'azure-openai': 'https://<instance>.openai.azure.com',
+                'openai-compatible': ''
+            };
+            return defaults[(this.settings.ai.visionPublic && this.settings.ai.visionPublic.visionProvider) || 'openai'] || '';
         }
     },
 
@@ -146,7 +157,7 @@ export default {
                     {
                       danger: { enabled: false, public:{nbdaydelete: 0}},
                       reviews: { enabled: false, public: { minReviewers: 1 } },
-                      ai: { enabled: false, embeddingEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 4096, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8 }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' } } }
+                      ai: { enabled: false, embeddingEnabled: false, visionEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 4096, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8 }, visionPublic: { visionProvider: 'openai', visionModel: 'gpt-4o' }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionApiUrl: '', visionApiKey: '', visionAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionSystemPrompt: '', visionAnonymizeLlm: false, visionAnonymizeRegex: false } }
                     },
                     data.data.datas
                   );

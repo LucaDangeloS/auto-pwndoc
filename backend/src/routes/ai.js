@@ -5,6 +5,7 @@ module.exports = function(app) {
     var acl = require('../lib/auth').acl;
     var aiService = require('../lib/ai-service');
     var embeddingService = require('../lib/embedding-service');
+    var visionService = require('../lib/vision-service');
     var Settings = require('mongoose').model('Settings');
 
     async function getAiSettings() {
@@ -23,8 +24,8 @@ module.exports = function(app) {
 
             var { action, text, fieldName, context } = req.body;
 
-            if (!action || !['generate', 'complete', 'rewrite'].includes(action)) {
-                return Response.BadParameters(res, 'Invalid action. Must be one of: generate, complete, rewrite');
+            if (!action || !['generate', 'complete', 'rewrite', 'fill-proofs'].includes(action)) {
+                return Response.BadParameters(res, 'Invalid action. Must be one of: generate, complete, rewrite, fill-proofs');
             }
 
             var enrichedContext = context || {};
@@ -122,6 +123,75 @@ module.exports = function(app) {
         } catch (err) {
             console.error('[AI] Re-index error:', err.message);
             return Response.Internal(res, err.message || 'Re-index failed');
+        }
+    });
+
+    app.post('/api/ai/analyze-proofs', acl.hasPermission('audits:read'), async function(req, res) {
+        try {
+            var aiSettings = await getAiSettings();
+
+            if (!aiSettings || !aiSettings.enabled) {
+                return Response.Forbidden(res, 'AI features are not enabled');
+            }
+
+            if (!aiSettings.visionEnabled) {
+                return Response.Forbidden(res, 'Vision features are not enabled');
+            }
+
+            var { pocHtml, locale } = req.body;
+
+            if (!pocHtml) {
+                return Response.BadParameters(res, 'pocHtml is required');
+            }
+
+            var visionResult = await visionService.analyzeProofs(pocHtml, aiSettings);
+
+            var similarResults = [];
+            if (aiSettings.embeddingEnabled && visionResult.visionSummary) {
+                try {
+                    var Vulnerability = require('mongoose').model('Vulnerability');
+                    var similar = await embeddingService.searchSimilar(
+                        visionResult.visionSummary,
+                        locale || 'en',
+                        aiSettings
+                    );
+
+                    similarResults = await Promise.all(similar.map(async (r) => {
+                        try {
+                            var vuln = await Vulnerability.findById(r.vulnId).lean();
+                            if (!vuln) return null;
+                            var detail = (vuln.details || []).find(d => d.locale === (locale || 'en')) || {};
+                            return {
+                                vulnId: r.vulnId,
+                                distance: r.distance,
+                                title: detail.title || r.title || '',
+                                vulnType: detail.vulnType || r.vulnType || '',
+                                category: vuln.category || r.category || '',
+                                description: detail.description || '',
+                                observation: detail.observation || '',
+                                remediation: detail.remediation || '',
+                                references: vuln.references || [],
+                                cvssv3: vuln.cvssv3 || '',
+                                cvssv4: vuln.cvssv4 || ''
+                            };
+                        } catch (_) {
+                            return null;
+                        }
+                    }));
+                    similarResults = similarResults.filter(Boolean);
+                } catch (embErr) {
+                    console.error('[AI] Embedding search after vision analysis failed:', embErr.message);
+                }
+            }
+
+            return Response.Ok(res, {
+                visionSummary: visionResult.visionSummary,
+                imageDescriptions: visionResult.imageDescriptions,
+                similarResults
+            });
+        } catch (err) {
+            console.error('[AI] Proof analysis error:', err.message);
+            return Response.Internal(res, err.message || 'Proof analysis failed');
         }
     });
 };

@@ -55,6 +55,11 @@ export default {
       similarVulnResults: [],
       similarVulnLoading: false,
       similarVulnError: '',
+      similarVulnIsProofMode: false,
+      proofVisionSummary: '',
+      proofImageDescriptions: [],
+      proofGeneratedPoc: '',
+      proofPocLoading: false,
     };
   },
 
@@ -392,6 +397,10 @@ export default {
       this.similarVulnResults = [];
       this.similarVulnError = '';
       this.similarVulnLoading = true;
+      this.similarVulnIsProofMode = false;
+      this.proofVisionSummary = '';
+      this.proofImageDescriptions = [];
+      this.proofGeneratedPoc = '';
       this.similarVulnModalOpen = true;
       AiService.searchSimilar(query, locale)
         .then((data) => {
@@ -412,6 +421,7 @@ export default {
       if (result.references !== undefined) this.finding.references = result.references;
       if (result.cvssv3 !== undefined) this.finding.cvssv3 = result.cvssv3;
       if (result.cvssv4 !== undefined) this.finding.cvssv4 = result.cvssv4;
+      if (result.poc !== undefined) this.finding.poc = result.poc;
       nextTick(() => {
         Utils.syncEditors(this.$refs);
         this.needSave = true;
@@ -422,6 +432,73 @@ export default {
         textColor: 'white',
         position: 'top-right',
       });
+    },
+
+    searchSimilarFromProofs() {
+      Utils.syncEditors(this.$refs);
+      const locale = this.localAudit.language || 'en';
+      if (!this.finding.poc || !this.finding.poc.trim()) {
+        Notify.create({
+          message: $t('proofSearchNeedContent'),
+          color: 'warning',
+          textColor: 'white',
+          position: 'top-right',
+        });
+        return;
+      }
+      this.similarVulnResults = [];
+      this.similarVulnError = '';
+      this.similarVulnLoading = true;
+      this.similarVulnIsProofMode = true;
+      this.proofVisionSummary = '';
+      this.proofImageDescriptions = [];
+      this.proofGeneratedPoc = '';
+      this.similarVulnModalOpen = true;
+      AiService.analyzeProofs(this.finding.poc, locale)
+        .then((data) => {
+          const result = data.data.datas || {};
+          this.proofVisionSummary = result.visionSummary || '';
+          this.proofImageDescriptions = result.imageDescriptions || [];
+          this.similarVulnResults = result.similarResults || [];
+        })
+        .catch((err) => {
+          this.similarVulnError = err.response?.data?.datas || $t('aiError');
+        })
+        .finally(() => {
+          this.similarVulnLoading = false;
+        });
+    },
+
+    onProofResultSelected(result) {
+      if (!this.similarVulnIsProofMode || !result) return;
+      this.proofGeneratedPoc = '';
+      this.proofPocLoading = true;
+      const locale = this.localAudit.language || 'en';
+      AiService.generate({
+        action: 'fill-proofs',
+        fieldName: 'poc',
+        context: {
+          findingTitle: result.title || this.finding.title,
+          locale,
+          vulnDescription: result.description || '',
+          visionSummary: this.proofVisionSummary,
+          imageDescriptions: this.proofImageDescriptions,
+        }
+      })
+        .then((data) => {
+          this.proofGeneratedPoc = (data.data.datas && data.data.datas.html) || '';
+        })
+        .catch((err) => {
+          Notify.create({
+            message: err.response?.data?.datas || $t('aiError'),
+            color: 'negative',
+            textColor: 'white',
+            position: 'top-right',
+          });
+        })
+        .finally(() => {
+          this.proofPocLoading = false;
+        });
     },
   },
 };

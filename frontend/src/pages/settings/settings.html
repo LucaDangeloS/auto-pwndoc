@@ -601,6 +601,126 @@
             </q-card-section>
             <q-separator />
             <q-card-section>
+                <div class="row items-center justify-between">
+                    <div class="text-bold">{{$t('aiVisionSection')}}</div>
+                    <q-toggle
+                        color="primary"
+                        keep-color
+                        :disable="!canEdit || !settings.ai.enabled"
+                        v-model="settings.ai.visionEnabled"
+                        :label="$t('btn.enable')"
+                    />
+                </div>
+                <br/>
+                <div class="text-grey-8">{{$t('aiVisionDescription')}}</div>
+            </q-card-section>
+            <q-card-section class="q-col-gutter-md row">
+                <q-select
+                    class="col-12 col-md-6"
+                    :label="$t('aiVisionProvider')"
+                    v-model="settings.ai.visionPublic.visionProvider"
+                    :options="aiProviderOptions"
+                    map-options
+                    emit-value
+                    options-sanitize
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                />
+                <q-input
+                    class="col-12 col-md-6"
+                    :label="$t('aiVisionModel')"
+                    v-model="settings.ai.visionPublic.visionModel"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                    :hint="$t('aiVisionModelHint')"
+                />
+                <q-input
+                    class="col-12"
+                    :label="$t('aiVisionApiUrl')"
+                    v-model="settings.ai.private.visionApiUrl"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                    :placeholder="visionDefaultUrl"
+                    :hint="$t('aiVisionApiUrlHint')"
+                />
+                <q-input
+                    class="col-12"
+                    :label="$t('aiVisionApiKey')"
+                    v-model="settings.ai.private.visionApiKey"
+                    outlined
+                    :type="showVisionApiKey ? 'text' : 'password'"
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                    :hint="$t('aiVisionApiKeyHint')"
+                >
+                    <template v-slot:append>
+                        <q-icon
+                            :name="showVisionApiKey ? 'visibility_off' : 'visibility'"
+                            class="cursor-pointer"
+                            @click="showVisionApiKey = !showVisionApiKey"
+                        />
+                    </template>
+                </q-input>
+            </q-card-section>
+            <q-card-section v-if="settings.ai.visionPublic.visionProvider === 'azure-openai' && settings.ai.visionEnabled">
+                <div class="text-bold">{{$t('aiVisionAzureSettings')}}</div>
+            </q-card-section>
+            <q-card-section v-if="settings.ai.visionPublic.visionProvider === 'azure-openai' && settings.ai.visionEnabled" class="q-col-gutter-md row">
+                <q-input
+                    class="col-md-6"
+                    :label="$t('aiAzureDeploymentName')"
+                    v-model="settings.ai.private.visionAzure.deploymentName"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                />
+                <q-input
+                    class="col-md-6"
+                    :label="$t('aiAzureApiVersion')"
+                    v-model="settings.ai.private.visionAzure.apiVersion"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                />
+            </q-card-section>
+            <q-card-section>
+                <div class="text-bold">{{$t('aiVisionAnonymization')}}</div>
+                <br/>
+                <div class="text-grey-8">{{$t('aiVisionAnonymizationDescription')}}</div>
+            </q-card-section>
+            <q-card-section class="q-col-gutter-md row">
+                <div class="col-12 col-md-6">
+                    <q-toggle
+                        :label="$t('aiVisionAnonymizeLlm')"
+                        v-model="settings.ai.private.visionAnonymizeLlm"
+                        color="primary"
+                        keep-color
+                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                    />
+                    <div class="text-caption text-grey-7 q-mt-xs">{{$t('aiVisionAnonymizeLlmHint')}}</div>
+                </div>
+                <div class="col-12 col-md-6">
+                    <q-toggle
+                        :label="$t('aiVisionAnonymizeRegex')"
+                        v-model="settings.ai.private.visionAnonymizeRegex"
+                        color="primary"
+                        keep-color
+                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                    />
+                    <div class="text-caption text-grey-7 q-mt-xs">{{$t('aiVisionAnonymizeRegexHint')}}</div>
+                </div>
+            </q-card-section>
+            <q-card-section class="q-col-gutter-md row" v-if="canEdit && settings.ai.enabled && settings.ai.visionEnabled">
+                <q-input
+                    class="col-12"
+                    :label="$t('aiVisionSystemPrompt')"
+                    v-model="settings.ai.private.visionSystemPrompt"
+                    outlined
+                    type="textarea"
+                    autogrow
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                    :hint="$t('aiVisionSystemPromptHint')"
+                />
+            </q-card-section>
+            <q-separator />
+            <q-card-section>
                 <div class="text-bold">{{$t('aiGenerationParameters')}}</div>
                 <br/>
                 <div class="text-grey-8">{{$t('aiGenerationParametersDescription')}}</div>

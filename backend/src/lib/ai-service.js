@@ -17,7 +17,20 @@ Do not repeat the existing content. Do not include markdown or code fences.`,
     rewrite: `You are a cybersecurity expert writing professional penetration test reports.
 Rewrite the following "{fieldName}" text to be clearer, more concise, and more professional.
 Output only the rewritten content as an HTML fragment using: <p>, <ul>, <li>, <strong>, <em>, <code>.
-Do not include markdown or code fences.`
+Do not include markdown or code fences.`,
+
+    'fill-proofs': `You are a cybersecurity expert writing professional penetration test reports.
+You will receive a proof-of-concept analysis of screenshots and evidence, along with the selected vulnerability details.
+Your task is to write the Proof of Concept (poc) section that narrates the exploitation steps demonstrated in the images.
+
+Rules:
+- Output an HTML fragment using only: <p>, <ul>, <li>, <strong>, <em>, <code>, <img>
+- Do NOT use markdown, backticks, or code fences
+- Integrate the provided <img> tags at natural, logical positions within the narrative text
+- The <img> tags must appear EXACTLY as provided (do not modify src attributes)
+- Use the vulnerability title and description as context for accurate technical language
+- Write in third person past tense (e.g. "The tester navigated to...", "It was observed that...")
+- Be concise but technically precise`
 };
 
 const DEFAULT_USER_PROMPTS = {
@@ -37,7 +50,18 @@ Continue from where the content ends.`,
     rewrite: `Finding title: "{findingTitle}"
 Field: {fieldName}
 Content to rewrite:
-{text}`
+{text}`,
+
+    'fill-proofs': `Vulnerability: "{findingTitle}"
+Vulnerability description: {vulnDescription}
+
+Proof analysis from images:
+{visionSummary}
+
+Image references to integrate (use these exact <img> tags in the output):
+{imageRefsBlock}
+
+Write the proof of concept narrative for this finding, integrating the images at appropriate positions.`
 };
 
 function ensureV1(url) {
@@ -104,6 +128,15 @@ function fillTemplate(template, vars) {
     return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] !== undefined ? vars[key] : '');
 }
 
+function buildImageRefsBlock(imageDescriptions) {
+    if (!imageDescriptions || imageDescriptions.length === 0) return '';
+    return imageDescriptions.map(img => {
+        const imgTag = `<img src="${img.src}" alt="Image ${img.index}" />`;
+        const desc = img.description ? ` — ${img.description}` : '';
+        return `Image ${img.index}${desc}\n${imgTag}`;
+    }).join('\n\n');
+}
+
 function buildSimilarVulnsBlock(similarVulns) {
     if (!similarVulns || similarVulns.length === 0) return '';
     const lines = similarVulns
@@ -131,12 +164,19 @@ async function generate({ action, text, fieldName, context, aiSettings }) {
     const findingTitle = (context && context.findingTitle) || '';
     const similarVulns = (context && context.similarVulns) || [];
     const similarVulnsBlock = buildSimilarVulnsBlock(similarVulns);
+    const visionSummary = (context && context.visionSummary) || '';
+    const vulnDescription = (context && context.vulnDescription) || '';
+    const imageRefsBlock = buildImageRefsBlock(context && context.imageDescriptions);
 
-    const systemTemplate = priv.systemPrompt || DEFAULT_SYSTEM_PROMPTS[action] || DEFAULT_SYSTEM_PROMPTS.generate;
-    const userTemplate = priv.userPrompt || DEFAULT_USER_PROMPTS[action] || DEFAULT_USER_PROMPTS.generate;
+    const systemTemplate = action === 'fill-proofs'
+        ? (DEFAULT_SYSTEM_PROMPTS['fill-proofs'])
+        : (priv.systemPrompt || DEFAULT_SYSTEM_PROMPTS[action] || DEFAULT_SYSTEM_PROMPTS.generate);
+    const userTemplate = action === 'fill-proofs'
+        ? (DEFAULT_USER_PROMPTS['fill-proofs'])
+        : (priv.userPrompt || DEFAULT_USER_PROMPTS[action] || DEFAULT_USER_PROMPTS.generate);
 
     const systemContent = fillTemplate(systemTemplate, { fieldName, findingTitle });
-    const userContent = fillTemplate(userTemplate, { fieldName, findingTitle, text: text || '', similarVulnsBlock });
+    const userContent = fillTemplate(userTemplate, { fieldName, findingTitle, text: text || '', similarVulnsBlock, visionSummary, vulnDescription, imageRefsBlock });
 
     const messages = [
         new SystemMessage(systemContent),

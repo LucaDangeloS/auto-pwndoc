@@ -2,8 +2,8 @@
   <q-dialog v-model="show" maximized>
     <q-card class="similar-vuln-modal column no-wrap">
       <q-bar class="bg-primary text-white">
-        <q-icon name="search" />
-        <span class="q-ml-sm text-body1">{{ $t('similarVulnTitle') }}</span>
+        <q-icon :name="isProofMode ? 'image_search' : 'search'" />
+        <span class="q-ml-sm text-body1">{{ isProofMode ? $t('proofSearchTitle') : $t('similarVulnTitle') }}</span>
         <q-space />
         <q-btn dense flat icon="close" @click="show = false" />
       </q-bar>
@@ -75,6 +75,30 @@
                 :label="$t('similarVulnApply')"
                 @click="applySelected"
               />
+            </div>
+
+            <!-- Vision summary (proof mode only) -->
+            <div v-if="isProofMode && visionSummary" class="diff-field-block q-mb-md">
+              <q-expansion-item
+                :label="$t('proofAnalysisSummary')"
+                icon="visibility"
+                dense
+                header-class="text-caption text-weight-medium text-grey-7"
+              >
+                <div class="q-pa-sm text-caption" style="white-space: pre-wrap;">{{ visionSummary }}</div>
+              </q-expansion-item>
+            </div>
+
+            <!-- Generated PoC preview (proof mode only) -->
+            <div v-if="isProofMode" class="diff-field-block q-mb-md">
+              <div class="row items-center q-mb-xs">
+                <q-icon name="article" color="secondary" size="xs" class="q-mr-xs" />
+                <span class="text-caption text-weight-medium text-uppercase text-grey-7">{{ $t('proofGeneratedPreview') }}</span>
+                <q-spinner v-if="pocLoading" size="xs" color="secondary" class="q-ml-sm" />
+              </div>
+              <div v-if="pocLoading" class="text-caption text-grey-6 q-py-sm">{{ $t('proofFillLoading') }}</div>
+              <div v-else-if="generatedPoc" class="diff-html-box proposed" v-html="generatedPoc"></div>
+              <div v-else class="diff-html-box text-grey-5"><em>{{ $t('proofGeneratedEmpty') }}</em></div>
             </div>
 
             <!-- Field diffs -->
@@ -171,9 +195,13 @@ export default defineComponent({
     loading: { type: Boolean, default: false },
     error: { type: String, default: '' },
     currentFinding: { type: Object, default: () => ({}) },
+    isProofMode: { type: Boolean, default: false },
+    visionSummary: { type: String, default: '' },
+    generatedPoc: { type: String, default: '' },
+    pocLoading: { type: Boolean, default: false },
   },
 
-  emits: ['update:modelValue', 'apply'],
+  emits: ['update:modelValue', 'apply', 'select'],
 
   data() {
     return {
@@ -212,6 +240,7 @@ export default defineComponent({
   methods: {
     selectResult(i) {
       this.selectedIndex = i;
+      this.$emit('select', this.results[i]);
     },
 
     fieldHasChange(key) {
@@ -226,7 +255,11 @@ export default defineComponent({
 
     applySelected() {
       if (!this.selected) return;
-      this.$emit('apply', this.selected);
+      const payload = { ...this.selected };
+      if (this.isProofMode && this.generatedPoc) {
+        payload.poc = this.generatedPoc;
+      }
+      this.$emit('apply', payload);
       this.show = false;
     },
 

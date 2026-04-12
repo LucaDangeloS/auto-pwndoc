@@ -99,7 +99,25 @@ const SettingSchema = new Schema({
         embeddingAzure: {
           deploymentName: { type: String, default: '' },
           apiVersion: { type: String, default: '2024-06-01' }
-        }
+        },
+        visionApiUrl: { type: String, default: '' },
+        visionApiKey: { type: String, default: '' },
+        visionAzure: {
+          deploymentName: { type: String, default: '' },
+          apiVersion: { type: String, default: '2024-06-01' }
+        },
+        visionSystemPrompt: { type: String, default: '' },
+        visionAnonymizeLlm: { type: Boolean, default: false },
+        visionAnonymizeRegex: { type: Boolean, default: false }
+      },
+      visionEnabled: { type: Boolean, default: false },
+      visionPublic: {
+        visionProvider: {
+          type: String,
+          enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible'],
+          default: 'openai'
+        },
+        visionModel: { type: String, default: 'gpt-4o' }
       }
     }
 }, {strict: true});
@@ -121,7 +139,7 @@ SettingSchema.statics.getAll = () => {
 SettingSchema.statics.getPublic = () => {
     return new Promise((resolve, reject) => {
         const query = Settings.findOne({});
-        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public ai.enabled ai.embeddingEnabled ai.public');
+        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public ai.enabled ai.embeddingEnabled ai.public ai.visionEnabled ai.visionPublic');
         query.exec()
             .then(settings => resolve(settings))
             .catch(err => reject(err));

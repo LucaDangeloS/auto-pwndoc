@@ -43,7 +43,8 @@ export default {
                 language: "",
                 template: "",
                 customFields: [],
-                approvals: []
+                approvals: [],
+                isRetest: false
             },
             auditOrig: {},
             // List of existing clients

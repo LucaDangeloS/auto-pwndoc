@@ -6,6 +6,9 @@ process.stderr.write = function(chunk) {
     return _origStderrWrite.apply(process.stderr, arguments);
 };
 
+process.on('uncaughtException', (err) => { console.error('[FATAL] Uncaught exception:', err); process.exit(1); });
+process.on('unhandledRejection', (err) => { console.error('[FATAL] Unhandled rejection:', err); process.exit(1); });
+
 var fs = require('fs');
 var app = require('express')();
 var https = require('https').Server({

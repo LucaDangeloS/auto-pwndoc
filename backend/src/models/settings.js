@@ -180,7 +180,8 @@ Settings.findOne()
   if (!liveSettings) {
     console.log("Initializing Settings");
     Settings.create({}).catch((err) => {
-      throw "Error creating the settings in the database : " + err;
+      if (err && err.code === 11000) return; // duplicate key — another instance already created it
+      console.error("Error creating the settings in the database:", err);
     });
   } 
   else {
@@ -196,12 +197,12 @@ Settings.findOne()
 
     if (needUpdate) {
         console.log("Removing unused fields from Settings")
-        liveSettings.save()
+        liveSettings.save().catch(err => console.error("Error saving updated settings:", err));
     }
   }
 })
 .catch((err) => {
-  throw "Error checking for initial settings in the database : " + err;
+  console.error("Error checking for initial settings in the database:", err);
 });
 
 module.exports = Settings;

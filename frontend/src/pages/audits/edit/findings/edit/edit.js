@@ -7,6 +7,7 @@ import CvssCalculatorUnified from 'components/cvss-calculator-unified';
 import TextareaArray from 'components/textarea-array';
 import CustomFields from 'components/custom-fields';
 import SimilarVulnModal from 'components/similar-vuln-modal';
+import TemplateHint from 'components/template-hint';
 
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
@@ -34,6 +35,8 @@ export default {
         status: 1,
         customFields: [],
         poc: '',
+        retestEvidence: '',
+        retestPassed: null,
         scope: '',
         cvssv3: '',
         cvssv4: '',
@@ -45,6 +48,7 @@ export default {
       findingOrig: {},
       selectedTab: 'definition',
       proofsTabVisited: false,
+      retestTabVisited: false,
       detailsTabVisited: false,
       vulnTypes: [],
       filteredVulnTypes: [],
@@ -70,6 +74,7 @@ export default {
     TextareaArray,
     CustomFields,
     SimilarVulnModal,
+    TemplateHint,
   },
 
   mounted() {
@@ -247,9 +252,10 @@ export default {
             }
       
             // Ensure that certain text fields are initialized
-            ['description', 'observation', 'poc', 'scope', 'remediation'].forEach(field => {
+            ['description', 'observation', 'poc', 'retestEvidence', 'scope', 'remediation'].forEach(field => {
               this.finding[field] = this.finding[field] || '';
             });
+            if (this.finding.retestPassed === undefined) this.finding.retestPassed = null;
             this.finding.references = this.finding.references || [];
       
             // Initialize custom fields (even if they were empty)
@@ -369,6 +375,12 @@ export default {
         Utils.syncEditors(this.$refs);
         this.findingOrig.poc = this.finding.poc;
         this.proofsTabVisited = true;
+      } else if (this.selectedTab === 'retest' && !this.retestTabVisited) {
+        this.finding.retestEvidence = this.finding.retestEvidence || '';
+        Utils.syncEditors(this.$refs);
+        this.findingOrig.retestEvidence = this.finding.retestEvidence;
+        this.findingOrig.retestPassed = this.finding.retestPassed;
+        this.retestTabVisited = true;
       } else if (this.selectedTab === 'details' && !this.detailsTabVisited) {
         this.finding.remediation = this.finding.remediation || '';
         Utils.syncEditors(this.$refs);

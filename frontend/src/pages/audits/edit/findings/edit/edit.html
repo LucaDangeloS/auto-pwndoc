@@ -52,6 +52,7 @@
         >
           <q-tab name="definition" default :label="$t('definition')" />
           <q-tab name="proofs" :label="$t('proofs')" />
+          <q-tab v-if="localAudit && localAudit.isRetest" name="retest" :label="$t('retestEvidence')" />
           <q-tab name="details" :label="$t('details')" />
           <template v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT">
             <q-separator vertical />
@@ -206,6 +207,61 @@
             </div>
           </q-tab-panel>
   
+          <!-- RETEST EVIDENCE -->
+          <q-tab-panel name="retest" v-if="localAudit && localAudit.isRetest">
+            <div class="q-col-gutter-md row">
+              <div class="col-12">
+                <q-card>
+                  <q-card-section class="row items-center q-pb-xs">
+                    <span class="text-subtitle2">{{ $t('retestResult') }}</span>
+                    <template-hint template-var="finding.retest_passed" />
+                    <q-space />
+                    <q-btn-toggle
+                      v-model="finding.retestPassed"
+                      :options="[
+                        { label: $t('retestFailed'), value: false },
+                        { label: $t('retestPassed'), value: true }
+                      ]"
+                      :toggle-color="finding.retestPassed === true ? 'positive' : finding.retestPassed === false ? 'negative' : 'grey-5'"
+                      unelevated
+                      rounded
+                      no-caps
+                      :disable="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                      @update:model-value="needSave = true"
+                    />
+                    <q-btn
+                      v-if="finding.retestPassed !== null && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      flat dense round icon="clear" color="grey-6" size="sm"
+                      class="q-ml-xs"
+                      @click="finding.retestPassed = null; needSave = true"
+                    >
+                      <q-tooltip>{{ $t('retestClearResult') }}</q-tooltip>
+                    </q-btn>
+                  </q-card-section>
+
+                  <q-separator />
+
+                  <q-card-section>
+                    <div class="row items-center q-mb-sm">
+                      <span class="text-subtitle2 text-grey-7">{{ $t('retestEvidenceContent') }}</span>
+                      <template-hint template-var="finding.retest_evidence | convertHTML" class="q-ml-xs" />
+                    </div>
+                    <basic-editor
+                      ref="basiceditor_retestEvidence"
+                      v-model="finding.retestEvidence"
+                      v-on:editorchange="readyToSave ? needSave = true : null"
+                      idUnique="basiceditor_retestEvidence"
+                      fieldName="retestEvidence"
+                      :aiContext="{ findingTitle: finding.title, locale: localAudit && localAudit.language }"
+                      noSync
+                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                    />
+                  </q-card-section>
+                </q-card>
+              </div>
+            </div>
+          </q-tab-panel>
+
           <!-- DETAILS -->
           <q-tab-panel name="details">
             <q-card>

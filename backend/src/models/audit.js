@@ -29,6 +29,8 @@ var Finding = {
     cvssv4:                 String, // Added support for CVSS 4.0
     paragraphs:             [Paragraph],
     poc:                    String,
+    retestEvidence:         String,
+    retestPassed:           {type: Boolean, default: null},
     scope:                  String,
     status:                 {type: Number, enum: [0,1], default: 1}, // 0: done, 1: redacting
     category:               String,
@@ -77,6 +79,7 @@ var AuditSchema = new Schema({
     sections:           [{field: String, name: String, text: String, customFields: [customField]}], // keep text for retrocompatibility
     customFields:       [customField],
     sortFindings:       [SortOption],
+    isRetest:           {type: Boolean, default: false},
     state:              { type: String, enum: ['EDIT', 'REVIEW', 'APPROVED'], default: 'EDIT'},
     approvals:          [{type: Schema.Types.ObjectId, ref: 'User'}],
 }, {timestamps: true});
@@ -316,7 +319,7 @@ AuditSchema.statics.getGeneral = (isAdmin, auditId, userId) => {
         query.populate('collaborators', 'username firstname lastname')
         query.populate('reviewers', 'username firstname lastname')
         query.populate('company')
-        query.select('name auditType date date_start date_end client collaborators language scope.name template customFields')
+        query.select('name auditType date date_start date_end client collaborators language scope.name template customFields isRetest')
         query.lean().exec()
         .then((row) => {
             if (!row)

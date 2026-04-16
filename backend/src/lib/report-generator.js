@@ -1506,6 +1506,7 @@ async function prepAuditData(data, settings) {
 
     result.language = data.language || "undefined"
     result.scope = data.scope.toObject() || []
+    result.is_retest = data.isRetest === true
 
     result.findings = []
     for (finding of data.findings) {
@@ -1528,6 +1529,8 @@ async function prepAuditData(data, settings) {
             priority: finding.priority || "",
             references: finding.references || [],
             poc: await splitHTMLParagraphs(finding.poc),
+            retest_evidence: await splitHTMLParagraphs(finding.retestEvidence),
+            retest_passed: finding.retestPassed === true ? true : finding.retestPassed === false ? false : null,
             affected: finding.scope || "",
             //affected: stripParagraphTags(finding.scope) || [],
             status: finding.status || "",

@@ -167,6 +167,19 @@
             <q-card-section></q-card-section>
 
             <q-card-section>
+                <div class="row items-center q-col-gutter-md">
+                    <q-toggle
+                        class="col-auto"
+                        v-model="audit.isRetest"
+                        :label="$t('isRetest')"
+                        color="secondary"
+                        :disable="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                    />
+                    <span class="col text-caption text-grey-7">{{ $t('isRetestHint') }}</span>
+                </div>
+            </q-card-section>
+
+            <q-card-section>
                 <div class="row q-col-gutter-md">
                     <q-input class="col-md-4 col-12" :label="$t('startDate')" v-model="audit.date_start" outlined :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT">
                         <template v-slot:append>

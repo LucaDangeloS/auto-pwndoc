@@ -217,6 +217,7 @@ module.exports = function(app, io) {
         }
         if (req.body.template) update.template = req.body.template;
         if (req.body.customFields) update.customFields = req.body.customFields;
+        if (req.body.isRetest !== undefined) update.isRetest = req.body.isRetest;
         if (settings.reviews.enabled && settings.reviews.private.removeApprovalsUponUpdate) update.approvals = [];
 
         Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, update)
@@ -288,6 +289,8 @@ module.exports = function(app, io) {
         if (req.body.cvssv3) finding.cvssv3 = req.body.cvssv3;
         if (req.body.cvssv4) finding.cvssv4 = req.body.cvssv4;
         if (req.body.poc) finding.poc = req.body.poc;
+        if (req.body.retestEvidence) finding.retestEvidence = req.body.retestEvidence;
+        if (req.body.retestPassed !== undefined) finding.retestPassed = req.body.retestPassed;
         if (req.body.scope) finding.scope = req.body.scope;
         if (req.body.status !== undefined) finding.status = req.body.status;
         if (req.body.category) finding.category = req.body.category
@@ -338,6 +341,8 @@ module.exports = function(app, io) {
         if (req.body.cvssv3) finding.cvssv3 = req.body.cvssv3;
         if (req.body.cvssv4) finding.cvssv4 = req.body.cvssv4;
         if (!_.isNil(req.body.poc)) finding.poc = req.body.poc;
+        if (!_.isNil(req.body.retestEvidence)) finding.retestEvidence = req.body.retestEvidence;
+        if (req.body.retestPassed !== undefined) finding.retestPassed = req.body.retestPassed;
         if (!_.isNil(req.body.scope)) finding.scope = req.body.scope;
         if (req.body.status !== undefined) finding.status = req.body.status;
         if (req.body.category) finding.category = req.body.category

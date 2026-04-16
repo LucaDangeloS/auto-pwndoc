@@ -1,0 +1,212 @@
+[
+  {
+    "cvssv3": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "cvssv4": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+    "priority": 1,
+    "remediationComplexity": 1,
+    "category": "Injection",
+    "details": [
+      {
+        "locale": "en-US",
+        "title": "SQL Injection",
+        "vulnType": "Web",
+        "description": "<p>SQL Injection occurs when user-supplied data is incorporated into a database query without proper sanitisation, allowing an attacker to manipulate the query logic. This can lead to unauthorised data disclosure, modification, or deletion, and in some configurations remote code execution.</p>",
+        "observation": "<p>The login endpoint at <code>/api/login</code> was found to be vulnerable. Submitting <code>' OR '1'='1</code> as the username bypassed authentication entirely.</p>",
+        "remediation": "<p>Use parameterised queries or prepared statements for all database interactions. Apply an allowlist-based input validation strategy and enforce the principle of least privilege on database accounts.</p>",
+        "references": [
+          "https://owasp.org/www-community/attacks/SQL_Injection",
+          "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html"
+        ]
+      }
+    ]
+  },
+  {
+    "cvssv3": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+    "cvssv4": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:A/VC:L/VI:L/VA:N/SC:L/SI:L/SA:N",
+    "priority": 2,
+    "remediationComplexity": 2,
+    "category": "Injection",
+    "details": [
+      {
+        "locale": "en-US",
+        "title": "Cross-Site Scripting (XSS)",
+        "vulnType": "Web",
+        "description": "<p>Cross-Site Scripting (XSS) allows attackers to inject malicious scripts into web pages viewed by other users. Reflected XSS is triggered via a crafted URL, while stored XSS persists in the application database and affects every user who views the infected content.</p>",
+        "observation": "<p>The search parameter <code>q</code> is reflected in the response without encoding. Supplying <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> executes arbitrary JavaScript in the victim's browser.</p>",
+        "remediation": "<p>Encode all output contextually (HTML, JavaScript, URL). Implement a strict Content Security Policy and validate input on the server side. Use modern framework escaping built-ins rather than manual string manipulation.</p>",
+        "references": [
+          "https://owasp.org/www-community/attacks/xss/",
+          "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html"
+        ]
+      }
+    ]
+  },
+  {
+    "cvssv3": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
+    "cvssv4": "CVSS:4.0/AV:N/AC:L/AT:N/PR:L/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N",
+    "priority": 2,
+    "remediationComplexity": 2,
+    "category": "Access Control",
+    "details": [
+      {
+        "locale": "en-US",
+        "title": "Insecure Direct Object Reference (IDOR)",
+        "vulnType": "Web",
+        "description": "<p>Insecure Direct Object Reference (IDOR) occurs when an application exposes internal implementation objects — such as database record IDs — directly to users without enforcing authorisation checks. An attacker can manipulate these references to access resources belonging to other users.</p>",
+        "observation": "<p>Authenticated as user ID 42, changing the URL parameter to <code>/api/users/43/profile</code> returned the full profile of another user, including their email address and phone number.</p>",
+        "remediation": "<p>Enforce object-level authorisation on every request. Validate that the authenticated user is permitted to access the requested resource. Consider using indirect references (e.g. UUIDs mapped server-side) rather than sequential integers.</p>",
+        "references": [
+          "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/05-Authorization_Testing/04-Testing_for_Insecure_Direct_Object_References",
+          "https://cheatsheetseries.owasp.org/cheatsheets/Insecure_Direct_Object_Reference_Prevention_Cheat_Sheet.html"
+        ]
+      }
+    ]
+  },
+  {
+    "cvssv3": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:N/A:N",
+    "cvssv4": "CVSS:4.0/AV:N/AC:L/AT:N/PR:L/UI:N/VC:H/VI:N/VA:N/SC:H/SI:N/SA:N",
+    "priority": 1,
+    "remediationComplexity": 2,
+    "category": "Server-Side",
+    "details": [
+      {
+        "locale": "en-US",
+        "title": "Server-Side Request Forgery (SSRF)",
+        "vulnType": "Web",
+        "description": "<p>Server-Side Request Forgery (SSRF) allows an attacker to induce the server to make HTTP requests to an arbitrary destination, including internal services not accessible from the internet. This can be used to enumerate internal infrastructure, exfiltrate cloud metadata credentials, or pivot to otherwise unreachable systems.</p>",
+        "observation": "<p>The <code>url</code> parameter of the webhook configuration endpoint was not validated. Providing <code>http://169.254.169.254/latest/meta-data/iam/security-credentials/</code> returned AWS IAM credentials in the response.</p>",
+        "remediation": "<p>Validate and allowlist target URLs on the server side. Block requests to private IP ranges (RFC 1918), loopback addresses, and cloud metadata endpoints. Use DNS rebinding protections and disable HTTP redirects where not required.</p>",
+        "references": [
+          "https://owasp.org/www-community/attacks/Server_Side_Request_Forgery",
+          "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html"
+        ]
+      }
+    ]
+  },
+  {
+    "cvssv3": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "cvssv4": "CVSS:4.0/AV:N/AC:H/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+    "priority": 1,
+    "remediationComplexity": 2,
+    "category": "Authentication",
+    "details": [
+      {
+        "locale": "en-US",
+        "title": "Broken Authentication",
+        "vulnType": "Web",
+        "description": "<p>Broken Authentication encompasses weaknesses in session management or credential handling that allow attackers to compromise passwords, keys, or session tokens, or to exploit other implementation flaws to assume other users' identities temporarily or permanently.</p>",
+        "observation": "<p>Session tokens are transmitted over HTTP and do not have the <code>Secure</code> or <code>HttpOnly</code> flags set. Additionally, the application does not invalidate tokens on logout, allowing replay attacks.</p>",
+        "remediation": "<p>Enforce HTTPS for all authenticated requests. Set the <code>Secure</code>, <code>HttpOnly</code>, and <code>SameSite</code> cookie attributes. Invalidate session tokens server-side on logout. Implement account lockout and multi-factor authentication for sensitive operations.</p>",
+        "references": [
+          "https://owasp.org/www-project-top-ten/2017/A2_2017-Broken_Authentication",
+          "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
+        ]
+      }
+    ]
+  },
+  {
+    "cvssv3": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
+    "cvssv4": "CVSS:4.0/AV:N/AC:L/AT:N/PR:L/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N",
+    "priority": 2,
+    "remediationComplexity": 1,
+    "category": "File System",
+    "details": [
+      {
+        "locale": "en-US",
+        "title": "Path Traversal",
+        "vulnType": "Web",
+        "description": "<p>Path Traversal (also known as Directory Traversal) allows an attacker to read files outside the intended directory by manipulating file path references with sequences such as <code>../</code>. Sensitive files such as <code>/etc/passwd</code>, application source code, or private keys may be exposed.</p>",
+        "observation": "<p>The <code>filename</code> parameter of the file download endpoint was not sanitised. Requesting <code>../../../../etc/passwd</code> returned the contents of the server's passwd file.</p>",
+        "remediation": "<p>Resolve the canonical path of the requested file and verify it starts with the intended base directory before serving it. Use a framework-provided safe file-serving utility rather than manually constructing paths from user input.</p>",
+        "references": [
+          "https://owasp.org/www-community/attacks/Path_Traversal",
+          "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html"
+        ]
+      }
+    ]
+  },
+  {
+    "cvssv3": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:H",
+    "cvssv4": "CVSS:4.0/AV:N/AC:L/AT:N/PR:H/UI:N/VC:H/VI:H/VA:H/SC:H/SI:H/SA:H",
+    "priority": 1,
+    "remediationComplexity": 1,
+    "category": "Injection",
+    "details": [
+      {
+        "locale": "en-US",
+        "title": "Command Injection",
+        "vulnType": "Web",
+        "description": "<p>Command Injection occurs when user-supplied data is passed to a system shell without proper sanitisation. An attacker can append shell metacharacters to execute arbitrary operating system commands with the privileges of the web server process.</p>",
+        "observation": "<p>The network diagnostics endpoint passes the user-supplied hostname directly to <code>ping</code> via <code>exec()</code>. Providing <code>127.0.0.1; id</code> returned the output of the <code>id</code> command, confirming remote code execution as <code>www-data</code>.</p>",
+        "remediation": "<p>Avoid invoking shell commands with user input where possible. If unavoidable, use language-level APIs that accept argument arrays instead of shell strings (e.g. <code>execFile</code> instead of <code>exec</code>). Validate and allowlist all inputs and run the service under a dedicated low-privilege account.</p>",
+        "references": [
+          "https://owasp.org/www-community/attacks/Command_Injection",
+          "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html"
+        ]
+      }
+    ]
+  },
+  {
+    "cvssv3": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "cvssv4": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+    "priority": 1,
+    "remediationComplexity": 2,
+    "category": "Deserialisation",
+    "details": [
+      {
+        "locale": "en-US",
+        "title": "Insecure Deserialization",
+        "vulnType": "Web",
+        "description": "<p>Insecure Deserialization occurs when an application deserialises untrusted data without sufficient validation. Attackers can craft malicious serialised payloads to achieve remote code execution, privilege escalation, or denial of service depending on the libraries and gadget chains available on the target system.</p>",
+        "observation": "<p>The session cookie contains a base64-encoded serialised Java object. Replacing it with a ysoserial CommonsCollections payload resulted in a DNS callback, confirming arbitrary code execution.</p>",
+        "remediation": "<p>Do not deserialise data from untrusted sources. If serialisation is required, use a safe data format such as JSON with strict schema validation. Implement integrity checks (e.g. HMAC signing) on any serialised tokens. Keep deserialisation libraries up to date and apply Java deserialization filters where applicable.</p>",
+        "references": [
+          "https://owasp.org/www-project-top-ten/2017/A8_2017-Insecure_Deserialization",
+          "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html"
+        ]
+      }
+    ]
+  },
+  {
+    "cvssv3": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N",
+    "cvssv4": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:L/VI:L/VA:N/SC:N/SI:N/SA:N",
+    "priority": 3,
+    "remediationComplexity": 2,
+    "category": "Configuration",
+    "details": [
+      {
+        "locale": "en-US",
+        "title": "Security Misconfiguration",
+        "vulnType": "Web",
+        "description": "<p>Security Misconfiguration results from insecure default configurations, incomplete setup, open cloud storage, misconfigured HTTP headers, or verbose error messages that expose internal details. It is the most commonly observed vulnerability class and often arises from a lack of a hardening process.</p>",
+        "observation": "<p>The application returns full stack traces in HTTP 500 responses, including file paths, framework version, and database schema details. The <code>X-Powered-By: Express</code> header also discloses the server technology in use.</p>",
+        "remediation": "<p>Disable debug output and stack traces in production. Remove or suppress server banner headers. Conduct regular reviews of cloud storage bucket permissions, default credentials, and open ports. Automate configuration baseline checks as part of the CI/CD pipeline.</p>",
+        "references": [
+          "https://owasp.org/www-project-top-ten/2017/A6_2017-Security_Misconfiguration",
+          "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html"
+        ]
+      }
+    ]
+  },
+  {
+    "cvssv3": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+    "cvssv4": "CVSS:4.0/AV:N/AC:H/AT:N/PR:N/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N",
+    "priority": 2,
+    "remediationComplexity": 2,
+    "category": "Cryptography",
+    "details": [
+      {
+        "locale": "en-US",
+        "title": "Sensitive Data Exposure",
+        "vulnType": "Web",
+        "description": "<p>Sensitive Data Exposure occurs when an application does not adequately protect sensitive information such as passwords, credit card numbers, health records, or personal data. This may result from weak encryption, missing encryption, improper key management, or exposure in logs and error messages.</p>",
+        "observation": "<p>User passwords are stored as unsalted MD5 hashes in the database. An attacker who obtains the database can crack the majority of passwords within minutes using precomputed rainbow tables.</p>",
+        "remediation": "<p>Store passwords using a modern adaptive hashing algorithm such as bcrypt, scrypt, or Argon2 with an appropriate work factor. Never store passwords in plaintext or with weak/reversible hashing. Encrypt sensitive fields at rest and in transit using current TLS standards.</p>",
+        "references": [
+          "https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure",
+          "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html"
+        ]
+      }
+    ]
+  }
+]

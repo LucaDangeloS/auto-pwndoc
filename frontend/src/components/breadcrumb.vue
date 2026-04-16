@@ -1,13 +1,5 @@
 <template>
-    <q-card flat color="white" text-color="black" class="row card-breadcrumb">
-        <q-btn 
-        v-if="typeof(buttons) !== 'undefined'" 
-        flat 
-        color="secondary"
-        @click="$router.push('/audits')"
-        >
-            <i class="fa fa-home fa-lg"></i>
-        </q-btn>
+    <q-card flat class="row card-breadcrumb">
         <span v-if="typeof(title) === 'undefined'" class="breadcrumb-title">{{bread[last].name}}</span>
         <div v-else-if="$settings.reviews.enabled && state !== 'EDIT'" class="breadcrumb-title">
             <span class="text-bold">{{title}}</span> 
@@ -69,20 +61,24 @@ export default defineComponent({
 
 <style lang="stylus" scoped>
 .card-breadcrumb {
-    height: 50px
-    padding-right: 20px
+    min-height: 50px
+    padding: 6px 16px
+    margin: 8px 12px 8px 12px
+    align-items: center
+    flex-wrap: wrap
+    gap: 6px
 }
 
 .breadcrumb-title {
-    margin-top: 11px
+    margin-top: 0
 }
 
 .breadcrumb-buttons {
-    margin-top: 7px
+    margin-top: 0
 }
 
 .card-breadcrumb>.q-breadcrumbs {
-    margin-top: 17px
+    margin-top: 0
 }
 
 .approvedMark {

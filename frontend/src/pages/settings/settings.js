@@ -2,6 +2,7 @@ import { Notify, Dialog } from 'quasar'
 
 import SettingsService from '@/services/settings'
 import UserService from '@/services/user'
+import AiService from '@/services/ai'
 
 import { $t } from 'boot/i18n'
 import LanguageSelector from '@/components/language-selector';
@@ -11,12 +12,39 @@ export default {
         return {
             loading: true,
             UserService: UserService,
-            settings: {danger:{enabled:false,public:{nbdaydelete: 0}},reviews:{enabled:false}},
-            settingsOrig : {danger:{enabled:false},reviews:{enabled:false}},
+            settings: {
+                danger:{enabled:false,public:{nbdaydelete: 0}},
+                reviews:{enabled:false},
+                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:4096,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o'},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:'',visionAnonymizeLlm:false,visionAnonymizeRegex:false}}
+            },
+            settingsOrig : {danger:{enabled:false},reviews:{enabled:false},ai:{enabled:false}},
             canEdit: false,
+            showApiKey: false,
+            showEmbeddingApiKey: false,
+            showVisionApiKey: false,
+            reindexing: false,
+            reindexStarted: false,
+            activeSection: 'section-general',
+            sectionObserver: null,
+            scrollingTo: null,
+            settingsSections: [
+                { id: 'section-general', label: 'generalSettings' },
+                { id: 'section-danger', label: 'dangerSettings' },
+                { id: 'section-reports', label: 'reports' },
+                { id: 'section-reviews', label: 'reviews' },
+                { id: 'section-ai', label: 'aiSettings' },
+                { id: 'section-actions', label: 'saveSettings' }
+            ],
             cvssVersionOptions: [
                 { label: 'CVSS 3.1', value: '3.1' },
                 { label: 'CVSS 4.0', value: '4.0' }
+            ],
+            aiProviderOptions: [
+                { label: 'OpenAI', value: 'openai' },
+                { label: 'Anthropic', value: 'anthropic' },
+                { label: 'Ollama', value: 'ollama' },
+                { label: 'Azure OpenAI', value: 'azure-openai' },
+                { label: 'OpenAI Compatible', value: 'openai-compatible' }
             ]
         }
     },
@@ -38,6 +66,39 @@ export default {
             next()
     },
 
+    computed: {
+        aiDefaultUrl: function() {
+            var defaults = {
+                'openai': 'https://api.openai.com/v1',
+                'anthropic': 'https://api.anthropic.com/v1',
+                'ollama': 'http://localhost:11434',
+                'azure-openai': 'https://<instance>.openai.azure.com',
+                'openai-compatible': ''
+            };
+            return defaults[this.settings.ai.public.provider] || '';
+        },
+        embeddingDefaultUrl: function() {
+            var defaults = {
+                'openai': 'https://api.openai.com/v1',
+                'anthropic': '',
+                'ollama': 'http://localhost:11434/v1',
+                'azure-openai': 'https://<instance>.openai.azure.com',
+                'openai-compatible': 'http://<host>:<port>/v1'
+            };
+            return defaults[this.settings.ai.public.embeddingProvider] || '';
+        },
+        visionDefaultUrl: function() {
+            var defaults = {
+                'openai': 'https://api.openai.com/v1',
+                'anthropic': 'https://api.anthropic.com/v1',
+                'ollama': 'http://localhost:11434',
+                'azure-openai': 'https://<instance>.openai.azure.com',
+                'openai-compatible': ''
+            };
+            return defaults[(this.settings.ai.visionPublic && this.settings.ai.visionPublic.visionProvider) || 'openai'] || '';
+        }
+    },
+
     mounted: function() {
         if (UserService.isAllowed('settings:read')) {
             this.getSettings()
@@ -49,8 +110,9 @@ export default {
         }
     },
 
-    destroyed: function() {
+    unmounted: function() {
         document.removeEventListener('keydown', this._listener, false)
+        if (this.sectionObserver) this.sectionObserver.disconnect();
     },
 
     methods: {
@@ -61,19 +123,48 @@ export default {
             }
         },
 
+        scrollTo: function(sectionId) {
+            this.activeSection = sectionId;
+            this.scrollingTo = sectionId;
+            var self = this;
+            var el = document.getElementById(sectionId);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(function() { self.scrollingTo = null; }, 800);
+        },
+
+        initSectionObserver: function() {
+            var self = this;
+            this.sectionObserver = new IntersectionObserver(function(entries) {
+                if (self.scrollingTo) return;
+                var visible = entries.filter(function(e) { return e.isIntersecting; });
+                if (visible.length > 0) {
+                    var topmost = visible.reduce(function(a, b) {
+                        return a.boundingClientRect.top <= b.boundingClientRect.top ? a : b;
+                    });
+                    self.activeSection = topmost.target.id;
+                }
+            }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+            this.settingsSections.forEach(function(s) {
+                var el = document.getElementById(s.id);
+                if (el) self.sectionObserver.observe(el);
+            });
+        },
+
         getSettings: function() {
             SettingsService.getSettings()
             .then((data) => {
                 this.settings = this.$_.merge(
                     {
                       danger: { enabled: false, public:{nbdaydelete: 0}},
-                      reviews: { enabled: false, public: { minReviewers: 1 } }
+                      reviews: { enabled: false, public: { minReviewers: 1 } },
+                      ai: { enabled: false, embeddingEnabled: false, visionEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 4096, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8 }, visionPublic: { visionProvider: 'openai', visionModel: 'gpt-4o' }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionApiUrl: '', visionApiKey: '', visionAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionSystemPrompt: '', visionAnonymizeLlm: false, visionAnonymizeRegex: false } }
                     },
                     data.data.datas
                   );
                   
                 this.settingsOrig = this.$_.cloneDeep(this.settings);
                 this.loading = false
+                this.$nextTick(() => this.initSectionObserver());
             })
             .catch((err) => {
                 Notify.create({
@@ -183,6 +274,30 @@ export default {
             document.body.appendChild(link);
             link.click();
             link.remove();
+        },
+
+        reindexAll: function() {
+            this.reindexing = true;
+            this.reindexStarted = false;
+            AiService.reindexAll()
+            .then(() => {
+                this.reindexStarted = true;
+                Notify.create({
+                    message: $t('aiReindexStarted'),
+                    color: 'positive',
+                    textColor: 'white',
+                    position: 'top-right'
+                });
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response?.data?.datas || $t('aiError'),
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                });
+            })
+            .finally(() => { this.reindexing = false; });
         },
 
         unsavedChanges() {

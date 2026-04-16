@@ -467,6 +467,36 @@
           v-if="toolbar.indexOf('caption') !== -1"
         />
 
+        <div v-if="toolbar.indexOf('ai') !== -1 && $settings && $settings.ai && $settings.ai.enabled">
+          <q-btn-dropdown
+            flat
+            size="sm"
+            dense
+            no-icon-animation
+            :loading="aiLoading"
+          >
+            <template v-slot:label>
+              <q-icon name="auto_awesome" />
+              <q-tooltip :delay="500" content-class="text-bold">AI Assistant</q-tooltip>
+            </template>
+            <q-list>
+              <q-item clickable v-close-popup @click="runAi('generate')">
+                <q-item-section side><q-icon name="add_circle_outline" size="xs" /></q-item-section>
+                <q-item-section><q-item-label>{{$t('aiGenerate')}}</q-item-label></q-item-section>
+              </q-item>
+              <q-item clickable v-close-popup @click="runAi('complete')">
+                <q-item-section side><q-icon name="edit_note" size="xs" /></q-item-section>
+                <q-item-section><q-item-label>{{$t('aiComplete')}}</q-item-label></q-item-section>
+              </q-item>
+              <q-item clickable v-close-popup @click="runAi('rewrite')">
+                <q-item-section side><q-icon name="auto_fix_high" size="xs" /></q-item-section>
+                <q-item-section><q-item-label>{{$t('aiRewrite')}}</q-item-label></q-item-section>
+              </q-item>
+            </q-list>
+          </q-btn-dropdown>
+          <q-separator vertical class="q-mx-sm" />
+        </div>
+
         <q-btn
           flat
           size="sm"
@@ -586,6 +616,7 @@ import { Figure } from "./figure";
 import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
+import { AiAssistantExtension } from './ai-assistant';
 
 // TipTap v3 - Collaboration extensions
 import Collaboration from '@tiptap/extension-collaboration'
@@ -656,7 +687,7 @@ export default defineComponent({
     toolbar: {
       type: Array,
       default: function () {
-        return ["format", "marks", "list", "code", "table", "image", "caption"];
+        return ["format", "marks", "list", "code", "table", "image", "caption", "ai"];
       },
     },
     noAffix: {
@@ -672,7 +703,14 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
-
+    fieldName: {
+      type: String,
+      default: '',
+    },
+    aiContext: {
+      type: Object,
+      default: function() { return {}; },
+    },
   },
 
   components: {
@@ -686,6 +724,7 @@ export default defineComponent({
       json: "",
       html: "",
       toggleDiff: true,
+      aiLoading: false,
       affixRelativeElement: "affix-relative-element",
       status: 'connecting',
       state:false,
@@ -707,7 +746,14 @@ export default defineComponent({
 
   watch: {
     async modelValue(value) {
-      await this.updateInitialeValue(value)
+      if (!this.collab && this.initialeDataUpdated) {
+        // For non-collaborative editors, sync editor content whenever modelValue changes
+        if (this.editor && this.editor.getHTML() !== value) {
+          this.editor.commands.setContent(value || '', false);
+        }
+      } else {
+        await this.updateInitialeValue(value)
+      }
     },
     editable(value) {
       //this.editor.setOptions({ editable: this.editable });
@@ -782,6 +828,7 @@ export default defineComponent({
           language: 'auto',   
           automaticMode: true, // 1 second delay before verification
         }),
+        AiAssistantExtension,
       ]
      if(this.collab){
 
@@ -1109,6 +1156,20 @@ export default defineComponent({
       }
       return document.createTextNode('');
     },
+    runAi(action) {
+      if (!this.editor) return;
+      this.aiLoading = true;
+      const done = () => { this.aiLoading = false; };
+      if (action === 'generate') {
+        this.editor.commands.aiGenerate(this.fieldName, this.aiContext);
+      } else if (action === 'complete') {
+        this.editor.commands.aiComplete(this.fieldName, this.aiContext);
+      } else if (action === 'rewrite') {
+        this.editor.commands.aiRewrite(this.fieldName, this.aiContext);
+      }
+      setTimeout(done, 30000);
+    },
+
     updateHTML() {
       if (!this.initialeDataUpdated) return;
       this.json = this.editor.getJSON();

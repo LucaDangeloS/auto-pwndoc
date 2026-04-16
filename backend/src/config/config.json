@@ -8,26 +8,8 @@
             "port": "27017"
         },
         "apidoc": true,
-        "jwtSecret": "30af46140cbdcedda17bdc5ec3e444a32511b69e884a7430f0f8187492d9a8fa",
-        "jwtRefreshSecret": "721ee96789df229ebc5595d5a4bfc2605b3c27a75566b07da98dfbb8cc65bf31",
-        "ai": {
-            "enabled": true,
-            "vectorStore": {
-                "url": "http://pwndoc-chroma:8000",
-                "collection": "pwndoc-findings"
-            },
-            "generation": {
-                "baseUrl": "http://host.docker.internal:11434/v1",
-                "apiKey": "ollama",
-                "model": "deepseek-r1:7b",
-                "temperature": 0.7
-            },
-            "embeddings": {
-                "baseUrl": "http://host.docker.internal:11434/v1",
-                "apiKey": "ollama",
-                "model": "nomic-embed-text"
-            }
-        }
+        "jwtSecret": "555e057f456279dd97365feba458dbf5c05aa556143ad911cdb5f01f91ac9018",
+        "jwtRefreshSecret": "fb11babd04f74390dd6b9370a58cfa7fe23159f9d12ac0db36a6802e13cf6d36"
     },
     "prod": {
         "port": 4242,
@@ -47,6 +29,8 @@
             "server": "127.0.0.1",
             "port": "27017"
         },
-        "apidoc": true
+        "apidoc": true,
+        "jwtSecret": "84423c9d19bf84fdd044d079a14f17c0a1e7b135bebfd64b3eec4e7c76be23dc",
+        "jwtRefreshSecret": "fa6bf4b4a59321dec185b0a91f09dcfeeb126404bc865df945cfc51a65f3be91"
     }
 }

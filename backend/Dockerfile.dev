@@ -5,7 +5,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN apk --no-cache add --virtual builds-deps build-base python3 git
 RUN npm install
-COPY . .
-ENV NODE_ENV dev
+# Source files are bind-mounted at runtime; no need to COPY them into the image.
+# node_modules stay in the image layer so the named volume is pre-populated on
+# first start and host changes to package.json don't shadow installed packages.
+ENV NODE_ENV=dev
 ENV NODE_ICU_DATA=node_modules/full-icu
 ENTRYPOINT [ "npm", "run", "dev"]

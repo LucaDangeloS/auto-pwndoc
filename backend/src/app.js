@@ -1,3 +1,11 @@
+// Suppress noisy ChromaDB "No embedding function" stderr messages — expected
+// because we pass embeddingFunction:null and compute vectors ourselves.
+var _origStderrWrite = process.stderr.write.bind(process.stderr);
+process.stderr.write = function(chunk) {
+    if (typeof chunk === 'string' && chunk.includes('No embedding function')) return true;
+    return _origStderrWrite.apply(process.stderr, arguments);
+};
+
 var fs = require('fs');
 var app = require('express')();
 var https = require('https').Server({
@@ -112,7 +120,6 @@ require('./routes/client')(app);
 require('./routes/company')(app);
 require('./routes/vulnerability')(app);
 require('./routes/template')(app);
-require('./routes/vulnerability')(app);
 require('./routes/data')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
@@ -120,6 +127,29 @@ require('./routes/ai')(app);
 
 const { cronJobs } = require('./lib/cron');
 cronJobs();
+
+// Startup embedding sync: if embeddingEnabled and collection is empty, re-index all vulnerabilities
+(async () => {
+    try {
+        var Settings = require('mongoose').model('Settings');
+        var embeddingService = require('./lib/embedding-service');
+        var settings = await Settings.getAll();
+        if (!settings || !settings.ai || !settings.ai.enabled || !settings.ai.embeddingEnabled) return;
+        var ai = settings.toObject().ai;
+        var { ChromaClient } = require('chromadb');
+        var client = new ChromaClient({ host: process.env.CHROMA_HOST || 'chroma', port: parseInt(process.env.CHROMA_PORT || '8000', 10), ssl: false });
+        var collection = await client.getOrCreateCollection({ name: 'vulnerabilities', embeddingFunction: null });
+        var count = await collection.count();
+        if (count === 0) {
+            console.log('[Embedding] Collection empty at startup — re-indexing all vulnerabilities in background');
+            embeddingService.reindexAll(ai).catch(err => console.error('[Embedding] Startup re-index error:', err.message));
+        } else {
+            console.log(`[Embedding] Collection has ${count} entries — skipping startup re-index`);
+        }
+    } catch (err) {
+        console.error('[Embedding] Startup check error (non-fatal):', err.message);
+    }
+})();
 
 var hocus = require('@hocuspocus/server')
 var acl = require('./lib/auth').acl;
@@ -166,7 +196,7 @@ if(config.apidoc) {
 }
 
 
-app.get("*", function(req, res) {
+app.use(function(req, res) {
     res.status(404).json({"status": "error", "data": "Route undefined"});
 })
 

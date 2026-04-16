@@ -63,7 +63,7 @@ module.exports = function(app) {
     });
     
     // Delete Language
-    app.delete("/api/data/languages/:locale(*)", acl.hasPermission('languages:delete'), function(req, res) {
+    app.delete("/api/data/languages/:locale", acl.hasPermission('languages:delete'), function(req, res) {
         // #swagger.tags = ['Data']
 
         Language.delete(req.params.locale)
@@ -138,7 +138,7 @@ module.exports = function(app) {
     });
     
     // Delete audit type
-    app.delete("/api/data/audit-types/:name(*)", acl.hasPermission('audit-types:delete'), function(req, res) {
+    app.delete("/api/data/audit-types/:name", acl.hasPermission('audit-types:delete'), function(req, res) {
         // #swagger.tags = ['Data']
 
         AuditType.delete(req.params.name)
@@ -207,7 +207,7 @@ module.exports = function(app) {
     });
     
     // Delete vulnerability type
-    app.delete("/api/data/vulnerability-types/:name(*)", acl.hasPermission('vulnerability-types:delete'), function(req, res) {
+    app.delete("/api/data/vulnerability-types/:name", acl.hasPermission('vulnerability-types:delete'), function(req, res) {
         // #swagger.tags = ['Data']
 
         VulnerabilityType.delete(req.params.name)
@@ -316,7 +316,7 @@ module.exports = function(app) {
     });
     
     // Delete vulnerability category
-    app.delete("/api/data/vulnerability-categories/:name(*)", acl.hasPermission('vulnerability-categories:delete'), function(req, res) {
+    app.delete("/api/data/vulnerability-categories/:name", acl.hasPermission('vulnerability-categories:delete'), function(req, res) {
         // #swagger.tags = ['Data']
 
         VulnerabilityCategory.delete(req.params.name)
@@ -364,7 +364,7 @@ module.exports = function(app) {
     });
     
     // Delete section
-    app.delete("/api/data/sections/:field/:locale(*)", acl.hasPermission('sections:delete'), function(req, res) {
+    app.delete("/api/data/sections/:field/:locale", acl.hasPermission('sections:delete'), function(req, res) {
         // #swagger.tags = ['Data']
 
         CustomSection.delete(req.params.field, req.params.locale)

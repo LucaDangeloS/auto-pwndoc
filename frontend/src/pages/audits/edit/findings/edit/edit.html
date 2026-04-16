@@ -15,6 +15,15 @@
             @click="backupFinding()"
           />
           <q-btn
+            v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && $settings && $settings.ai && $settings.ai.enabled && $settings.ai.embeddingEnabled"
+            color="secondary"
+            class="q-mr-sm"
+            no-caps
+            icon="search"
+            :label="$t('similarVulnSearch')"
+            @click="searchSimilarVulns()"
+          />
+          <q-btn
             color="negative"
             class="q-mr-sm"
             :label="$t('btn.delete')"
@@ -111,6 +120,8 @@
                       v-on:editorchange="readyToSave ? needSave = true : null"
                       v-on:ready="readyToSave = true"
                       idUnique="basiceditor_description"
+                      fieldName="description"
+                      :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
                       noSync
                       :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
@@ -123,6 +134,8 @@
                       v-model="finding.observation"
                       v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_observation"
+                      fieldName="observation"
+                      :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
                       noSync
                       :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
@@ -164,12 +177,26 @@
             <div class="q-col-gutter-md row">
               <div class="col-12">
                 <q-card>
+                  <q-card-section v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && $settings && $settings.ai && $settings.ai.enabled && $settings.ai.visionEnabled" class="q-pb-none row justify-end">
+                    <q-btn
+                      color="secondary"
+                      no-caps
+                      icon="image_search"
+                      :label="$t('searchSimilarFromProofs')"
+                      :loading="similarVulnLoading && similarVulnIsProofMode"
+                      @click="searchSimilarFromProofs()"
+                      size="sm"
+                      outline
+                    />
+                  </q-card-section>
                   <q-card-section>
                     <basic-editor
                       ref="basiceditor_poc"
                       v-model="finding.poc"
                       v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_poc"
+                      fieldName="poc"
+                      :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
                       noSync
                       :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
@@ -254,6 +281,8 @@
                       v-model="finding.remediation"
                       v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_remediation"
+                      fieldName="remediation"
+                      :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
                       noSync
                       :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
@@ -264,6 +293,20 @@
           </q-tab-panel>
         </q-tab-panels>
       </div>
+
+      <similar-vuln-modal
+        v-model="similarVulnModalOpen"
+        :results="similarVulnResults"
+        :loading="similarVulnLoading"
+        :error="similarVulnError"
+        :current-finding="finding"
+        :is-proof-mode="similarVulnIsProofMode"
+        :vision-summary="proofVisionSummary"
+        :generated-poc="proofGeneratedPoc"
+        :poc-loading="proofPocLoading"
+        @apply="applySimilarVuln"
+        @select="onProofResultSelected"
+      />
     </div>
   </template>
   

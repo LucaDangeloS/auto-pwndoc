@@ -6,6 +6,7 @@ import Breadcrumb from 'components/breadcrumb';
 import CvssCalculatorUnified from 'components/cvss-calculator-unified';
 import TextareaArray from 'components/textarea-array';
 import CustomFields from 'components/custom-fields';
+import SimilarVulnModal from 'components/similar-vuln-modal';
 
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
@@ -49,8 +50,16 @@ export default {
       filteredVulnTypes: [],
       readyToSave: false,
       needSave: false,
-      aiLoading: false,
       AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
+      similarVulnModalOpen: false,
+      similarVulnResults: [],
+      similarVulnLoading: false,
+      similarVulnError: '',
+      similarVulnIsProofMode: false,
+      proofVisionSummary: '',
+      proofImageDescriptions: [],
+      proofGeneratedPoc: '',
+      proofPocLoading: false,
     };
   },
 
@@ -60,6 +69,7 @@ export default {
     CvssCalculatorUnified,
     TextareaArray,
     CustomFields,
+    SimilarVulnModal,
   },
 
   mounted() {
@@ -371,47 +381,124 @@ export default {
       return this.needSave;
     },
 
-    generateAiDescription() {
+    searchSimilarVulns() {
       if (!this.finding.title) {
-          Notify.create({
-              message: $t('msg.fieldRequired'),
-              color: 'negative',
-              textColor: 'white',
-              position: 'top-right'
-          })
-          return
+        Notify.create({
+          message: $t('similarVulnNeedTitle'),
+          color: 'warning',
+          textColor: 'white',
+          position: 'top-right',
+        });
+        return;
       }
-      
-      this.aiLoading = true
-      AiService.generate(`Write a detailed description for a vulnerability titled "${this.finding.title}".`)
-      .then((response) => {
-          if (this.finding.description) {
-              this.finding.description += "<br><br>" + response.data.datas.replace(/\n/g, "<br>")
-          } else {
-              this.finding.description = response.data.datas.replace(/\n/g, "<br>")
-          }
-          if (this.$refs.basiceditor_description)
-            this.$refs.basiceditor_description.updateHTML() 
-          this.needSave = true
+      Utils.syncEditors(this.$refs);
+      const locale = this.localAudit.language || 'en';
+      const query = [this.finding.title, this.finding.description ? this.finding.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : ''].filter(Boolean).join('\n').slice(0, 500);
+      this.similarVulnResults = [];
+      this.similarVulnError = '';
+      this.similarVulnLoading = true;
+      this.similarVulnIsProofMode = false;
+      this.proofVisionSummary = '';
+      this.proofImageDescriptions = [];
+      this.proofGeneratedPoc = '';
+      this.similarVulnModalOpen = true;
+      AiService.searchSimilar(query, locale)
+        .then((data) => {
+          this.similarVulnResults = data.data.datas || [];
+        })
+        .catch((err) => {
+          this.similarVulnError = err.response?.data?.datas || $t('aiError');
+        })
+        .finally(() => {
+          this.similarVulnLoading = false;
+        });
+    },
+
+    applySimilarVuln(result) {
+      if (result.description !== undefined) this.finding.description = result.description;
+      if (result.observation !== undefined) this.finding.observation = result.observation;
+      if (result.remediation !== undefined) this.finding.remediation = result.remediation;
+      if (result.references !== undefined) this.finding.references = result.references;
+      if (result.cvssv3 !== undefined) this.finding.cvssv3 = result.cvssv3;
+      if (result.cvssv4 !== undefined) this.finding.cvssv4 = result.cvssv4;
+      if (result.poc !== undefined) this.finding.poc = result.poc;
+      nextTick(() => {
+        Utils.syncEditors(this.$refs);
+        this.needSave = true;
+      });
+      Notify.create({
+        message: $t('similarVulnApplied'),
+        color: 'positive',
+        textColor: 'white',
+        position: 'top-right',
+      });
+    },
+
+    searchSimilarFromProofs() {
+      Utils.syncEditors(this.$refs);
+      const locale = this.localAudit.language || 'en';
+      if (!this.finding.poc || !this.finding.poc.trim()) {
+        Notify.create({
+          message: $t('proofSearchNeedContent'),
+          color: 'warning',
+          textColor: 'white',
+          position: 'top-right',
+        });
+        return;
+      }
+      this.similarVulnResults = [];
+      this.similarVulnError = '';
+      this.similarVulnLoading = true;
+      this.similarVulnIsProofMode = true;
+      this.proofVisionSummary = '';
+      this.proofImageDescriptions = [];
+      this.proofGeneratedPoc = '';
+      this.similarVulnModalOpen = true;
+      AiService.analyzeProofs(this.finding.poc, locale)
+        .then((data) => {
+          const result = data.data.datas || {};
+          this.proofVisionSummary = result.visionSummary || '';
+          this.proofImageDescriptions = result.imageDescriptions || [];
+          this.similarVulnResults = result.similarResults || [];
+        })
+        .catch((err) => {
+          this.similarVulnError = err.response?.data?.datas || $t('aiError');
+        })
+        .finally(() => {
+          this.similarVulnLoading = false;
+        });
+    },
+
+    onProofResultSelected(result) {
+      if (!this.similarVulnIsProofMode || !result) return;
+      this.proofGeneratedPoc = '';
+      this.proofPocLoading = true;
+      const locale = this.localAudit.language || 'en';
+      AiService.generate({
+        action: 'fill-proofs',
+        fieldName: 'poc',
+        context: {
+          findingTitle: result.title || this.finding.title,
+          locale,
+          vulnDescription: result.description || '',
+          visionSummary: this.proofVisionSummary,
+          imageDescriptions: this.proofImageDescriptions,
+        }
+      })
+        .then((data) => {
+          this.proofGeneratedPoc = (data.data.datas && data.data.datas.html) || '';
+        })
+        .catch((err) => {
           Notify.create({
-              message: 'AI Generation Successful',
-              color: 'positive',
-              textColor: 'white',
-              position: 'top-right'
-          })
-      })
-      .catch((err) => {
-          console.error(err)
-          Notify.create({
-              message: err.response?.data?.datas || 'AI Generation Failed',
-              color: 'negative',
-              textColor: 'white',
-              position: 'top-right'
-          })
-      })
-      .finally(() => {
-          this.aiLoading = false
-      })
-    }
+            message: err.response?.data?.datas || $t('aiError'),
+            color: 'negative',
+            textColor: 'white',
+            position: 'top-right',
+          });
+        })
+        .finally(() => {
+          this.proofPocLoading = false;
+        });
+    },
   },
 };

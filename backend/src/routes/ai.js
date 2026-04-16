@@ -1,45 +1,197 @@
+'use strict';
+
 module.exports = function(app) {
-    var Response = require('../lib/httpResponse.js');
+    var Response = require('../lib/httpResponse');
     var acl = require('../lib/auth').acl;
-    var AiService = require('../lib/ai');
+    var aiService = require('../lib/ai-service');
+    var embeddingService = require('../lib/embedding-service');
+    var visionService = require('../lib/vision-service');
+    var Settings = require('mongoose').model('Settings');
 
-    // Generate text using AI
-    app.post("/api/ai/generate", acl.hasPermission('vulnerabilities:read'), async function(req, res) {
-        // #swagger.tags = ['AI']
-        // #swagger.parameters['body'] = {
-        //     in: 'body',
-        //     description: 'Prompt and context for generation',
-        //     required: true,
-        //     schema: {
-        //         prompt: "Write a description for a XSS vulnerability",
-        //         context: "Optional context"
-        //     }
-        // }
+    async function getAiSettings() {
+        var settings = await Settings.getAll();
+        if (!settings || !settings.ai) return null;
+        return settings.toObject().ai;
+    }
 
-        if (!req.body.prompt) {
-            Response.BadParameters(res, 'Required parameters: prompt');
-            return;
-        }
-
+    app.post('/api/ai/generate', acl.hasPermission('audits:read'), async function(req, res) {
         try {
-            // If context is provided, use it. Otherwise, perform RAG search.
-            let context = req.body.context || "";
-            
-            if (!context) {
-                // RAG: Search for similar findings
-                const similarDocs = await AiService.searchSimilar(req.body.prompt, 3);
-                if (similarDocs.length > 0) {
-                    context = similarDocs.map(doc => 
-                        `Title: ${doc.metadata.title}\nDescription: ${doc.content}\n`
-                    ).join('\n---\n');
+            var aiSettings = await getAiSettings();
+
+            if (!aiSettings || !aiSettings.enabled) {
+                return Response.Forbidden(res, 'AI features are not enabled');
+            }
+
+            var { action, text, fieldName, context } = req.body;
+
+            if (!action || !['generate', 'complete', 'rewrite', 'fill-proofs'].includes(action)) {
+                return Response.BadParameters(res, 'Invalid action. Must be one of: generate, complete, rewrite, fill-proofs');
+            }
+
+            var enrichedContext = context || {};
+
+            if (fieldName && enrichedContext.findingTitle && aiSettings.embeddingEnabled) {
+                try {
+                    var locale = enrichedContext.locale || 'en';
+                    var similar = await embeddingService.searchSimilar(
+                        enrichedContext.findingTitle,
+                        locale,
+                        aiSettings,
+                        3
+                    );
+                    enrichedContext.similarVulns = similar;
+                } catch (embErr) {
+                    console.error('[AI] Embedding search failed (skipping RAG):', embErr.message);
+                    enrichedContext.similarVulns = [];
                 }
             }
 
-            const result = await AiService.generate(req.body.prompt, context);
-            Response.Ok(res, result);
+            var result = await aiService.generate({
+                action,
+                text: text || '',
+                fieldName: fieldName || '',
+                context: enrichedContext,
+                aiSettings
+            });
+
+            return Response.Ok(res, result);
         } catch (err) {
-            console.error(err);
-            Response.Internal(res, err);
+            console.error('[AI] Generation error:', err.message);
+            return Response.Internal(res, err.message || 'AI generation failed');
         }
     });
-}
+
+    app.post('/api/ai/search-similar', acl.hasPermission('vulnerabilities:read'), async function(req, res) {
+        try {
+            var aiSettings = await getAiSettings();
+
+            if (!aiSettings || !aiSettings.enabled || !aiSettings.embeddingEnabled) {
+                return Response.Forbidden(res, 'Embedding features are not enabled');
+            }
+
+            var { query, locale } = req.body;
+
+            if (!query) {
+                return Response.BadParameters(res, 'query is required');
+            }
+
+            var Vulnerability = require('mongoose').model('Vulnerability');
+            var similar = await embeddingService.searchSimilar(query, locale || 'en', aiSettings);
+
+            var enriched = await Promise.all(similar.map(async (r) => {
+                try {
+                    var vuln = await Vulnerability.findById(r.vulnId).lean();
+                    if (!vuln) return null;
+                    var detail = (vuln.details || []).find(d => d.locale === (locale || 'en')) || {};
+                    return {
+                        vulnId: r.vulnId,
+                        distance: r.distance,
+                        title: detail.title || r.title || '',
+                        vulnType: detail.vulnType || r.vulnType || '',
+                        category: vuln.category || r.category || '',
+                        description: detail.description || '',
+                        observation: detail.observation || '',
+                        remediation: detail.remediation || '',
+                        references: vuln.references || [],
+                        cvssv3: vuln.cvssv3 || '',
+                        cvssv4: vuln.cvssv4 || ''
+                    };
+                } catch (_) {
+                    return null;
+                }
+            }));
+
+            return Response.Ok(res, enriched.filter(Boolean));
+        } catch (err) {
+            console.error('[AI] Semantic search error:', err.message);
+            return Response.Internal(res, err.message || 'Semantic search failed');
+        }
+    });
+
+    app.post('/api/ai/reindex-all', acl.hasPermission('settings:update'), async function(req, res) {
+        try {
+            var aiSettings = await getAiSettings();
+
+            if (!aiSettings || !aiSettings.enabled || !aiSettings.embeddingEnabled) {
+                return Response.Forbidden(res, 'Embedding features are not enabled');
+            }
+
+            embeddingService.reindexAll(aiSettings)
+                .catch(err => console.error('[AI] Re-index error:', err.message));
+
+            return Response.Ok(res, { started: true });
+        } catch (err) {
+            console.error('[AI] Re-index error:', err.message);
+            return Response.Internal(res, err.message || 'Re-index failed');
+        }
+    });
+
+    app.post('/api/ai/analyze-proofs', acl.hasPermission('audits:read'), async function(req, res) {
+        try {
+            var aiSettings = await getAiSettings();
+
+            if (!aiSettings || !aiSettings.enabled) {
+                return Response.Forbidden(res, 'AI features are not enabled');
+            }
+
+            if (!aiSettings.visionEnabled) {
+                return Response.Forbidden(res, 'Vision features are not enabled');
+            }
+
+            var { pocHtml, locale } = req.body;
+
+            if (!pocHtml) {
+                return Response.BadParameters(res, 'pocHtml is required');
+            }
+
+            var visionResult = await visionService.analyzeProofs(pocHtml, aiSettings);
+
+            var similarResults = [];
+            if (aiSettings.embeddingEnabled && visionResult.visionSummary) {
+                try {
+                    var Vulnerability = require('mongoose').model('Vulnerability');
+                    var similar = await embeddingService.searchSimilar(
+                        visionResult.visionSummary,
+                        locale || 'en',
+                        aiSettings
+                    );
+
+                    similarResults = await Promise.all(similar.map(async (r) => {
+                        try {
+                            var vuln = await Vulnerability.findById(r.vulnId).lean();
+                            if (!vuln) return null;
+                            var detail = (vuln.details || []).find(d => d.locale === (locale || 'en')) || {};
+                            return {
+                                vulnId: r.vulnId,
+                                distance: r.distance,
+                                title: detail.title || r.title || '',
+                                vulnType: detail.vulnType || r.vulnType || '',
+                                category: vuln.category || r.category || '',
+                                description: detail.description || '',
+                                observation: detail.observation || '',
+                                remediation: detail.remediation || '',
+                                references: vuln.references || [],
+                                cvssv3: vuln.cvssv3 || '',
+                                cvssv4: vuln.cvssv4 || ''
+                            };
+                        } catch (_) {
+                            return null;
+                        }
+                    }));
+                    similarResults = similarResults.filter(Boolean);
+                } catch (embErr) {
+                    console.error('[AI] Embedding search after vision analysis failed:', embErr.message);
+                }
+            }
+
+            return Response.Ok(res, {
+                visionSummary: visionResult.visionSummary,
+                imageDescriptions: visionResult.imageDescriptions,
+                similarResults
+            });
+        } catch (err) {
+            console.error('[AI] Proof analysis error:', err.message);
+            return Response.Internal(res, err.message || 'Proof analysis failed');
+        }
+    });
+};

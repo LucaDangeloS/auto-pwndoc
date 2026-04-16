@@ -64,7 +64,62 @@ const SettingSchema = new Schema({
         nbdaydelete: { type: Number, default: 1, min: 1, max: 365, validate: [Number.isInteger, 'Invalid integer'] }
       },
       private: {}
-     }
+     },
+    ai: {
+      enabled: { type: Boolean, default: false },
+      embeddingEnabled: { type: Boolean, default: false },
+      public: {
+        provider: {
+          type: String,
+          enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible'],
+          default: 'openai'
+        },
+        model: { type: String, default: 'gpt-4o' },
+        temperature: { type: Number, default: 0.7, min: 0, max: 2 },
+        maxTokens: { type: Number, default: 4096, min: 1, max: 128000 },
+        embeddingProvider: {
+          type: String,
+          enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible'],
+          default: 'openai'
+        },
+        embeddingModel: { type: String, default: 'text-embedding-3-small' },
+        embeddingMaxDistance: { type: Number, default: 0.8, min: 0.01, max: 2 },
+      },
+      private: {
+        apiUrl: { type: String, default: '' },
+        apiKey: { type: String, default: '' },
+        systemPrompt: { type: String, default: '' },
+        userPrompt: { type: String, default: '' },
+        azure: {
+          deploymentName: { type: String, default: '' },
+          apiVersion: { type: String, default: '2024-06-01' }
+        },
+        embeddingApiUrl: { type: String, default: '' },
+        embeddingApiKey: { type: String, default: '' },
+        embeddingAzure: {
+          deploymentName: { type: String, default: '' },
+          apiVersion: { type: String, default: '2024-06-01' }
+        },
+        visionApiUrl: { type: String, default: '' },
+        visionApiKey: { type: String, default: '' },
+        visionAzure: {
+          deploymentName: { type: String, default: '' },
+          apiVersion: { type: String, default: '2024-06-01' }
+        },
+        visionSystemPrompt: { type: String, default: '' },
+        visionAnonymizeLlm: { type: Boolean, default: false },
+        visionAnonymizeRegex: { type: Boolean, default: false }
+      },
+      visionEnabled: { type: Boolean, default: false },
+      visionPublic: {
+        visionProvider: {
+          type: String,
+          enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible'],
+          default: 'openai'
+        },
+        visionModel: { type: String, default: 'gpt-4o' }
+      }
+    }
 }, {strict: true});
 
 // Get all settings
@@ -84,7 +139,7 @@ SettingSchema.statics.getAll = () => {
 SettingSchema.statics.getPublic = () => {
     return new Promise((resolve, reject) => {
         const query = Settings.findOne({});
-        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public');
+        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public ai.enabled ai.embeddingEnabled ai.public ai.visionEnabled ai.visionPublic');
         query.exec()
             .then(settings => resolve(settings))
             .catch(err => reject(err));

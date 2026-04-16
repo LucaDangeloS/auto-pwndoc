@@ -2,23 +2,24 @@
   <q-layout ref="layout" view="hHr LpR lFf" :class="$q.dark.isActive ? '' : 'home-background'">
     <q-header>
         <q-toolbar class="bg-fixed-primary">
-            <img src="pwndoc-logo-white.png" style="max-height:50px;" />
-            
-            <q-item to='/audits' active-class="text-green">
+            <img src="logo_transparent.png" style="max-height:44px;" />
+
+            <!-- Desktop nav: hidden on xs/sm -->
+            <q-item class="gt-sm" to='/audits' active-class="text-green">
             <q-item-section avatar style="min-width:0" class="q-pr-sm">
                 <q-icon name="fa fa-fingerprint" />
             </q-item-section>
             <q-item-section>{{$t('nav.audits')}}</q-item-section>
             </q-item>
 
-            <q-item to='/vulnerabilities' active-class="text-green">
+            <q-item class="gt-sm" to='/vulnerabilities' active-class="text-green">
             <q-item-section avatar style="min-width:0" class="q-pr-sm">
                 <q-icon name="fa fa-shield-alt" />
             </q-item-section>
             <q-item-section>{{$t('nav.vulnerabilities')}}</q-item-section>
             </q-item>
 
-            <q-item to='/data/collaborators' active-class="text-green">
+            <q-item class="gt-sm" to='/data/collaborators' active-class="text-green">
             <q-item-section avatar style="min-width:0" class="q-pr-sm">
                 <q-icon name="fa fa-database" />
             </q-item-section>
@@ -27,13 +28,41 @@
 
             <q-space />
 
-              <q-item to='/settings' active-class="text-green">
-              <q-item-section avatar style="min-width:0" class="q-pr-sm">
-                  <q-icon name="fa fa-cog" />
-              </q-item-section>
-              <q-item-section>{{$t('settings')}}</q-item-section>
-              </q-item>
-            <q-btn-dropdown auto-close flat icon="fa fa-user-circle" no-caps :label="userService.user.username">
+            <q-item class="gt-sm" to='/settings' active-class="text-green">
+            <q-item-section avatar style="min-width:0" class="q-pr-sm">
+                <q-icon name="fa fa-cog" />
+            </q-item-section>
+            <q-item-section>{{$t('settings')}}</q-item-section>
+            </q-item>
+
+            <!-- Mobile hamburger: visible only on xs/sm -->
+            <q-btn-dropdown class="lt-md" auto-close flat dense icon="fa fa-bars">
+                <q-list>
+                  <q-item clickable :to="'/audits'">
+                    <q-item-section side><q-icon size="xs" name="fa fa-fingerprint" /></q-item-section>
+                    <q-item-section>{{$t('nav.audits')}}</q-item-section>
+                  </q-item>
+                  <q-item clickable :to="'/vulnerabilities'">
+                    <q-item-section side><q-icon size="xs" name="fa fa-shield-alt" /></q-item-section>
+                    <q-item-section>{{$t('nav.vulnerabilities')}}</q-item-section>
+                  </q-item>
+                  <q-item clickable :to="'/data/collaborators'">
+                    <q-item-section side><q-icon size="xs" name="fa fa-database" /></q-item-section>
+                    <q-item-section>{{$t('nav.data')}}</q-item-section>
+                  </q-item>
+                  <q-item clickable :to="'/settings'">
+                    <q-item-section side><q-icon size="xs" name="fa fa-cog" /></q-item-section>
+                    <q-item-section>{{$t('settings')}}</q-item-section>
+                  </q-item>
+                  <q-separator />
+                  <q-item clickable @click="toggleDarkMode()">
+                    <q-item-section side><q-icon size="xs" :name="$q.dark.isActive ? 'fa fa-sun' : 'fa fa-moon'" /></q-item-section>
+                    <q-item-section>{{ $q.dark.isActive ? 'Light' : 'Dark'}}-Mode</q-item-section>
+                  </q-item>
+                </q-list>
+            </q-btn-dropdown>
+
+            <q-btn-dropdown auto-close flat icon="fa fa-user-circle" no-caps :label="$q.screen.gt.sm ? userService.user.username : ''">
                 <q-list>
                   <q-item clickable @click="toggleDarkMode()">
                     <q-item-section side><q-icon size="xs" :name="$q.dark.isActive ? 'fa fa-sun' : 'fa fa-moon'" /></q-item-section>
@@ -85,7 +114,8 @@ export default defineComponent({
 </script>
 
 <style lang="stylus" scoped>
+@import 'src/css/quasar.variables.styl'
 .home-background {
-    background-color: #e6ecf0;
+    background-color: $slate100;
 }
 </style>

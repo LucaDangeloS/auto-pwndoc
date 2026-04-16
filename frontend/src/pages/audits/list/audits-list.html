@@ -41,6 +41,7 @@
               <q-toggle v-if="$settings.reviews.enabled && (UserService.isAllowed('audits:review') || UserService.isAllowed('audits:review-all'))" :label="$t('awaitingMyReview')" v-model="displayReadyForReview" />
               <q-space />
               <q-btn 
+              class="q-my-sm"
               color="secondary"
               unelevated
               :label="$t('newAudit')"

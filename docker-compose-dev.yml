@@ -1,8 +1,14 @@
+networks:
+  autodoc-net:
+    driver: bridge
+
 services:
 
   mongodb:
     image: mongo:4.2.15
     container_name: mongo-pwndoc-ng
+    networks:
+      - autodoc-net
     volumes:
       - mongo-data-dev:/data/db
     ports:
@@ -10,18 +16,6 @@ services:
     restart: always
     environment:
       - MONGO_DB=pwndoc
-
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: pwndoc-chroma
-    ports:
-      - 127.0.0.1:8000:8000
-    volumes:
-      - chroma-data-dev:/chroma/chroma
-    environment:
-      - IS_PERSISTENT=TRUE
-      - ALLOW_RESET=TRUE
-    restart: always
 
   backend:
     build:
@@ -31,6 +25,8 @@ services:
     entrypoint: ""
     working_dir: "/app"
     command: "npm run dev"
+    networks:
+      - autodoc-net
     volumes:
       - ./backend/src/:/app/src/
       - ./backend/report-templates/:/app/report-templates/
@@ -39,16 +35,20 @@ services:
       - ./backend/package.json:/app/package.json
       - ./backend/package-lock.json:/app/package-lock.json
       - ./backend/swagger.js:/app/swagger.js
+      - ./backend/nodemon.json:/app/nodemon.json
+      - backend-node-modules:/app/node_modules
     depends_on:
       - mongodb
+      - chroma
     restart: always
-    links:
-      - mongodb
 
   frontend-app:
     build:
       context: ./frontend/
       dockerfile: Dockerfile.dev
+    container_name: autodoc-frontend-app-1
+    networks:
+      - autodoc-net
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/ssl:/app/ssl
@@ -58,23 +58,37 @@ services:
       - ./frontend/quasar.conf.js:/app/quasar.conf.js
       - ./frontend/package.json:/app/package.json
       - ./frontend/package-lock.json:/app/package-lock.json
+      - frontend-node-modules:/app/node_modules
     restart: always
-    links:
-      - backend
 
   frontend:
     image: nginx:stable-alpine
     user: root
+    networks:
+      - autodoc-net
     volumes:
       - ./frontend/.docker/nginx.dev.conf:/etc/nginx/conf.d/default.conf
       - ./frontend/ssl:/etc/nginx/ssl/
     restart: always
     ports:
       - 8443:8443
-    links:
-      - frontend-app
-      - backend
+
+  chroma:
+    image: chromadb/chroma:1.5.5
+    container_name: pwndoc-ng-chroma
+    networks:
+      - autodoc-net
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      - chroma-data-dev:/data
+    ports:
+      - 127.0.0.1:8000:8000
+    restart: always
 
 volumes:
   mongo-data-dev:
   chroma-data-dev:
+  backend-node-modules:
+  frontend-node-modules:

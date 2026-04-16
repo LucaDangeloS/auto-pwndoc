@@ -7,7 +7,7 @@
     "category": "Injection",
     "details": [
       {
-        "locale": "en-US",
+        "locale": "en-GB",
         "title": "SQL Injection",
         "vulnType": "Web",
         "description": "<p>SQL Injection occurs when user-supplied data is incorporated into a database query without proper sanitisation, allowing an attacker to manipulate the query logic. This can lead to unauthorised data disclosure, modification, or deletion, and in some configurations remote code execution.</p>",
@@ -28,7 +28,7 @@
     "category": "Injection",
     "details": [
       {
-        "locale": "en-US",
+        "locale": "en-GB",
         "title": "Cross-Site Scripting (XSS)",
         "vulnType": "Web",
         "description": "<p>Cross-Site Scripting (XSS) allows attackers to inject malicious scripts into web pages viewed by other users. Reflected XSS is triggered via a crafted URL, while stored XSS persists in the application database and affects every user who views the infected content.</p>",
@@ -49,7 +49,7 @@
     "category": "Access Control",
     "details": [
       {
-        "locale": "en-US",
+        "locale": "en-GB",
         "title": "Insecure Direct Object Reference (IDOR)",
         "vulnType": "Web",
         "description": "<p>Insecure Direct Object Reference (IDOR) occurs when an application exposes internal implementation objects — such as database record IDs — directly to users without enforcing authorisation checks. An attacker can manipulate these references to access resources belonging to other users.</p>",
@@ -70,7 +70,7 @@
     "category": "Server-Side",
     "details": [
       {
-        "locale": "en-US",
+        "locale": "en-GB",
         "title": "Server-Side Request Forgery (SSRF)",
         "vulnType": "Web",
         "description": "<p>Server-Side Request Forgery (SSRF) allows an attacker to induce the server to make HTTP requests to an arbitrary destination, including internal services not accessible from the internet. This can be used to enumerate internal infrastructure, exfiltrate cloud metadata credentials, or pivot to otherwise unreachable systems.</p>",
@@ -91,7 +91,7 @@
     "category": "Authentication",
     "details": [
       {
-        "locale": "en-US",
+        "locale": "en-GB",
         "title": "Broken Authentication",
         "vulnType": "Web",
         "description": "<p>Broken Authentication encompasses weaknesses in session management or credential handling that allow attackers to compromise passwords, keys, or session tokens, or to exploit other implementation flaws to assume other users' identities temporarily or permanently.</p>",
@@ -112,7 +112,7 @@
     "category": "File System",
     "details": [
       {
-        "locale": "en-US",
+        "locale": "en-GB",
         "title": "Path Traversal",
         "vulnType": "Web",
         "description": "<p>Path Traversal (also known as Directory Traversal) allows an attacker to read files outside the intended directory by manipulating file path references with sequences such as <code>../</code>. Sensitive files such as <code>/etc/passwd</code>, application source code, or private keys may be exposed.</p>",
@@ -133,7 +133,7 @@
     "category": "Injection",
     "details": [
       {
-        "locale": "en-US",
+        "locale": "en-GB",
         "title": "Command Injection",
         "vulnType": "Web",
         "description": "<p>Command Injection occurs when user-supplied data is passed to a system shell without proper sanitisation. An attacker can append shell metacharacters to execute arbitrary operating system commands with the privileges of the web server process.</p>",
@@ -154,7 +154,7 @@
     "category": "Deserialisation",
     "details": [
       {
-        "locale": "en-US",
+        "locale": "en-GB",
         "title": "Insecure Deserialization",
         "vulnType": "Web",
         "description": "<p>Insecure Deserialization occurs when an application deserialises untrusted data without sufficient validation. Attackers can craft malicious serialised payloads to achieve remote code execution, privilege escalation, or denial of service depending on the libraries and gadget chains available on the target system.</p>",
@@ -175,7 +175,7 @@
     "category": "Configuration",
     "details": [
       {
-        "locale": "en-US",
+        "locale": "en-GB",
         "title": "Security Misconfiguration",
         "vulnType": "Web",
         "description": "<p>Security Misconfiguration results from insecure default configurations, incomplete setup, open cloud storage, misconfigured HTTP headers, or verbose error messages that expose internal details. It is the most commonly observed vulnerability class and often arises from a lack of a hardening process.</p>",
@@ -196,7 +196,7 @@
     "category": "Cryptography",
     "details": [
       {
-        "locale": "en-US",
+        "locale": "en-GB",
         "title": "Sensitive Data Exposure",
         "vulnType": "Web",
         "description": "<p>Sensitive Data Exposure occurs when an application does not adequately protect sensitive information such as passwords, credit card numbers, health records, or personal data. This may result from weak encryption, missing encryption, improper key management, or exposure in logs and error messages.</p>",

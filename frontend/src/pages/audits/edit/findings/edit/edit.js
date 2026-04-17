@@ -59,6 +59,9 @@ export default {
       readyToSave: false,
       // needSave: structural dirty flag driven by _.isEqual(finding, findingOrig)
       needSave: false,
+      // _baselining: suppresses the finding watcher during sync/snapshot operations
+      // that mutate finding and findingOrig together (tab switches, initial load).
+      _baselining: false,
       AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
       similarVulnModalOpen: false,
       similarVulnResults: [],
@@ -84,12 +87,12 @@ export default {
 
   watch: {
     // Structural dirty check: compare finding against the server snapshot.
-    // Runs on any change to any field, including title, cvss, priority, etc.
-    // Only active after the initial data load is complete (findingOrig !== null).
+    // Suppressed during baseline sync operations (_baselining flag) and before
+    // initial load completes (findingOrig === null).
     finding: {
       deep: true,
       handler() {
-        if (this.findingOrig === null) return;
+        if (this.findingOrig === null || this._baselining) return;
         this.needSave = !this.$_.isEqual(this.finding, this.findingOrig);
       },
     },
@@ -230,15 +233,17 @@ export default {
 
       Promise.all([customFieldsPromise, findingPromise])
         .then(() => {
-          // Both fetches done — safe to merge custom field schema into finding
+          // Suppress watcher while we normalise finding and take the snapshot —
+          // none of these mutations represent user edits.
+          this._baselining = true;
           this.initCustomFieldsForFinding();
 
           this.$nextTick(() => {
             Utils.syncEditors(this.$refs);
-            // Snapshot the fully-normalised finding as the server baseline.
-            // The watcher compares against this; needSave starts false.
             this.findingOrig = this.$_.cloneDeep(this.finding);
+            this.needSave = false;
             this.loading = false;
+            this._baselining = false;
           });
         })
         .catch((err) => {
@@ -419,6 +424,12 @@ export default {
     // then re-baseline findingOrig for those fields, so the first visit doesn't
     // falsely trigger the dirty flag due to editor initialisation noise.
     updateOrig() {
+      // Suppress the watcher for the duration of this sync — we're bringing
+      // findingOrig up to date with the editor's normalised HTML, not making
+      // user edits. Without this, the watcher fires mid-mutation and sets
+      // needSave = true before findingOrig is patched to match.
+      this._baselining = true;
+
       if (this.selectedTab === 'proofs' && !this.proofsTabVisited) {
         this.finding.poc = this.finding.poc || '';
         Utils.syncEditors(this.$refs);
@@ -438,7 +449,10 @@ export default {
         if (this.findingOrig) this.findingOrig.remediation = this.finding.remediation;
         this.detailsTabVisited = true;
       }
-      // After re-baselining, force needSave recheck
+
+      this._baselining = false;
+      // Do a single authoritative recheck now that both finding and findingOrig
+      // are in sync. This correctly handles subsequent tab revisits too.
       if (this.findingOrig !== null) {
         this.needSave = !this.$_.isEqual(this.finding, this.findingOrig);
       }

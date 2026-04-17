@@ -60,6 +60,7 @@ export default {
         auditUpdateOk: 'Auditoría actualizada correctamente',
         findingCreateOk: 'Hallazgo creado correctamente',
         findingUpdateOk: 'Hallazgo actualizado correctamente',
+        findingLoading: 'El hallazgo todavía se está cargando, espere por favor…',
         findingDeleteOk: 'Hallazgo eliminado correctamente',
         doYouWantToLeave: '¿Realmente deseas salir?',
         thereAreUnsavedChanges: '¡Hay cambios sin guardar!',

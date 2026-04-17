@@ -12,6 +12,7 @@
             class="q-mr-sm"
             :label="$t('btn.backupFinding')"
             no-caps
+            :disable="loading"
             @click="backupFinding()"
           />
           <q-btn
@@ -21,6 +22,7 @@
             no-caps
             icon="search"
             :label="$t('similarVulnSearch')"
+            :disable="loading"
             @click="searchSimilarVulns()"
           />
           <q-btn
@@ -28,12 +30,13 @@
             class="q-mr-sm"
             :label="$t('btn.delete')"
             no-caps
+            :disable="loading"
             @click="deleteFinding()"
             v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
           />
           <q-btn
             color="positive"
-            :disable="!readyToSave"
+            :disable="loading || !readyToSave"
             :label="$t('btn.save') + ' (ctrl+s)'"
             no-caps
             @click="updateFinding()"
@@ -41,7 +44,7 @@
           />
         </template>
       </breadcrumb>
-  
+
       <div class="row">
         <q-tabs
           v-model="selectedTab"
@@ -64,11 +67,12 @@
               checked-icon="check"
               unchecked-icon="clear"
               color="green"
+              :disable="loading"
             />
           </template>
           <q-space />
         </q-tabs>
-  
+
         <q-tab-panels
           v-model="selectedTab"
           animated
@@ -79,6 +83,9 @@
           <!-- DEFINITION -->
           <q-tab-panel name="definition">
             <q-card>
+              <q-inner-loading :showing="loading">
+                <q-spinner-dots size="40px" color="primary" />
+              </q-inner-loading>
               <q-card-section class="row q-col-gutter-md">
                 <q-input
                   class="col-md-8 col-12"
@@ -86,7 +93,7 @@
                   stack-label
                   v-model="finding.title"
                   outlined
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                  :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                 />
                 <q-select
                   class="col-md-4 col-12"
@@ -102,15 +109,16 @@
                   map-options
                   options-sanitize
                   outlined
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                  :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                 />
                 <div class="col-md-12 row items-center justify-between q-mt-sm">
                   <span class="text-subtitle2 text-grey-7">{{$t('description')}}</span>
-                  <q-btn 
+                  <q-btn
                     v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
-                    flat dense color="purple" icon="auto_awesome" :label="$t('aiSuggest')" 
-                    @click="generateAiDescription" 
+                    flat dense color="purple" icon="auto_awesome" :label="$t('aiSuggest')"
+                    @click="generateAiDescription"
                     :loading="aiLoading"
+                    :disable="loading"
                   />
                 </div>
                 <q-field class="col-md-12 basic-editor" borderless stack-label>
@@ -118,13 +126,12 @@
                     <basic-editor
                       ref="basiceditor_description"
                       v-model="finding.description"
-                      v-on:editorchange="readyToSave ? needSave = true : null"
                       v-on:ready="readyToSave = true"
                       idUnique="basiceditor_description"
                       fieldName="description"
                       :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
                   </template>
                 </q-field>
@@ -133,12 +140,11 @@
                     <basic-editor
                       ref="basiceditor_observation"
                       v-model="finding.observation"
-                      v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_observation"
                       fieldName="observation"
                       :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
                   </template>
                 </q-field>
@@ -146,10 +152,10 @@
                   class="col-12"
                   :label="$t('references')"
                   v-model="finding.references"
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                  :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                 />
               </q-card-section>
-  
+
               <q-expansion-item
                 :label="$t('customFields')"
                 v-if="finding.customFields !== undefined"
@@ -157,27 +163,27 @@
                 header-class="bg-blue-grey-5 text-white"
                 expand-icon-class="text-white"
               >
-   
-              <custom-fields
-              ref="customfields"
-              v-model="finding.customFields"
-              :category="finding.category || ''"
-              :idUnique="finding._id"
-              custom-element="QCardSection"
-              :locale="audit?.language || 'en'"
-            />
-
-
-            
+                <custom-fields
+                  ref="customfields"
+                  v-model="finding.customFields"
+                  :category="finding.category || ''"
+                  :idUnique="finding._id"
+                  custom-element="QCardSection"
+                  :locale="audit?.language || 'en'"
+                  :readonly="loading"
+                />
               </q-expansion-item>
             </q-card>
           </q-tab-panel>
-  
+
           <!-- PROOFS -->
           <q-tab-panel name="proofs">
             <div class="q-col-gutter-md row">
               <div class="col-12">
                 <q-card>
+                  <q-inner-loading :showing="loading">
+                    <q-spinner-dots size="40px" color="primary" />
+                  </q-inner-loading>
                   <q-card-section v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && $settings && $settings.ai && $settings.ai.enabled && $settings.ai.visionEnabled" class="q-pb-none row justify-end">
                     <q-btn
                       color="secondary"
@@ -185,6 +191,7 @@
                       icon="image_search"
                       :label="$t('searchSimilarFromProofs')"
                       :loading="similarVulnLoading && similarVulnIsProofMode"
+                      :disable="loading"
                       @click="searchSimilarFromProofs()"
                       size="sm"
                       outline
@@ -194,24 +201,26 @@
                     <basic-editor
                       ref="basiceditor_poc"
                       v-model="finding.poc"
-                      v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_poc"
                       fieldName="poc"
                       :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
                   </q-card-section>
                 </q-card>
               </div>
             </div>
           </q-tab-panel>
-  
+
           <!-- RETEST EVIDENCE -->
           <q-tab-panel name="retest" v-if="localAudit && localAudit.isRetest">
             <div class="q-col-gutter-md row">
               <div class="col-12">
                 <q-card>
+                  <q-inner-loading :showing="loading">
+                    <q-spinner-dots size="40px" color="primary" />
+                  </q-inner-loading>
                   <q-card-section class="row items-center q-pb-xs">
                     <span class="text-subtitle2">{{ $t('retestResult') }}</span>
                     <template-hint template-var="finding.retest_passed" />
@@ -226,14 +235,13 @@
                       unelevated
                       rounded
                       no-caps
-                      :disable="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                      @update:model-value="needSave = true"
+                      :disable="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     />
                     <q-btn
-                      v-if="finding.retestPassed !== null && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      v-if="finding.retestPassed !== null && !loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                       flat dense round icon="clear" color="grey-6" size="sm"
                       class="q-ml-xs"
-                      @click="finding.retestPassed = null; needSave = true"
+                      @click="finding.retestPassed = null"
                     >
                       <q-tooltip>{{ $t('retestClearResult') }}</q-tooltip>
                     </q-btn>
@@ -249,12 +257,11 @@
                     <basic-editor
                       ref="basiceditor_retestEvidence"
                       v-model="finding.retestEvidence"
-                      v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_retestEvidence"
                       fieldName="retestEvidence"
                       :aiContext="{ findingTitle: finding.title, locale: localAudit && localAudit.language }"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
                   </q-card-section>
                 </q-card>
@@ -265,6 +272,9 @@
           <!-- DETAILS -->
           <q-tab-panel name="details">
             <q-card>
+              <q-inner-loading :showing="loading">
+                <q-spinner-dots size="40px" color="primary" />
+              </q-inner-loading>
               <q-card-section>{{ $t('affectedAssets') }}</q-card-section>
               <q-separator />
               <q-card-section>
@@ -273,25 +283,30 @@
                     <basic-editor
                       v-model="finding.scope"
                       idUnique="basiceditor_scope"
-                      v-on:editorchange="readyToSave ? needSave = true : null"
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
                   </template>
                 </q-field>
               </q-card-section>
             </q-card>
-  
+
             <q-card class="q-mt-md bg-grey-1">
+              <q-inner-loading :showing="loading">
+                <q-spinner-dots size="40px" color="primary" />
+              </q-inner-loading>
               <div class="col-12">
                 <cvss-calculator-unified
                   v-model="finding.cvssv3"
                   v-model:cvssv4Value="finding.cvssv4"
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                  :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                 />
               </div>
             </q-card>
-  
+
             <q-card class="q-mt-md">
+              <q-inner-loading :showing="loading">
+                <q-spinner-dots size="40px" color="primary" />
+              </q-inner-loading>
               <q-card-section>{{ $t('courseOfActions') }}</q-card-section>
               <q-separator />
               <q-card-section>
@@ -310,7 +325,7 @@
                     emit-value
                     options-sanitize
                     outlined
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                    :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                   />
                   <q-select
                     :label="$t('priority')"
@@ -327,7 +342,7 @@
                     emit-value
                     options-sanitize
                     outlined
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                    :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                   />
                 </div>
                 <q-field class="col-md-12 basic-editor q-mt-md" borderless :label="$t('remediation')" stack-label>
@@ -335,12 +350,11 @@
                     <basic-editor
                       ref="basiceditor_remediation"
                       v-model="finding.remediation"
-                      v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_remediation"
                       fieldName="remediation"
                       :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
                   </template>
                 </q-field>
@@ -365,4 +379,3 @@
       />
     </div>
   </template>
-  

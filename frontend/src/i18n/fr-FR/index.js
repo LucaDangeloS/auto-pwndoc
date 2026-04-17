@@ -56,6 +56,7 @@ export default {
         auditUpdateOk: 'Audit mis à jour avec succès',
         findingCreateOk: 'Découverte créée avec succès',
         findingUpdateOk: 'Découverte modifiée avec succès',
+        findingLoading: 'Le constat est en cours de chargement, veuillez patienter…',
         findingDeleteOk: 'Découverte supprimée avec succès',
         doYouWantToLeave: 'Voulez-vous vraiment partir ?',
         thereAreUnsavedChanges: 'Il y a des modifications non enregistrées !',

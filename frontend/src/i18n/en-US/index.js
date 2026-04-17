@@ -60,6 +60,7 @@ export default {
         auditUpdateOk: 'Audit updated successfully',
         findingCreateOk: 'Finding created successfully',
         findingUpdateOk: 'Finding updated successfully',
+        findingLoading: 'Finding is still loading, please wait…',
         findingDeleteOk: 'Finding deleted successfully',
         doYouWantToLeave: 'Do you really want to leave ?',
         thereAreUnsavedChanges: 'There are unsaved changes !',

@@ -911,19 +911,23 @@ export default defineComponent({
   },
 
   async beforeUnmount() {
-    while(1){
-      if(this.state==1 && this.status=='connected') break;
-      else await this.sleep(100)
+    this._unmounting = true;
+    // Wait for the WebSocket to connect, but bail out after 3 seconds so
+    // navigation is never blocked by a stalled connection.
+    const deadline = Date.now() + 3000;
+    while (!this._unmounting || (this.state !== 1 || this.status !== 'connected')) {
+      if (this.state === 1 && this.status === 'connected') break;
+      if (Date.now() >= deadline) break;
+      await this.sleep(100);
     }
     if(this.collab){
       this.provider.destroy()
     }
-    
-    // Clean up auto correction listener
+
     if (this.autoCorrectionToggleListener) {
       window.removeEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
     }
-    
+
     this.editor.destroy();
   },
 

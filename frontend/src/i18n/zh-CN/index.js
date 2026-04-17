@@ -58,6 +58,7 @@ export default {
         auditUpdateOk: '项目更新成功',
         findingCreateOk: '问题创建成功',
         findingUpdateOk: '问题更新成功',
+        findingLoading: '发现正在加载中，请稍候…',
         findingDeleteOk: '问题删除成功',
         doYouWantToLeave: '你确定要离开吗？',
         thereAreUnsavedChanges: '有未保存的更改！',

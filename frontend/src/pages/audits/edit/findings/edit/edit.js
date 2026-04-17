@@ -45,14 +45,19 @@ export default {
         remediation: '',
       },
       localAudit: { language: '' },
-      findingOrig: {},
+      // Deep clone of the server state — used for structural dirty comparison
+      findingOrig: null,
       selectedTab: 'definition',
       proofsTabVisited: false,
       retestTabVisited: false,
       detailsTabVisited: false,
       vulnTypes: [],
       filteredVulnTypes: [],
+      // loading: true while either fetch (customFields or finding) is in flight
+      loading: true,
+      // readyToSave: true once editors have connected and initialised
       readyToSave: false,
+      // needSave: structural dirty flag driven by _.isEqual(finding, findingOrig)
       needSave: false,
       AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
       similarVulnModalOpen: false,
@@ -77,15 +82,29 @@ export default {
     TemplateHint,
   },
 
+  watch: {
+    // Structural dirty check: compare finding against the server snapshot.
+    // Runs on any change to any field, including title, cvss, priority, etc.
+    // Only active after the initial data load is complete (findingOrig !== null).
+    finding: {
+      deep: true,
+      handler() {
+        if (this.findingOrig === null) return;
+        this.needSave = !this.$_.isEqual(this.finding, this.findingOrig);
+      },
+    },
+  },
+
   mounted() {
     this.auditId = this.$route.params.auditId;
     this.findingId = this.$route.params.findingId;
-    this.getCustomFields().then( x => {
-      this.getFinding();
-    })
+
+    // Fetch customFields and finding in parallel — no sequential dependency.
+    // initCustomFieldsForFinding() runs only when both have resolved.
+    this._fetchFindingData();
+
     this.getAudit();
     this.getVulnTypes();
-    
 
     this.$socket.emit('menu', {
       menu: 'editFinding',
@@ -101,7 +120,23 @@ export default {
   },
 
   beforeRouteLeave(to, from, next) {
-    Utils.syncEditors(this.$refs);
+    // Only sync editors if they are fully initialised — avoids flushing
+    // empty strings from editors that haven't connected yet.
+    if (!this.loading) Utils.syncEditors(this.$refs);
+
+    if (this.loading) {
+      // Data still loading — block navigation to prevent saving an empty state.
+      Notify.create({
+        message: $t('msg.findingLoading'),
+        color: 'warning',
+        textColor: 'white',
+        position: 'top-right',
+        timeout: 1500,
+      });
+      next(false);
+      return;
+    }
+
     if (this.unsavedChanges()) {
       Dialog.create({
         title: $t('msg.thereAreUnsavedChanges'),
@@ -109,11 +144,25 @@ export default {
         ok: { label: $t('btn.confirm'), color: 'negative' },
         cancel: { label: $t('btn.cancel'), color: 'white' },
       }).onOk(() => next());
-    } else next();
+    } else {
+      next();
+    }
   },
 
   beforeRouteUpdate(to, from, next) {
-    Utils.syncEditors(this.$refs);
+    if (!this.loading) Utils.syncEditors(this.$refs);
+
+    if (this.loading) {
+      Notify.create({
+        message: $t('msg.findingLoading'),
+        color: 'warning',
+        textColor: 'white',
+        position: 'top-right',
+        timeout: 1500,
+      });
+      next(false);
+      return;
+    }
 
     if (this.unsavedChanges()) {
       Dialog.create({
@@ -122,7 +171,9 @@ export default {
         ok: { label: $t('btn.confirm'), color: 'negative' },
         cancel: { label: $t('btn.cancel'), color: 'white' },
       }).onOk(() => next());
-    } else next();
+    } else {
+      next();
+    }
   },
 
   computed: {
@@ -140,25 +191,62 @@ export default {
         e.keyCode == 83
       ) {
         e.preventDefault();
-        // Only trigger save if we're in the finding edit context
-        if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT && 
-            this.$route.name === 'editFinding')
-            this.updateFinding();
+        if (
+          this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT &&
+          this.$route.name === 'editFinding'
+        ) {
+          this.updateFinding();
+        }
       }
     },
-    getCustomFields: function() {
-      return new Promise((resolve, reject) => {
-          DataService.getCustomFields()
-          .then((data) => {
-              this.customFields = this.$_.cloneDeep(data.data.datas)
-              resolve();
-          })
-          .catch((err) => {
-              console.log(err)
-              reject();
-          })
+
+    // Fetch customFields and finding data in parallel.
+    // Both results are needed before initCustomFieldsForFinding() can run.
+    _fetchFindingData() {
+      this.loading = true;
+      this.findingOrig = null;
+      this.needSave = false;
+
+      const customFieldsPromise = DataService.getCustomFields()
+        .then((data) => {
+          this.customFields = this.$_.cloneDeep(data.data.datas);
+        });
+
+      const findingPromise = AuditService.getFinding(this.auditId, this.findingId)
+        .then((data) => {
+          this.finding = data.data.datas || {};
+
+          if (typeof this.finding.customFields === 'undefined') {
+            this.finding.customFields = [];
+          }
+
+          // Normalise text fields so empty ones are '' not undefined/null
+          ['description', 'observation', 'poc', 'retestEvidence', 'scope', 'remediation'].forEach(field => {
+            this.finding[field] = this.finding[field] || '';
+          });
+          if (this.finding.retestPassed === undefined) this.finding.retestPassed = null;
+          this.finding.references = this.finding.references || [];
+        });
+
+      Promise.all([customFieldsPromise, findingPromise])
+        .then(() => {
+          // Both fetches done — safe to merge custom field schema into finding
+          this.initCustomFieldsForFinding();
+
+          this.$nextTick(() => {
+            Utils.syncEditors(this.$refs);
+            // Snapshot the fully-normalised finding as the server baseline.
+            // The watcher compares against this; needSave starts false.
+            this.findingOrig = this.$_.cloneDeep(this.finding);
+            this.loading = false;
+          });
         })
+        .catch((err) => {
+          console.error('Error loading finding data:', err);
+          this.loading = false;
+        });
     },
+
     getAudit() {
       AuditService.getAudit(this.auditId)
         .then((data) => {
@@ -195,82 +283,33 @@ export default {
         );
       });
     },
-    initCustomFieldsForFinding() {
-        // Define the category and language to use
-        const categoryForFilter = this.finding.category || 'default';
-        const languageForFilter = (this.audit && this.audit.language) || 'en';
-        
-        // If no custom field is defined, we create the default structure
-        if (!this.finding.customFields || this.finding.customFields.length === 0) {
 
-         const  findingCustomField = this.$_.cloneDeep(
-            Utils.filterCustomFields(
-              'finding',              
-              categoryForFilter,     
-              this.customFields,     
-              [],                  
-              languageForFilter  
-            )
-          )
-          const existingKeys = new Set(findingCustomField.map(field => field.key));
-         const vulnerabilityCustomField = this.$_.cloneDeep(
-            Utils.filterCustomFields(
-              'vulnerability',              
-              categoryForFilter,     
-              this.customFields,     
-              [],                  
-              languageForFilter  
-            ).filter(field => !existingKeys.has(field.key))
-          )
-          this.finding.customFields = [ ...findingCustomField,...vulnerabilityCustomField ];
-        }
-        else {
-          // Retrieve existing fields to avoid duplicates
-          const existingKeys = new Set(this.finding.customFields.map(field => field.key));
-        
-          const newFindingFields = this.$_.cloneDeep(
-            Utils.filterCustomFields('finding', categoryForFilter, this.customFields, this.finding.customFields, languageForFilter)
-          );
-        
-          const newVulnerabilityFields = this.$_.cloneDeep(
-            Utils.filterCustomFields('vulnerability', categoryForFilter, this.customFields, this.finding.customFields, languageForFilter)
-          ).filter(field => !existingKeys.has(field.key)); // Remove duplicates
-        
-          this.finding.customFields = [...newFindingFields, ...newVulnerabilityFields];
-        } 
- 
-      },
-      
-      getFinding() {
-        AuditService.getFinding(this.auditId, this.findingId)
-          .then((data) => {
-            this.finding = data.data.datas || {};
-      
-            // Force initialization of customFields if it's undefined
-            if (typeof this.finding.customFields === 'undefined') {
-              this.finding.customFields = [];
-            }
-      
-            // Ensure that certain text fields are initialized
-            ['description', 'observation', 'poc', 'retestEvidence', 'scope', 'remediation'].forEach(field => {
-              this.finding[field] = this.finding[field] || '';
-            });
-            if (this.finding.retestPassed === undefined) this.finding.retestPassed = null;
-            this.finding.references = this.finding.references || [];
-      
-            // Initialize custom fields (even if they were empty)
-            this.initCustomFieldsForFinding();
-      
-            this.$nextTick(() => {
-              Utils.syncEditors(this.$refs);
-              this.findingOrig = this.$_.cloneDeep(this.finding);
-            });
-          })
-          .catch((err) => {
-            console.error(err);
-          });
-      },
-      
+    initCustomFieldsForFinding() {
+      const categoryForFilter = this.finding.category || 'default';
+      const languageForFilter = (this.audit && this.audit.language) || 'en';
+
+      if (!this.finding.customFields || this.finding.customFields.length === 0) {
+        const findingCustomField = this.$_.cloneDeep(
+          Utils.filterCustomFields('finding', categoryForFilter, this.customFields, [], languageForFilter)
+        );
+        const existingKeys = new Set(findingCustomField.map(field => field.key));
+        const vulnerabilityCustomField = this.$_.cloneDeep(
+          Utils.filterCustomFields('vulnerability', categoryForFilter, this.customFields, [], languageForFilter)
+            .filter(field => !existingKeys.has(field.key))
+        );
+        this.finding.customFields = [...findingCustomField, ...vulnerabilityCustomField];
+      } else {
+        const existingKeys = new Set(this.finding.customFields.map(field => field.key));
+        const newFindingFields = this.$_.cloneDeep(
+          Utils.filterCustomFields('finding', categoryForFilter, this.customFields, this.finding.customFields, languageForFilter)
+        );
+        const newVulnerabilityFields = this.$_.cloneDeep(
+          Utils.filterCustomFields('vulnerability', categoryForFilter, this.customFields, this.finding.customFields, languageForFilter)
+        ).filter(field => !existingKeys.has(field.key));
+        this.finding.customFields = [...newFindingFields, ...newVulnerabilityFields];
+      }
+    },
+
     updateFinding() {
       Utils.syncEditors(this.$refs);
       nextTick(() => {
@@ -289,14 +328,15 @@ export default {
 
         AuditService.updateFinding(this.auditId, this.findingId, this.finding)
           .then(() => {
+            // Update the baseline snapshot so dirty check resets to false
             this.findingOrig = this.$_.cloneDeep(this.finding);
+            this.needSave = false;
             Notify.create({
               message: $t('msg.findingUpdateOk'),
               color: 'positive',
               textColor: 'white',
               position: 'top-right',
             });
-            this.needSave = false;
           })
           .catch((err) => {
             Notify.create({
@@ -314,83 +354,102 @@ export default {
     syncEditors() {
       Utils.syncEditors(this.$refs);
     },
-    backupFinding: function() {
-        Utils.syncEditors(this.$refs)
-        VulnService.backupFinding(this.localAudit.language, this.finding)
+
+    backupFinding() {
+      Utils.syncEditors(this.$refs);
+      VulnService.backupFinding(this.localAudit.language, this.finding)
         .then((data) => {
-            Notify.create({
-                message: data.data.datas,
-                color: 'positive',
-                textColor:'white',
-                position: 'top-right'
-            })
+          Notify.create({
+            message: data.data.datas,
+            color: 'positive',
+            textColor: 'white',
+            position: 'top-right',
+          });
         })
         .catch((err) => {
+          Notify.create({
+            message: err.response.data.datas,
+            color: 'negative',
+            textColor: 'white',
+            position: 'top-right',
+          });
+        });
+    },
+
+    deleteFinding() {
+      Dialog.create({
+        title: $t('msg.deleteFindingConfirm'),
+        message: $t('msg.deleteFindingNotice'),
+        ok: { label: $t('btn.confirm'), color: 'negative' },
+        cancel: { label: $t('btn.cancel'), color: 'white' },
+      }).onOk(() => {
+        AuditService.deleteFinding(this.auditId, this.findingId)
+          .then(() => {
             Notify.create({
-                message: err.response.data.datas,
-                color: 'negative',
-                textColor:'white',
-                position: 'top-right'
-            })
-        })
+              message: $t('msg.findingDeleteOk'),
+              color: 'positive',
+              textColor: 'white',
+              position: 'top-right',
+            });
+            // Mark as clean so beforeRouteLeave lets navigation through
+            this.findingOrig = this.$_.cloneDeep(this.finding);
+            this.needSave = false;
+            var currentIndex = this.$parent.audit.findings.findIndex(e => e._id === this.findingId);
+            if (this.$parent.audit.findings.length === 1) {
+              this.$router.push(`/audits/${this.$parent.auditId}/findings/add`);
+            } else if (currentIndex === this.$parent.audit.findings.length - 1) {
+              this.$router.push(`/audits/${this.$parent.auditId}/findings/${this.$parent.audit.findings[currentIndex - 1]._id}`);
+            } else {
+              this.$router.push(`/audits/${this.$parent.auditId}/findings/${this.$parent.audit.findings[currentIndex + 1]._id}`);
+            }
+          })
+          .catch((err) => {
+            Notify.create({
+              message: err.response.data.datas,
+              color: 'negative',
+              textColor: 'white',
+              position: 'top-right',
+            });
+          });
+      });
     },
-    deleteFinding: function() {
-        Dialog.create({
-            title: $t('msg.deleteFindingConfirm'),
-            message: $t('msg.deleteFindingNotice'),
-            ok: {label: $t('btn.confirm'), color: 'negative'},
-            cancel: {label: $t('btn.cancel'), color: 'white'}
-        })
-        .onOk(() => {
-            AuditService.deleteFinding(this.auditId, this.findingId)
-            .then(() => {
-                Notify.create({
-                    message: $t('msg.findingDeleteOk'),
-                    color: 'positive',
-                    textColor:'white',
-                    position: 'top-right'
-                })
-                this.findingOrig = this.finding
-                var currentIndex = this.$parent.audit.findings.findIndex(e => e._id === this.findingId)
-                if (this.$parent.audit.findings.length === 1)
-                    this.$router.push(`/audits/${this.$parent.auditId}/findings/add`)
-                else if (currentIndex === this.$parent.audit.findings.length - 1)
-                    this.$router.push(`/audits/${this.$parent.auditId}/findings/${this.$parent.audit.findings[currentIndex - 1]._id}`)
-                else
-                    this.$router.push(`/audits/${this.$parent.auditId}/findings/${this.$parent.audit.findings[currentIndex + 1]._id}`)
-            })
-            .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor:'white',
-                    position: 'top-right'
-                })
-            })
-        })
-    },
+
+    // Called after each tab transition completes.
+    // On first visit to proofs/retest/details tabs: sync editors (they just mounted)
+    // then re-baseline findingOrig for those fields, so the first visit doesn't
+    // falsely trigger the dirty flag due to editor initialisation noise.
     updateOrig() {
       if (this.selectedTab === 'proofs' && !this.proofsTabVisited) {
         this.finding.poc = this.finding.poc || '';
         Utils.syncEditors(this.$refs);
-        this.findingOrig.poc = this.finding.poc;
+        if (this.findingOrig) this.findingOrig.poc = this.finding.poc;
         this.proofsTabVisited = true;
       } else if (this.selectedTab === 'retest' && !this.retestTabVisited) {
         this.finding.retestEvidence = this.finding.retestEvidence || '';
         Utils.syncEditors(this.$refs);
-        this.findingOrig.retestEvidence = this.finding.retestEvidence;
-        this.findingOrig.retestPassed = this.finding.retestPassed;
+        if (this.findingOrig) {
+          this.findingOrig.retestEvidence = this.finding.retestEvidence;
+          this.findingOrig.retestPassed = this.finding.retestPassed;
+        }
         this.retestTabVisited = true;
       } else if (this.selectedTab === 'details' && !this.detailsTabVisited) {
         this.finding.remediation = this.finding.remediation || '';
         Utils.syncEditors(this.$refs);
-        this.findingOrig.remediation = this.finding.remediation;
+        if (this.findingOrig) this.findingOrig.remediation = this.finding.remediation;
         this.detailsTabVisited = true;
+      }
+      // After re-baselining, force needSave recheck
+      if (this.findingOrig !== null) {
+        this.needSave = !this.$_.isEqual(this.finding, this.findingOrig);
       }
     },
 
+    // Structural dirty check: sync editors first so HTML is flushed into
+    // this.finding, then compare against the server baseline.
     unsavedChanges() {
-      return this.needSave;
+      if (this.findingOrig === null) return false;
+      Utils.syncEditors(this.$refs);
+      return !this.$_.isEqual(this.finding, this.findingOrig);
     },
 
     searchSimilarVulns() {
@@ -405,7 +464,12 @@ export default {
       }
       Utils.syncEditors(this.$refs);
       const locale = this.localAudit.language || 'en';
-      const query = [this.finding.title, this.finding.description ? this.finding.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : ''].filter(Boolean).join('\n').slice(0, 500);
+      const query = [
+        this.finding.title,
+        this.finding.description
+          ? this.finding.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+          : '',
+      ].filter(Boolean).join('\n').slice(0, 500);
       this.similarVulnResults = [];
       this.similarVulnError = '';
       this.similarVulnLoading = true;
@@ -436,7 +500,7 @@ export default {
       if (result.poc !== undefined) this.finding.poc = result.poc;
       nextTick(() => {
         Utils.syncEditors(this.$refs);
-        this.needSave = true;
+        // Watcher will pick up the diff and set needSave = true automatically
       });
       Notify.create({
         message: $t('similarVulnApplied'),
@@ -495,7 +559,7 @@ export default {
           vulnDescription: result.description || '',
           visionSummary: this.proofVisionSummary,
           imageDescriptions: this.proofImageDescriptions,
-        }
+        },
       })
         .then((data) => {
           this.proofGeneratedPoc = (data.data.datas && data.data.datas.html) || '';

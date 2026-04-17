@@ -58,6 +58,7 @@ export default {
         auditUpdateOk: 'Audit erfolgreich aktualisiert',
         findingCreateOk: 'Ergebnis erfolgreich erstellt',
         findingUpdateOk: 'Ergebnis erfolgreich aktualisiert',
+        findingLoading: 'Befund wird noch geladen, bitte warten…',
         findingDeleteOk: 'Ergebnis erfolgreich gelöscht',
         doYouWantToLeave: 'Möchten Sie die Seite wirklich verlassen ?',
         thereAreUnsavedChanges: 'Es gibt ungespeicherte Änderungen !',

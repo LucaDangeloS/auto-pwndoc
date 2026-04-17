@@ -62,6 +62,8 @@ export default {
       // _baselining: suppresses the finding watcher during sync/snapshot operations
       // that mutate finding and findingOrig together (tab switches, initial load).
       _baselining: false,
+      // _fetchDone: true once Promise.all has resolved; used by onEditorReady
+      _fetchDone: false,
       AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
       similarVulnModalOpen: false,
       similarVulnResults: [],
@@ -233,18 +235,14 @@ export default {
 
       Promise.all([customFieldsPromise, findingPromise])
         .then(() => {
-          // Suppress watcher while we normalise finding and take the snapshot —
-          // none of these mutations represent user edits.
           this._baselining = true;
           this.initCustomFieldsForFinding();
-
-          this.$nextTick(() => {
-            Utils.syncEditors(this.$refs);
-            this.findingOrig = this.$_.cloneDeep(this.finding);
-            this.needSave = false;
-            this.loading = false;
-            this._baselining = false;
-          });
+          this._baselining = false;
+          // Signal that fetch is complete. The findingOrig snapshot is taken in
+          // onEditorReady(), AFTER TipTap has connected and normalised the HTML,
+          // so the baseline always matches what the editor actually contains.
+          this._fetchDone = true;
+          this.loading = false;
         })
         .catch((err) => {
           console.error('Error loading finding data:', err);
@@ -358,6 +356,23 @@ export default {
 
     syncEditors() {
       Utils.syncEditors(this.$refs);
+    },
+
+    // Called when the description editor fires @ready — i.e. TipTap has
+    // connected to Hocuspocus, normalised the HTML, and is fully initialised.
+    // This is the correct moment to snapshot findingOrig, because the normalised
+    // HTML that TipTap produces is now in this.finding.description, so the
+    // baseline matches what the editor actually contains.
+    onEditorReady() {
+      this.readyToSave = true;
+      if (!this._fetchDone) return; // data not loaded yet — will be called again on next ready
+      this._baselining = true;
+      Utils.syncEditors(this.$refs);
+      this.$nextTick(() => {
+        this.findingOrig = this.$_.cloneDeep(this.finding);
+        this.needSave = false;
+        this._baselining = false;
+      });
     },
 
     backupFinding() {

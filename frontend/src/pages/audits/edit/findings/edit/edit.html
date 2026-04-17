@@ -126,7 +126,7 @@
                     <basic-editor
                       ref="basiceditor_description"
                       v-model="finding.description"
-                      v-on:ready="readyToSave = true"
+                      v-on:ready="onEditorReady"
                       idUnique="basiceditor_description"
                       fieldName="description"
                       :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"

@@ -186,6 +186,8 @@ export default {
   },
     registerFirstUser: 'Enregistrer le premier utilisateur',
     customData: 'Données Personnalisées',
+    vulnerabilityData: 'Données de vulnérabilité',
+    auditData: 'Données d\'audit',
     custom: 'Personnalisé',
     settings: 'Paramètres',
     profile: 'Profil',

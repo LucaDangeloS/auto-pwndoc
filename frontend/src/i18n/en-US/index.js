@@ -296,6 +296,8 @@ export default {
     },
     registerFirstUser: 'Register First User',
     customData: 'Custom Data',
+    vulnerabilityData: 'Vulnerability Data',
+    auditData: 'Audit Data',
     custom: 'Custom',
     settings: 'Settings',
     profile: 'Profile',

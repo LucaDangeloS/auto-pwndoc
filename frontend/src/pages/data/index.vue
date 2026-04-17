@@ -3,9 +3,9 @@
     <q-drawer side="left" :modelValue="true">
         <q-list class="home-drawer">
             <q-item-label header>{{$t('handleCustomData')}}</q-item-label>
-        
+
             <q-separator />
-        
+
             <q-item to='/data/collaborators'>
                 <q-item-section avatar>
                     <q-icon name="fa fa-users" />
@@ -33,12 +33,36 @@
 
             <q-separator spaced />
 
+            <q-item-label header>{{$t('vulnerabilities')}}</q-item-label>
+            <q-item to='/data/vulnerabilities-data'>
+                <q-item-section avatar>
+                    <q-icon name="fa fa-shield-alt" />
+                </q-item-section>
+                <q-item-section>{{$t('vulnerabilityData')}}</q-item-section>
+            </q-item>
+
+            <q-separator spaced />
+
+            <q-item-label header>{{$t('audits')}}</q-item-label>
+            <q-item to='/data/audits-data'>
+                <q-item-section avatar>
+                    <q-icon name="fa fa-fingerprint" />
+                </q-item-section>
+                <q-item-section>{{$t('auditData')}}</q-item-section>
+            </q-item>
+
+            <q-separator spaced />
+
+            <q-item-label header>{{$t('customData')}}</q-item-label>
             <q-item to='/data/custom'>
                 <q-item-section avatar>
                     <q-icon name="fa fa-table" />
                 </q-item-section>
                 <q-item-section>{{$t('customData')}}</q-item-section>
             </q-item>
+
+            <q-separator spaced />
+
             <q-item to='/data/dump'>
                 <q-item-section avatar>
                     <q-icon name="fa fa-archive" />

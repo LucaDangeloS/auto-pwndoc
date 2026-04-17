@@ -13,7 +13,8 @@ module.exports = function (ctx) {
       'darkmode',
       'lodash',
       'socketio',
-      'settings'
+      'settings',
+      'notify-defaults'
     ],
     css: [
       'app.styl'

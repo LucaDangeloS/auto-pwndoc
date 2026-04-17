@@ -294,6 +294,8 @@ export default {
     },
     registerFirstUser: 'Ersten Benutzer anlegen',
     customData: 'Benutzerdefinierte Daten',
+    vulnerabilityData: 'Schwachstellendaten',
+    auditData: 'Auditdaten',
     custom: 'Custom',
     settings: 'Einstellungen',
     profile: 'Profil',

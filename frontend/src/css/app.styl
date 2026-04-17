@@ -153,6 +153,19 @@
     .q-item-label
         color: #5eeadb !important
 
+// Dark mode overrides
+// Custom fields preview area uses bg-grey-2 which is light in dark mode
+.body--dark .bg-grey-2
+    background-color: $slate700 !important
+
+// Tab bars with hardcoded bg-white class
+.body--dark .q-tabs.bg-white
+    background-color: $slate800 !important
+
+// CVSS calculator cards — the q-card bg-grey-1 class used in finding edit
+.body--dark .bg-grey-1
+    background-color: $slate800 !important
+
 // AI loading animation
 @keyframes ai-pulse
     0%, 100%

@@ -287,6 +287,8 @@ export default {
     },
     registerFirstUser: '注册第一个用户',
     customData: '自定义数据',
+    vulnerabilityData: '漏洞数据',
+    auditData: '审计数据',
     custom: '自定义',
     settings: '系统设置',
     profile: '个人信息',

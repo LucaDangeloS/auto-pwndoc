@@ -11,7 +11,17 @@ import TemplateService from '@/services/template'
 import { $t } from '@/boot/i18n'
 
 export default {
-    
+
+    props: {
+        // 'custom' (default) shows only Custom Fields + Custom Sections
+        // 'vulnerabilities' shows Languages, Vuln Types, Vuln Categories
+        // 'audits' shows Audit Types
+        section: {
+            type: String,
+            default: 'custom'
+        }
+    },
+
     data: () => {
         return {
             UserService: UserService,
@@ -99,6 +109,11 @@ export default {
     },
 
     mounted: function() {
+        // Set default tab based on which section this instance is displaying
+        if (this.section === 'vulnerabilities') this.selectedTab = 'languages';
+        else if (this.section === 'audits') this.selectedTab = 'audit-types';
+        else this.selectedTab = 'custom-fields';
+
         this.getTemplates()
         this.getLanguages()
         this.getAuditTypes()

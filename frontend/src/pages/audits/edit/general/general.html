@@ -23,20 +23,19 @@
                 <div class="row q-col-gutter-md">
                     <q-input
                         class="col-md-6 col-12"
-                        label-slot
+                        :label="$t('name') + ' *'"
+                        stack-label
                         v-model="audit.name"
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #label>
-                            {{ $t('name') }} *
-                            <template-hint template-var="audit.name" />
-                        </template>
+                        <template #append><template-hint template-var="audit.name" /></template>
                     </q-input>
                     <div class="col"></div>
                     <q-select
                         class="col-md-6 col-12"
-                        label-slot
+                        :label="$t('language')"
+                        stack-label
                         v-model="audit.language"
                         :options="languages"
                         option-value="locale"
@@ -47,14 +46,12 @@
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #label>
-                            {{ $t('language') }}
-                            <template-hint template-var="audit.language" />
-                        </template>
+                        <template #append><template-hint template-var="audit.language" /></template>
                     </q-select>
                     <q-select
                         class="col-md-6 col-12"
                         :label="$t('template')"
+                        stack-label
                         v-model="audit.template"
                         :options="templates"
                         option-value="_id"
@@ -74,7 +71,8 @@
                 <div class="row q-col-gutter-md">
                     <q-select
                         class="col-md-6 col-12"
-                        label-slot
+                        :label="$t('company')"
+                        stack-label
                         ref="select_company"
                         v-model="audit.company"
                         :options="selectCompanies"
@@ -91,15 +89,13 @@
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #label>
-                            {{ $t('company') }}
-                            <template-hint template-var="audit.company.name" />
-                        </template>
+                        <template #append><template-hint template-var="audit.company.name" /></template>
                     </q-select>
                     <q-select
                         ref="select_client"
                         class="col-md-6 col-12"
-                        label-slot
+                        :label="$t('client')"
+                        stack-label
                         v-model="audit.client"
                         :options="selectClients"
                         option-value="email"
@@ -114,15 +110,12 @@
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #label>
-                            {{ $t('client') }}
-                            <template-hint template-var="audit.client.email" />
-                        </template>
+                        <template #append><template-hint template-var="audit.client.email" /></template>
                     </q-select>
                     <q-select
                         v-if="$settings.reviews.enabled"
                         class="col-md-12 col-12"
-                        label-slot
+                        :label="$t('reviewers')"
                         stack-label
                         v-model="audit.reviewers"
                         :options="reviewers"
@@ -134,10 +127,7 @@
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #label>
-                            {{ $t('reviewers') }}
-                            <template-hint template-var="{#audit.reviewers}.firstname .lastname{/audit.reviewers}" />
-                        </template>
+                        <template #append><template-hint template-var="{#audit.reviewers}.firstname .lastname{/audit.reviewers}" /></template>
                         <template v-slot:selected-item="scope">
                             <q-chip
                                 dense
@@ -154,7 +144,7 @@
 
                     <q-select
                         class="col-md-12 col-12"
-                        label-slot
+                        :label="$t('collaborators')"
                         stack-label
                         v-model="audit.collaborators"
                         :options="collaborators"
@@ -166,10 +156,7 @@
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #label>
-                            {{ $t('collaborators') }}
-                            <template-hint template-var="{#audit.collaborators}.firstname .lastname{/audit.collaborators}" />
-                        </template>
+                        <template #append><template-hint template-var="{#audit.collaborators}.firstname .lastname{/audit.collaborators}" /></template>
                         <template v-slot:after>
                             <q-chip
                                 class="q-mt-lg"
@@ -221,16 +208,14 @@
                 <div class="row q-col-gutter-md">
                     <q-input
                         class="col-md-4 col-12"
-                        label-slot
+                        :label="$t('startDate')"
+                        stack-label
                         v-model="audit.date_start"
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #label>
-                            {{ $t('startDate') }}
+                        <template #append>
                             <template-hint template-var="audit.date_start" />
-                        </template>
-                        <template v-slot:append>
                             <q-icon name="event" class="cursor-pointer">
                                 <q-popup-proxy ref="qDateStartProxy" transition-show="scale" transition-hide="scale">
                                     <q-date :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date_start" @input="() => $refs.qDateStartProxy.hide()" />
@@ -240,16 +225,14 @@
                     </q-input>
                     <q-input
                         class="col-md-4 col-12"
-                        label-slot
+                        :label="$t('endDate')"
+                        stack-label
                         v-model="audit.date_end"
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #label>
-                            {{ $t('endDate') }}
+                        <template #append>
                             <template-hint template-var="audit.date_end" />
-                        </template>
-                        <template v-slot:append>
                             <q-icon name="event" class="cursor-pointer">
                                 <q-popup-proxy ref="qDateEndProxy" transition-show="scale" transition-hide="scale">
                                     <q-date :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date_end" @input="() => $refs.qDateEndProxy.hide()" />
@@ -259,16 +242,14 @@
                     </q-input>
                     <q-input
                         class="col-md-4 col-12"
-                        label-slot
+                        :label="$t('reportingDate')"
+                        stack-label
                         v-model="audit.date"
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #label>
-                            {{ $t('reportingDate') }}
+                        <template #append>
                             <template-hint template-var="audit.date" />
-                        </template>
-                        <template v-slot:append>
                             <q-icon name="event" class="cursor-pointer">
                                 <q-popup-proxy ref="qDateProxy" transition-show="scale" transition-hide="scale">
                                     <q-date :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date" @input="() => $refs.qDateProxy.hide()" />

@@ -95,20 +95,17 @@
               <q-card-section class="row q-col-gutter-md">
                 <q-input
                   class="col-md-8 col-12"
-                  label-slot
+                  :label="$t('title') + ' *'"
                   stack-label
                   v-model="finding.title"
                   outlined
                   :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                 >
-                  <template #label>
-                    {{ $t('title') }} *
-                    <template-hint template-var="finding.title" />
-                  </template>
+                  <template #append><template-hint template-var="finding.title" /></template>
                 </q-input>
                 <q-select
                   class="col-md-4 col-12"
-                  label-slot
+                  :label="$t('type')"
                   v-model="finding.vulnType"
                   :options="filteredVulnTypes"
                   option-value="name"
@@ -122,10 +119,7 @@
                   outlined
                   :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                 >
-                  <template #label>
-                    {{ $t('type') }}
-                    <template-hint template-var="finding.vulnType" />
-                  </template>
+                  <template #append><template-hint template-var="finding.vulnType" /></template>
                 </q-select>
 
                 <div class="col-md-12 row items-center justify-between q-mt-sm">
@@ -360,7 +354,7 @@
               <q-card-section>
                 <div class="q-col-gutter-md row">
                   <q-select
-                    label-slot
+                    :label="$t('remediationDifficulty')"
                     stack-label
                     class="col-md-6 col-12"
                     v-model="finding.remediationComplexity"
@@ -375,13 +369,10 @@
                     outlined
                     :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                   >
-                    <template #label>
-                      {{ $t('remediationDifficulty') }}
-                      <template-hint template-var="finding.remediationComplexity" />
-                    </template>
+                    <template #append><template-hint template-var="finding.remediationComplexity" /></template>
                   </q-select>
                   <q-select
-                    label-slot
+                    :label="$t('priority')"
                     stack-label
                     class="col-md-6 col-12"
                     v-model="finding.priority"
@@ -397,10 +388,7 @@
                     outlined
                     :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                   >
-                    <template #label>
-                      {{ $t('priority') }}
-                      <template-hint template-var="finding.priority" />
-                    </template>
+                    <template #append><template-hint template-var="finding.priority" /></template>
                   </q-select>
                 </div>
                 <div class="col-md-12 row items-center q-mt-md q-mb-xs">

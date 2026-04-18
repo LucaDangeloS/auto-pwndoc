@@ -60,7 +60,6 @@
           <template v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT">
             <q-separator vertical />
             <q-toggle
-              :label="$t('completed')"
               v-model="finding.status"
               :true-value="0"
               :false-value="1"
@@ -68,7 +67,14 @@
               unchecked-icon="clear"
               color="green"
               :disable="loading"
-            />
+            >
+              <template #default>
+                <span class="row items-center no-wrap q-ml-xs">
+                  {{ $t('completed') }}
+                  <template-hint template-var="finding.status" />
+                </span>
+              </template>
+            </q-toggle>
           </template>
           <q-space />
         </q-tabs>
@@ -89,15 +95,20 @@
               <q-card-section class="row q-col-gutter-md">
                 <q-input
                   class="col-md-8 col-12"
-                  :label="$t('title') + ' *'"
+                  label-slot
                   stack-label
                   v-model="finding.title"
                   outlined
                   :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                />
+                >
+                  <template #label>
+                    {{ $t('title') }} *
+                    <template-hint template-var="finding.title" />
+                  </template>
+                </q-input>
                 <q-select
                   class="col-md-4 col-12"
-                  :label="$t('type')"
+                  label-slot
                   v-model="finding.vulnType"
                   :options="filteredVulnTypes"
                   option-value="name"
@@ -110,9 +121,18 @@
                   options-sanitize
                   outlined
                   :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                />
+                >
+                  <template #label>
+                    {{ $t('type') }}
+                    <template-hint template-var="finding.vulnType" />
+                  </template>
+                </q-select>
+
                 <div class="col-md-12 row items-center justify-between q-mt-sm">
-                  <span class="text-subtitle2 text-grey-7">{{$t('description')}}</span>
+                  <span class="row items-center text-subtitle2 text-grey-7">
+                    {{ $t('description') }}
+                    <template-hint template-var="finding.description | convertHTML" class="q-ml-xs" />
+                  </span>
                   <q-btn
                     v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     flat dense color="purple" icon="auto_awesome" :label="$t('aiSuggest')"
@@ -135,7 +155,14 @@
                     />
                   </template>
                 </q-field>
-                <q-field class="col-md-12 basic-editor" borderless :label="$t('observation')" stack-label>
+
+                <div class="col-md-12 row items-center q-mt-sm">
+                  <span class="row items-center text-subtitle2 text-grey-7">
+                    {{ $t('observation') }}
+                    <template-hint template-var="finding.observation | convertHTML" class="q-ml-xs" />
+                  </span>
+                </div>
+                <q-field class="col-md-12 basic-editor" borderless stack-label>
                   <template #control>
                     <basic-editor
                       ref="basiceditor_observation"
@@ -148,12 +175,17 @@
                     />
                   </template>
                 </q-field>
-                <textarea-array
-                  class="col-12"
-                  :label="$t('references')"
-                  v-model="finding.references"
-                  :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                />
+
+                <div class="col-12">
+                  <div class="row items-center q-mb-xs">
+                    <span class="text-subtitle2 text-grey-7">{{ $t('references') }}</span>
+                    <template-hint template-var="{#finding.references}{.}{/finding.references}" class="q-ml-xs" />
+                  </div>
+                  <textarea-array
+                    v-model="finding.references"
+                    :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                  />
+                </div>
               </q-card-section>
 
               <q-expansion-item
@@ -184,8 +216,13 @@
                   <q-inner-loading :showing="loading">
                     <q-spinner-dots size="40px" color="primary" />
                   </q-inner-loading>
-                  <q-card-section v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && $settings && $settings.ai && $settings.ai.enabled && $settings.ai.visionEnabled" class="q-pb-none row justify-end">
+                  <q-card-section class="row items-center justify-between q-pb-none">
+                    <span class="row items-center text-subtitle2 text-grey-7">
+                      {{ $t('proofs') }}
+                      <template-hint template-var="finding.poc | convertHTML" class="q-ml-xs" />
+                    </span>
                     <q-btn
+                      v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && $settings && $settings.ai && $settings.ai.enabled && $settings.ai.visionEnabled"
                       color="secondary"
                       no-caps
                       icon="image_search"
@@ -222,8 +259,10 @@
                     <q-spinner-dots size="40px" color="primary" />
                   </q-inner-loading>
                   <q-card-section class="row items-center q-pb-xs">
-                    <span class="text-subtitle2">{{ $t('retestResult') }}</span>
-                    <template-hint template-var="finding.retest_passed" />
+                    <span class="row items-center text-subtitle2">
+                      {{ $t('retestResult') }}
+                      <template-hint template-var="finding.retest_passed" class="q-ml-xs" />
+                    </span>
                     <q-space />
                     <q-btn-toggle
                       v-model="finding.retestPassed"
@@ -275,7 +314,12 @@
               <q-inner-loading :showing="loading">
                 <q-spinner-dots size="40px" color="primary" />
               </q-inner-loading>
-              <q-card-section>{{ $t('affectedAssets') }}</q-card-section>
+              <q-card-section>
+                <span class="row items-center">
+                  {{ $t('affectedAssets') }}
+                  <template-hint template-var="finding.affected" class="q-ml-xs" />
+                </span>
+              </q-card-section>
               <q-separator />
               <q-card-section>
                 <q-field borderless>
@@ -294,6 +338,10 @@
               <q-inner-loading :showing="loading">
                 <q-spinner-dots size="40px" color="primary" />
               </q-inner-loading>
+              <q-card-section class="row items-center q-pb-none">
+                <span class="text-subtitle2 text-grey-7">{{ $t('cvssScore') }}</span>
+                <template-hint template-var="finding.cvss.baseMetricScore / finding.cvss4.baseMetricScore" class="q-ml-xs" />
+              </q-card-section>
               <div class="col-12">
                 <cvss-calculator-unified
                   v-model="finding.cvssv3"
@@ -312,7 +360,7 @@
               <q-card-section>
                 <div class="q-col-gutter-md row">
                   <q-select
-                    :label="$t('remediationDifficulty')"
+                    label-slot
                     stack-label
                     class="col-md-6 col-12"
                     v-model="finding.remediationComplexity"
@@ -326,9 +374,14 @@
                     options-sanitize
                     outlined
                     :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                  />
+                  >
+                    <template #label>
+                      {{ $t('remediationDifficulty') }}
+                      <template-hint template-var="finding.remediationComplexity" />
+                    </template>
+                  </q-select>
                   <q-select
-                    :label="$t('priority')"
+                    label-slot
                     stack-label
                     class="col-md-6 col-12"
                     v-model="finding.priority"
@@ -343,9 +396,20 @@
                     options-sanitize
                     outlined
                     :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                  />
+                  >
+                    <template #label>
+                      {{ $t('priority') }}
+                      <template-hint template-var="finding.priority" />
+                    </template>
+                  </q-select>
                 </div>
-                <q-field class="col-md-12 basic-editor q-mt-md" borderless :label="$t('remediation')" stack-label>
+                <div class="col-md-12 row items-center q-mt-md q-mb-xs">
+                  <span class="row items-center text-subtitle2 text-grey-7">
+                    {{ $t('remediation') }}
+                    <template-hint template-var="finding.remediation | convertHTML" class="q-ml-xs" />
+                  </span>
+                </div>
+                <q-field class="col-md-12 basic-editor" borderless stack-label>
                   <template #control>
                     <basic-editor
                       ref="basiceditor_remediation"

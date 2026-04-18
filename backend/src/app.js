@@ -61,6 +61,10 @@ require('./models/custom-field');
 require('./models/image');
 require('./models/settings');
 
+// Database migration (runs only when MIGRATE_FROM env var is set)
+const { runMigration } = require('./lib/migration');
+runMigration().catch(err => console.error('[migration] Unexpected error:', err));
+
 // Socket IO configuration
 io.on('connection', (socket) => {
   socket.on('join', (data) => {

@@ -27,6 +27,12 @@ services:
     command: "npm run dev"
     networks:
       - autodoc-net
+    environment:
+      # Set MIGRATE_FROM to a MongoDB URI to trigger a one-time migration from
+      # an existing pwndoc-ng database into this instance on next startup.
+      # Example: mongodb://192.168.1.10:27017/pwndoc
+      # Leave blank (or remove) to skip migration entirely.
+      - MIGRATE_FROM=
     volumes:
       - ./backend/src/:/app/src/
       - ./backend/report-templates/:/app/report-templates/

@@ -15,5 +15,9 @@ export default {
 
     analyzeProofs: function(pocHtml, locale) {
         return api.post('ai/analyze-proofs', { pocHtml, locale })
+    },
+
+    testConnection: function(type) {
+        return api.post('ai/test', { type })
     }
 }

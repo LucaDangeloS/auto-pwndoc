@@ -53,7 +53,10 @@ async function runAiCommand(editor, action, text, fieldName, aiContext, selectio
             fieldName: fieldName || '',
             context: {
                 findingTitle: aiContext && aiContext.findingTitle ? aiContext.findingTitle : '',
-                locale: aiContext && aiContext.locale ? aiContext.locale : ''
+                locale: aiContext && aiContext.locale ? aiContext.locale : '',
+                auditName: aiContext && aiContext.auditName ? aiContext.auditName : '',
+                severity: aiContext && aiContext.severity ? aiContext.severity : '',
+                findingsDigest: aiContext && aiContext.findingsDigest ? aiContext.findingsDigest : ''
             }
         }
 

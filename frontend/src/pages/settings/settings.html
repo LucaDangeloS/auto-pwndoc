@@ -71,7 +71,7 @@
 
 <!-- Danger Settings START  -->
 <q-card id="section-danger" v-if="UserService.isAllowed('settings:read')" class="q-my-mg">
-    <q-card-section class="q-py-none bg-red text-white">
+    <q-card-section class="q-py-none bg-blue-grey-5 text-white">
         <q-item style="padding:0px;">
             <q-item-section class="col-11">
                 <div class="text-h6">{{$t('dangerSettings')}}</div>
@@ -379,7 +379,7 @@
                             :disable="!canEdit || !settings.reviews.enabled"
                         />
                     </div>
-                    <div class="col-xs-12 col-sm-auto">
+                    <div class="col-sm-auto">
                         <q-input
                             v-model.number="settings.reviews.public.minReviewers"
                             type="number"
@@ -411,26 +411,24 @@
                     </q-item-section>
                 </q-item>
             </q-card-section>
+
+            <!-- ── Generation Provider ── -->
             <q-separator />
             <q-card-section>
                 <div class="text-bold">{{$t('aiProvider')}}</div>
-                <br/>
-                <div class="text-grey-8">{{$t('aiProviderDescription')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('aiProviderDescription')}}</div>
             </q-card-section>
             <q-card-section class="q-col-gutter-md row">
                 <q-select
-                    class="col-md-4"
+                    class="col-12 col-md-4"
                     :label="$t('aiProviderLabel')"
                     v-model="settings.ai.public.provider"
                     :options="aiProviderOptions"
-                    map-options
-                    emit-value
-                    options-sanitize
-                    outlined
+                    map-options emit-value options-sanitize outlined
                     :disable="!canEdit || !settings.ai.enabled"
                 />
                 <q-input
-                    class="col-md-4"
+                    class="col-12 col-md-4"
                     :label="$t('aiModel')"
                     v-model="settings.ai.public.model"
                     outlined
@@ -438,7 +436,7 @@
                     :hint="$t('aiModelHint')"
                 />
                 <q-input
-                    class="col-md-4"
+                    class="col-12 col-md-4"
                     :label="$t('aiApiUrl')"
                     v-model="settings.ai.private.apiUrl"
                     outlined
@@ -446,10 +444,8 @@
                     :placeholder="aiDefaultUrl"
                     :hint="$t('aiApiUrlHint')"
                 />
-            </q-card-section>
-            <q-card-section class="q-col-gutter-md row">
                 <q-input
-                    class="col-md-4"
+                    class="col-12 col-md-4"
                     :label="$t('aiApiKey')"
                     v-model="settings.ai.private.apiKey"
                     outlined
@@ -458,62 +454,66 @@
                     :hint="$t('aiApiKeyHint')"
                 >
                     <template v-slot:append>
-                        <q-icon
-                            :name="showApiKey ? 'visibility_off' : 'visibility'"
-                            class="cursor-pointer"
-                            @click="showApiKey = !showApiKey"
-                        />
+                        <q-icon :name="showApiKey ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="showApiKey = !showApiKey" />
                     </template>
                 </q-input>
             </q-card-section>
-            <q-card-section v-if="settings.ai.public.provider === 'azure-openai'">
-                <div class="text-bold">{{$t('aiAzureSettings')}}</div>
-            </q-card-section>
             <q-card-section v-if="settings.ai.public.provider === 'azure-openai'" class="q-col-gutter-md row">
                 <q-input
-                    class="col-md-6"
+                    class="col-12 col-md-4"
                     :label="$t('aiAzureDeploymentName')"
                     v-model="settings.ai.private.azure.deploymentName"
-                    outlined
-                    :disable="!canEdit || !settings.ai.enabled"
+                    outlined :disable="!canEdit || !settings.ai.enabled"
                 />
                 <q-input
-                    class="col-md-6"
+                    class="col-12 col-md-4"
                     :label="$t('aiAzureApiVersion')"
                     v-model="settings.ai.private.azure.apiVersion"
-                    outlined
-                    :disable="!canEdit || !settings.ai.enabled"
+                    outlined :disable="!canEdit || !settings.ai.enabled"
                 />
             </q-card-section>
+            <!-- Test generation -->
+            <q-card-section class="q-pt-none">
+                <div class="row items-center q-gutter-sm">
+                    <q-btn
+                        outline no-caps size="sm" icon="science"
+                        :label="$t('aiTestConnection')"
+                        color="primary"
+                        :loading="aiTest.generation.loading"
+                        :disable="!canEdit || !settings.ai.enabled"
+                        @click="testAiConnection('generation')"
+                    />
+                    <span v-if="aiTest.generation.status === 'ok'" class="text-positive text-caption row items-center q-gutter-xs">
+                        <q-icon name="check_circle" size="xs" />
+                        <span>{{$t('aiTestOk')}}: <em>{{aiTest.generation.response}}</em></span>
+                    </span>
+                    <span v-else-if="aiTest.generation.status === 'error'" class="text-negative text-caption row items-center q-gutter-xs">
+                        <q-icon name="error" size="xs" />
+                        <span>{{aiTest.generation.response}}</span>
+                    </span>
+                </div>
+            </q-card-section>
+
+            <!-- ── Embedding ── -->
             <q-separator />
             <q-card-section>
                 <div class="row items-center justify-between">
                     <div class="text-bold">{{$t('aiEmbeddingSection')}}</div>
-                    <q-toggle
-                        color="primary"
-                        keep-color
-                        :disable="!canEdit || !settings.ai.enabled"
-                        v-model="settings.ai.embeddingEnabled"
-                        :label="$t('btn.enable')"
-                    />
+                    <q-toggle color="primary" keep-color :disable="!canEdit || !settings.ai.enabled" v-model="settings.ai.embeddingEnabled" :label="$t('btn.enable')" />
                 </div>
-                <br/>
-                <div class="text-grey-8">{{$t('aiEmbeddingDescription')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('aiEmbeddingDescription')}}</div>
             </q-card-section>
             <q-card-section class="q-col-gutter-md row">
                 <q-select
-                    class="col-12 col-md-6"
+                    class="col-12 col-md-4"
                     :label="$t('aiEmbeddingProvider')"
                     v-model="settings.ai.public.embeddingProvider"
                     :options="aiProviderOptions"
-                    map-options
-                    emit-value
-                    options-sanitize
-                    outlined
+                    map-options emit-value options-sanitize outlined
                     :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
                 />
                 <q-input
-                    class="col-12 col-md-6"
+                    class="col-12 col-md-4"
                     :label="$t('aiEmbeddingModel')"
                     v-model="settings.ai.public.embeddingModel"
                     outlined
@@ -521,7 +521,7 @@
                     :hint="$t('aiEmbeddingModelHint')"
                 />
                 <q-input
-                    class="col-12"
+                    class="col-12 col-md-4"
                     :label="$t('aiEmbeddingApiUrl')"
                     v-model="settings.ai.private.embeddingApiUrl"
                     outlined
@@ -530,7 +530,7 @@
                     :hint="$t('aiEmbeddingApiUrlHint')"
                 />
                 <q-input
-                    class="col-12"
+                    class="col-12 col-md-4"
                     :label="$t('aiEmbeddingApiKey')"
                     v-model="settings.ai.private.embeddingApiKey"
                     outlined
@@ -539,95 +539,86 @@
                     :hint="$t('aiEmbeddingApiKeyHint')"
                 >
                     <template v-slot:append>
-                        <q-icon
-                            :name="showEmbeddingApiKey ? 'visibility_off' : 'visibility'"
-                            class="cursor-pointer"
-                            @click="showEmbeddingApiKey = !showEmbeddingApiKey"
-                        />
+                        <q-icon :name="showEmbeddingApiKey ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="showEmbeddingApiKey = !showEmbeddingApiKey" />
                     </template>
                 </q-input>
             </q-card-section>
-            <q-card-section v-if="settings.ai.public.embeddingProvider === 'azure-openai' && settings.ai.embeddingEnabled">
-                <div class="text-bold">{{$t('aiEmbeddingAzureSettings')}}</div>
-            </q-card-section>
             <q-card-section v-if="settings.ai.public.embeddingProvider === 'azure-openai' && settings.ai.embeddingEnabled" class="q-col-gutter-md row">
                 <q-input
-                    class="col-md-6"
+                    class="col-12 col-md-4"
                     :label="$t('aiAzureDeploymentName')"
                     v-model="settings.ai.private.embeddingAzure.deploymentName"
-                    outlined
-                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                    outlined :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
                 />
                 <q-input
-                    class="col-md-6"
+                    class="col-12 col-md-4"
                     :label="$t('aiAzureApiVersion')"
                     v-model="settings.ai.private.embeddingAzure.apiVersion"
-                    outlined
-                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                    outlined :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
                 />
             </q-card-section>
             <q-card-section class="q-col-gutter-md row">
                 <div class="col-12 col-md-6">
-                    <div class="row items-center q-col-gutter-sm">
-                        <div class="col">
-                            <q-slider
-                                v-model="settings.ai.public.embeddingMaxDistance"
-                                :min="0.01"
-                                :max="2"
-                                :step="0.01"
-                                label-always
-                                color="primary"
-                                :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
-                            />
-                        </div>
-                        <div class="col-auto text-caption text-grey-8" style="min-width:140px">
-                            {{$t('aiEmbeddingMaxDistance')}}: {{settings.ai.public.embeddingMaxDistance}}
-                        </div>
-                    </div>
+                    <div class="text-caption text-grey-8 q-mb-sm">{{$t('aiEmbeddingMaxDistance')}}: <strong>{{settings.ai.public.embeddingMaxDistance}}</strong></div>
+                    <q-slider
+                        v-model="settings.ai.public.embeddingMaxDistance"
+                        :min="0.01" :max="2" :step="0.01"
+                        color="primary"
+                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                    />
                     <div class="text-caption text-grey-7 q-mt-xs">{{$t('aiEmbeddingMaxDistanceHint')}}</div>
                 </div>
-                <div class="col-12 col-md-6 flex items-center" v-if="canEdit && settings.ai.enabled && settings.ai.embeddingEnabled">
+            </q-card-section>
+            <!-- Test embedding -->
+            <q-card-section class="q-pt-none">
+                <div class="row items-center q-gutter-sm">
                     <q-btn
+                        outline no-caps size="sm" icon="science"
+                        :label="$t('aiTestConnection')"
                         color="primary"
-                        no-caps
-                        outline
-                        icon="sync"
+                        :loading="aiTest.embedding.loading"
+                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                        @click="testAiConnection('embedding')"
+                    />
+                    <q-btn
+                        outline no-caps size="sm" icon="sync" color="secondary"
                         :label="$t('aiReindexAll')"
                         :loading="reindexing"
+                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
                         @click="reindexAll"
                     />
-                    <span v-if="reindexStarted" class="q-ml-sm text-positive text-caption">{{$t('aiReindexStarted')}}</span>
+                    <span v-if="reindexStarted" class="text-positive text-caption">{{$t('aiReindexStarted')}}</span>
+                    <span v-if="aiTest.embedding.status === 'ok'" class="text-positive text-caption row items-center q-gutter-xs">
+                        <q-icon name="check_circle" size="xs" />
+                        <span>{{$t('aiTestOk')}}: <em>{{aiTest.embedding.response}}</em></span>
+                    </span>
+                    <span v-else-if="aiTest.embedding.status === 'error'" class="text-negative text-caption row items-center q-gutter-xs">
+                        <q-icon name="error" size="xs" />
+                        <span>{{aiTest.embedding.response}}</span>
+                    </span>
                 </div>
             </q-card-section>
+
+            <!-- ── Vision ── -->
             <q-separator />
             <q-card-section>
                 <div class="row items-center justify-between">
                     <div class="text-bold">{{$t('aiVisionSection')}}</div>
-                    <q-toggle
-                        color="primary"
-                        keep-color
-                        :disable="!canEdit || !settings.ai.enabled"
-                        v-model="settings.ai.visionEnabled"
-                        :label="$t('btn.enable')"
-                    />
+                    <q-toggle color="primary" keep-color :disable="!canEdit || !settings.ai.enabled" v-model="settings.ai.visionEnabled" :label="$t('btn.enable')" />
                 </div>
-                <br/>
-                <div class="text-grey-8">{{$t('aiVisionDescription')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('aiVisionDescription')}}</div>
             </q-card-section>
             <q-card-section class="q-col-gutter-md row">
                 <q-select
-                    class="col-12 col-md-6"
+                    class="col-12 col-md-4"
                     :label="$t('aiVisionProvider')"
                     v-model="settings.ai.visionPublic.visionProvider"
                     :options="aiProviderOptions"
-                    map-options
-                    emit-value
-                    options-sanitize
-                    outlined
+                    map-options emit-value options-sanitize outlined
                     :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
                 />
                 <q-input
-                    class="col-12 col-md-6"
+                    class="col-12 col-md-4"
                     :label="$t('aiVisionModel')"
                     v-model="settings.ai.visionPublic.visionModel"
                     outlined
@@ -635,7 +626,7 @@
                     :hint="$t('aiVisionModelHint')"
                 />
                 <q-input
-                    class="col-12"
+                    class="col-12 col-md-4"
                     :label="$t('aiVisionApiUrl')"
                     v-model="settings.ai.private.visionApiUrl"
                     outlined
@@ -644,7 +635,7 @@
                     :hint="$t('aiVisionApiUrlHint')"
                 />
                 <q-input
-                    class="col-12"
+                    class="col-12 col-md-4"
                     :label="$t('aiVisionApiKey')"
                     v-model="settings.ai.private.visionApiKey"
                     outlined
@@ -653,57 +644,56 @@
                     :hint="$t('aiVisionApiKeyHint')"
                 >
                     <template v-slot:append>
-                        <q-icon
-                            :name="showVisionApiKey ? 'visibility_off' : 'visibility'"
-                            class="cursor-pointer"
-                            @click="showVisionApiKey = !showVisionApiKey"
-                        />
+                        <q-icon :name="showVisionApiKey ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="showVisionApiKey = !showVisionApiKey" />
                     </template>
                 </q-input>
             </q-card-section>
-            <q-card-section v-if="settings.ai.visionPublic.visionProvider === 'azure-openai' && settings.ai.visionEnabled">
-                <div class="text-bold">{{$t('aiVisionAzureSettings')}}</div>
-            </q-card-section>
             <q-card-section v-if="settings.ai.visionPublic.visionProvider === 'azure-openai' && settings.ai.visionEnabled" class="q-col-gutter-md row">
                 <q-input
-                    class="col-md-6"
+                    class="col-12 col-md-4"
                     :label="$t('aiAzureDeploymentName')"
                     v-model="settings.ai.private.visionAzure.deploymentName"
-                    outlined
-                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                    outlined :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
                 />
                 <q-input
-                    class="col-md-6"
+                    class="col-12 col-md-4"
                     :label="$t('aiAzureApiVersion')"
                     v-model="settings.ai.private.visionAzure.apiVersion"
-                    outlined
-                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                    outlined :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
                 />
+            </q-card-section>
+            <!-- Test vision -->
+            <q-card-section class="q-pt-none">
+                <div class="row items-center q-gutter-sm">
+                    <q-btn
+                        outline no-caps size="sm" icon="science"
+                        :label="$t('aiTestConnection')"
+                        color="primary"
+                        :loading="aiTest.vision.loading"
+                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                        @click="testAiConnection('vision')"
+                    />
+                    <span v-if="aiTest.vision.status === 'ok'" class="text-positive text-caption row items-center q-gutter-xs">
+                        <q-icon name="check_circle" size="xs" />
+                        <span>{{$t('aiTestOk')}}: <em>{{aiTest.vision.response}}</em></span>
+                    </span>
+                    <span v-else-if="aiTest.vision.status === 'error'" class="text-negative text-caption row items-center q-gutter-xs">
+                        <q-icon name="error" size="xs" />
+                        <span>{{aiTest.vision.response}}</span>
+                    </span>
+                </div>
             </q-card-section>
             <q-card-section>
                 <div class="text-bold">{{$t('aiVisionAnonymization')}}</div>
-                <br/>
-                <div class="text-grey-8">{{$t('aiVisionAnonymizationDescription')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('aiVisionAnonymizationDescription')}}</div>
             </q-card-section>
             <q-card-section class="q-col-gutter-md row">
                 <div class="col-12 col-md-6">
-                    <q-toggle
-                        :label="$t('aiVisionAnonymizeLlm')"
-                        v-model="settings.ai.private.visionAnonymizeLlm"
-                        color="primary"
-                        keep-color
-                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
-                    />
+                    <q-toggle :label="$t('aiVisionAnonymizeLlm')" v-model="settings.ai.private.visionAnonymizeLlm" color="primary" keep-color :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled" />
                     <div class="text-caption text-grey-7 q-mt-xs">{{$t('aiVisionAnonymizeLlmHint')}}</div>
                 </div>
                 <div class="col-12 col-md-6">
-                    <q-toggle
-                        :label="$t('aiVisionAnonymizeRegex')"
-                        v-model="settings.ai.private.visionAnonymizeRegex"
-                        color="primary"
-                        keep-color
-                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
-                    />
+                    <q-toggle :label="$t('aiVisionAnonymizeRegex')" v-model="settings.ai.private.visionAnonymizeRegex" color="primary" keep-color :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled" />
                     <div class="text-caption text-grey-7 q-mt-xs">{{$t('aiVisionAnonymizeRegexHint')}}</div>
                 </div>
             </q-card-section>
@@ -712,41 +702,36 @@
                     class="col-12"
                     :label="$t('aiVisionSystemPrompt')"
                     v-model="settings.ai.private.visionSystemPrompt"
-                    outlined
-                    type="textarea"
-                    autogrow
+                    outlined type="textarea" autogrow
                     :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
                     :hint="$t('aiVisionSystemPromptHint')"
                 />
             </q-card-section>
+
+            <!-- ── Generation Parameters ── -->
             <q-separator />
             <q-card-section>
                 <div class="text-bold">{{$t('aiGenerationParameters')}}</div>
-                <br/>
-                <div class="text-grey-8">{{$t('aiGenerationParametersDescription')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('aiGenerationParametersDescription')}}</div>
             </q-card-section>
             <q-card-section class="q-col-gutter-md row">
-                <div class="col-md-6">
-                    <div class="row items-center q-col-gutter-sm">
-                        <div class="col">
-                            <q-slider
-                                :label="$t('aiTemperature')"
-                                v-model="settings.ai.public.temperature"
-                                :min="0"
-                                :max="2"
-                                :step="0.1"
-                                label-always
-                                color="primary"
-                                :disable="!canEdit || !settings.ai.enabled"
-                            />
-                        </div>
-                        <div class="col-auto text-caption text-grey-8" style="min-width:100px">
-                            {{$t('aiTemperature')}}: {{settings.ai.public.temperature}}
-                        </div>
+                <div class="col-12 col-md-6">
+                    <div class="text-caption text-grey-8 q-mb-sm">
+                        {{$t('aiTemperature')}}: <strong>{{settings.ai.public.temperature}}</strong>
+                    </div>
+                    <q-slider
+                        v-model="settings.ai.public.temperature"
+                        :min="0" :max="2" :step="0.1"
+                        color="primary"
+                        :disable="!canEdit || !settings.ai.enabled"
+                    />
+                    <div class="row justify-between text-caption text-grey-6">
+                        <span>0 — precise</span>
+                        <span>2 — creative</span>
                     </div>
                 </div>
                 <q-input
-                    class="col-md-6"
+                    class="col-12 col-md-6"
                     :label="$t('aiMaxTokens')"
                     v-model.number="settings.ai.public.maxTokens"
                     type="number"
@@ -756,36 +741,156 @@
                     :disable="!canEdit || !settings.ai.enabled"
                 />
             </q-card-section>
+            <!-- ── Advanced Prompts ── -->
             <q-separator />
             <q-card-section>
                 <div class="text-bold">{{$t('aiAdvancedSettings')}}</div>
-                <br/>
-                <div class="text-grey-8">{{$t('aiAdvancedSettingsDescription')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('aiAdvancedSettingsDescription')}}</div>
             </q-card-section>
-            <q-card-section class="q-col-gutter-md row">
-                <q-input
-                    class="col-12"
-                    :label="$t('aiSystemPrompt')"
-                    v-model="settings.ai.private.systemPrompt"
-                    outlined
-                    type="textarea"
-                    autogrow
-                    :disable="!canEdit || !settings.ai.enabled"
-                    :hint="$t('aiSystemPromptHint')"
-                />
+
+            <!-- Available tags hint -->
+            <q-card-section class="q-pt-none">
+                <div class="text-caption text-grey-7">
+                    <span class="text-weight-medium">{{$t('aiPromptAvailableTags')}}:</span>
+                    <code v-for="tag in promptTags" :key="tag" class="q-mr-xs q-ml-xs">{{tag}}</code>
+                </div>
             </q-card-section>
-            <q-card-section class="q-col-gutter-md row">
-                <q-input
-                    class="col-12"
-                    :label="$t('aiUserPrompt')"
-                    v-model="settings.ai.private.userPrompt"
-                    outlined
-                    type="textarea"
-                    autogrow
-                    :disable="!canEdit || !settings.ai.enabled"
-                    :hint="$t('aiUserPromptHint')"
-                />
-            </q-card-section>
+
+            <!-- Generate -->
+            <q-expansion-item
+                :label="$t('aiPromptSectionGenerate')"
+                :caption="$t('aiPromptSectionGenerateCaption')"
+                icon="add_circle_outline"
+                header-class="text-weight-medium"
+                :disable="!canEdit || !settings.ai.enabled"
+            >
+                <q-card-section class="q-col-gutter-md row q-pt-sm">
+                    <div class="col-12">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('generateSystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input v-model="settings.ai.private.generateSystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {language}" />
+                    </div>
+                    <div class="col-12">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <span class="text-caption text-grey-8">{{$t('aiUserPrompt')}}</span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('generateUserPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input v-model="settings.ai.private.generateUserPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {similarVulnsBlock}, {language}" />
+                    </div>
+                </q-card-section>
+            </q-expansion-item>
+
+            <!-- Complete -->
+            <q-expansion-item
+                :label="$t('aiPromptSectionComplete')"
+                :caption="$t('aiPromptSectionCompleteCaption')"
+                icon="edit_note"
+                header-class="text-weight-medium"
+                :disable="!canEdit || !settings.ai.enabled"
+            >
+                <q-card-section class="q-col-gutter-md row q-pt-sm">
+                    <div class="col-12">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('completeSystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input v-model="settings.ai.private.completeSystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {language}" />
+                    </div>
+                    <div class="col-12">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <span class="text-caption text-grey-8">{{$t('aiUserPrompt')}}</span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('completeUserPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input v-model="settings.ai.private.completeUserPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {text}, {similarVulnsBlock}, {language}" />
+                    </div>
+                </q-card-section>
+            </q-expansion-item>
+
+            <!-- Rewrite -->
+            <q-expansion-item
+                :label="$t('aiPromptSectionRewrite')"
+                :caption="$t('aiPromptSectionRewriteCaption')"
+                icon="auto_fix_high"
+                header-class="text-weight-medium"
+                :disable="!canEdit || !settings.ai.enabled"
+            >
+                <q-card-section class="q-col-gutter-md row q-pt-sm">
+                    <div class="col-12">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('rewriteSystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input v-model="settings.ai.private.rewriteSystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {language}" />
+                    </div>
+                    <div class="col-12">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <span class="text-caption text-grey-8">{{$t('aiUserPrompt')}}</span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('rewriteUserPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input v-model="settings.ai.private.rewriteUserPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {text}, {language}" />
+                    </div>
+                </q-card-section>
+            </q-expansion-item>
+
+            <!-- Fill Proofs -->
+            <q-expansion-item
+                :label="$t('aiPromptSectionFillProofs')"
+                :caption="$t('aiPromptSectionFillProofsCaption')"
+                icon="image_search"
+                header-class="text-weight-medium"
+                :disable="!canEdit || !settings.ai.enabled"
+            >
+                <q-card-section class="q-col-gutter-md row q-pt-sm">
+                    <div class="col-12">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('fillProofsSystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input v-model="settings.ai.private.fillProofsSystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {findingTitle}, {language} — user prompt is fixed" />
+                    </div>
+                </q-card-section>
+            </q-expansion-item>
+
+            <!-- Executive Summary -->
+            <q-expansion-item
+                :label="$t('aiPromptSectionExecutiveSummary')"
+                :caption="$t('aiPromptSectionExecutiveSummaryCaption')"
+                icon="summarize"
+                header-class="text-weight-medium"
+                :disable="!canEdit || !settings.ai.enabled"
+            >
+                <q-card-section class="q-col-gutter-md row q-pt-sm">
+                    <div class="col-12">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('executiveSummarySystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input v-model="settings.ai.private.executiveSummarySystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {auditName}, {findingsDigest}, {language}" />
+                    </div>
+                </q-card-section>
+            </q-expansion-item>
+
+            <!-- Severity Summary -->
+            <q-expansion-item
+                :label="$t('aiPromptSectionSeveritySummary')"
+                :caption="$t('aiPromptSectionSeveritySummaryCaption')"
+                icon="bar_chart"
+                header-class="text-weight-medium"
+                :disable="!canEdit || !settings.ai.enabled"
+            >
+                <q-card-section class="q-col-gutter-md row q-pt-sm">
+                    <div class="col-12">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('severitySummarySystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input v-model="settings.ai.private.severitySummarySystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {auditName}, {severity}, {findingsDigest}, {language}" />
+                    </div>
+                </q-card-section>
+            </q-expansion-item>
+
         </q-card>
 
         <q-card id="section-actions" class="q-my-lg" v-if="canEdit" align="center">

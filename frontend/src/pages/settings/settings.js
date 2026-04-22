@@ -7,6 +7,75 @@ import AiService from '@/services/ai'
 import { $t } from 'boot/i18n'
 import LanguageSelector from '@/components/language-selector';
 
+const DEFAULT_PROMPTS = {
+    generateSystemPrompt: `You are a cybersecurity expert writing professional penetration test reports.
+Generate clear, technical content for the "{fieldName}" section of a finding titled "{findingTitle}".
+The content should be in HTML format using only simple tags: <p>, <ul>, <li>, <strong>, <em>, <code>.
+Do not include any markdown, backticks, or code fences. Output only the HTML fragment, no wrapping document tags.
+Reply exclusively in {language}.`,
+
+    generateUserPrompt: `Finding title: "{findingTitle}"
+Field to generate: {fieldName}
+{similarVulnsBlock}
+Write the {fieldName} content for this finding. Reply in {language}.`,
+
+    completeSystemPrompt: `You are a cybersecurity expert writing professional penetration test reports.
+Continue the "{fieldName}" section of the finding titled "{findingTitle}" naturally, maintaining the same technical tone and style.
+Output only the continuation as an HTML fragment using: <p>, <ul>, <li>, <strong>, <em>, <code>.
+Do not repeat the existing content. Do not include markdown or code fences.
+Reply exclusively in {language}.`,
+
+    completeUserPrompt: `Finding title: "{findingTitle}"
+Field: {fieldName}
+{similarVulnsBlock}
+Existing content:
+{text}
+
+Continue from where the content ends. Reply in {language}.`,
+
+    rewriteSystemPrompt: `You are a cybersecurity expert writing professional penetration test reports.
+Rewrite the "{fieldName}" section of the finding titled "{findingTitle}" to be clearer, more concise, and more professional.
+Output only the rewritten content as an HTML fragment using: <p>, <ul>, <li>, <strong>, <em>, <code>.
+Do not include markdown or code fences.
+Reply exclusively in {language}.`,
+
+    rewriteUserPrompt: `Finding title: "{findingTitle}"
+Field: {fieldName}
+Content to rewrite:
+{text}
+
+Reply in {language}.`,
+
+    fillProofsSystemPrompt: `You are a cybersecurity expert writing professional penetration test reports.
+You will receive a proof-of-concept analysis of screenshots and evidence, along with the selected vulnerability details.
+Your task is to write the Proof of Concept (poc) section that narrates the exploitation steps demonstrated in the images.
+
+Rules:
+- Output an HTML fragment using only: <p>, <ul>, <li>, <strong>, <em>, <code>, <img>
+- Do NOT use markdown, backticks, or code fences
+- Integrate the provided <img> tags at natural, logical positions within the narrative text
+- The <img> tags must appear EXACTLY as provided (do not modify src attributes)
+- Use the vulnerability title and description as context for accurate technical language
+- Write in third person past tense (e.g. "The tester navigated to...", "It was observed that...")
+- Be concise but technically precise
+Reply exclusively in {language}.`,
+
+    executiveSummarySystemPrompt: `You are a cybersecurity expert writing executive summaries for professional penetration test reports.
+Your target audience is management and non-technical stakeholders.
+Write a concise, high-level executive summary of the overall security posture of the engagement.
+The summary should convey the overall risk, the most critical issues, and the business impact without excessive technical jargon.
+Output only an HTML fragment using: <p>, <ul>, <li>, <strong>, <em>.
+Do not include markdown, backticks, or code fences.
+Reply exclusively in {language}.`,
+
+    severitySummarySystemPrompt: `You are a cybersecurity expert writing penetration test reports.
+Summarise the {severity}-severity vulnerabilities found during the engagement in one concise paragraph.
+Focus on common patterns, attack vectors, and the collective business impact of this group.
+Output only an HTML fragment using: <p>, <ul>, <li>, <strong>, <em>, <code>.
+Do not include markdown, backticks, or code fences.
+Reply exclusively in {language}.`
+};
+
 export default {
     data: () => {
         return {
@@ -15,7 +84,7 @@ export default {
             settings: {
                 danger:{enabled:false,public:{nbdaydelete: 0}},
                 reviews:{enabled:false},
-                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:4096,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o'},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:'',visionAnonymizeLlm:false,visionAnonymizeRegex:false}}
+                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:4096,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o'},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:'',visionAnonymizeLlm:false,visionAnonymizeRegex:false,generateSystemPrompt:'',generateUserPrompt:'',completeSystemPrompt:'',completeUserPrompt:'',rewriteSystemPrompt:'',rewriteUserPrompt:'',fillProofsSystemPrompt:'',executiveSummarySystemPrompt:'',severitySummarySystemPrompt:''}}
             },
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false},ai:{enabled:false}},
             canEdit: false,
@@ -35,6 +104,13 @@ export default {
                 { id: 'section-ai', label: 'aiSettings' },
                 { id: 'section-actions', label: 'saveSettings' }
             ],
+            DEFAULT_PROMPTS,
+            promptTags: ['{language}','{fieldName}','{findingTitle}','{similarVulnsBlock}','{text}','{auditName}','{severity}','{findingsDigest}','{visionSummary}','{imageRefsBlock}','{vulnDescription}'],
+            aiTest: {
+                generation: { loading: false, status: null, response: '' },
+                embedding:  { loading: false, status: null, response: '' },
+                vision:     { loading: false, status: null, response: '' }
+            },
             cvssVersionOptions: [
                 { label: 'CVSS 3.1', value: '3.1' },
                 { label: 'CVSS 4.0', value: '4.0' }
@@ -162,6 +238,10 @@ export default {
                     data.data.datas
                   );
                   
+                const promptFields = ['generateSystemPrompt','generateUserPrompt','completeSystemPrompt','completeUserPrompt','rewriteSystemPrompt','rewriteUserPrompt','fillProofsSystemPrompt','executiveSummarySystemPrompt','severitySummarySystemPrompt'];
+                promptFields.forEach(k => {
+                    if (!this.settings.ai.private[k]) this.settings.ai.private[k] = DEFAULT_PROMPTS[k] || '';
+                });
                 this.settingsOrig = this.$_.cloneDeep(this.settings);
                 this.loading = false
                 this.$nextTick(() => this.initSectionObserver());
@@ -221,6 +301,10 @@ export default {
                     position: 'top-right'
                 })
             })
+        },
+
+        resetPromptToDefault: function(promptKey) {
+            this.settings.ai.private[promptKey] = DEFAULT_PROMPTS[promptKey] || '';
         },
 
         importSettings: function(file) {
@@ -298,6 +382,23 @@ export default {
                 });
             })
             .finally(() => { this.reindexing = false; });
+        },
+
+        testAiConnection: function(type) {
+            this.aiTest[type].loading = true;
+            this.aiTest[type].status = null;
+            this.aiTest[type].response = '';
+            AiService.testConnection(type)
+            .then((res) => {
+                const data = res.data.datas;
+                this.aiTest[type].status = data.ok ? 'ok' : 'error';
+                this.aiTest[type].response = data.response || '';
+            })
+            .catch((err) => {
+                this.aiTest[type].status = 'error';
+                this.aiTest[type].response = err.response?.data?.datas || err.message || $t('aiTestFailed');
+            })
+            .finally(() => { this.aiTest[type].loading = false; });
         },
 
         unsavedChanges() {

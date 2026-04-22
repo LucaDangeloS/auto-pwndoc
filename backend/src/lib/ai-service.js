@@ -5,19 +5,22 @@ const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 
 const DEFAULT_SYSTEM_PROMPTS = {
     generate: `You are a cybersecurity expert writing professional penetration test reports.
-Generate clear, technical content for a "{fieldName}" section of a finding.
+Generate clear, technical content for the "{fieldName}" section of a finding titled "{findingTitle}".
 The content should be in HTML format using only simple tags: <p>, <ul>, <li>, <strong>, <em>, <code>.
-Do not include any markdown, backticks, or code fences. Output only the HTML fragment, no wrapping document tags.`,
+Do not include any markdown, backticks, or code fences. Output only the HTML fragment, no wrapping document tags.
+Reply exclusively in {language}.`,
 
     complete: `You are a cybersecurity expert writing professional penetration test reports.
-Continue the following "{fieldName}" text naturally, maintaining the same technical tone and style.
+Continue the "{fieldName}" section of the finding titled "{findingTitle}" naturally, maintaining the same technical tone and style.
 Output only the continuation as an HTML fragment using: <p>, <ul>, <li>, <strong>, <em>, <code>.
-Do not repeat the existing content. Do not include markdown or code fences.`,
+Do not repeat the existing content. Do not include markdown or code fences.
+Reply exclusively in {language}.`,
 
     rewrite: `You are a cybersecurity expert writing professional penetration test reports.
-Rewrite the following "{fieldName}" text to be clearer, more concise, and more professional.
+Rewrite the "{fieldName}" section of the finding titled "{findingTitle}" to be clearer, more concise, and more professional.
 Output only the rewritten content as an HTML fragment using: <p>, <ul>, <li>, <strong>, <em>, <code>.
-Do not include markdown or code fences.`,
+Do not include markdown or code fences.
+Reply exclusively in {language}.`,
 
     'fill-proofs': `You are a cybersecurity expert writing professional penetration test reports.
 You will receive a proof-of-concept analysis of screenshots and evidence, along with the selected vulnerability details.
@@ -30,14 +33,30 @@ Rules:
 - The <img> tags must appear EXACTLY as provided (do not modify src attributes)
 - Use the vulnerability title and description as context for accurate technical language
 - Write in third person past tense (e.g. "The tester navigated to...", "It was observed that...")
-- Be concise but technically precise`
+- Be concise but technically precise
+Reply exclusively in {language}.`,
+
+    'executive-summary': `You are a cybersecurity expert writing executive summaries for professional penetration test reports.
+Your target audience is management and non-technical stakeholders.
+Write a concise, high-level executive summary of the overall security posture of the engagement.
+The summary should convey the overall risk, the most critical issues, and the business impact without excessive technical jargon.
+Output only an HTML fragment using: <p>, <ul>, <li>, <strong>, <em>.
+Do not include markdown, backticks, or code fences.
+Reply exclusively in {language}.`,
+
+    'severity-summary': `You are a cybersecurity expert writing penetration test reports.
+Summarise the {severity}-severity vulnerabilities found during the engagement in one concise paragraph.
+Focus on common patterns, attack vectors, and the collective business impact of this group.
+Output only an HTML fragment using: <p>, <ul>, <li>, <strong>, <em>, <code>.
+Do not include markdown, backticks, or code fences.
+Reply exclusively in {language}.`
 };
 
 const DEFAULT_USER_PROMPTS = {
     generate: `Finding title: "{findingTitle}"
-Field: {fieldName}
+Field to generate: {fieldName}
 {similarVulnsBlock}
-Generate the {fieldName} content for this finding.`,
+Write the {fieldName} content for this finding. Reply in {language}.`,
 
     complete: `Finding title: "{findingTitle}"
 Field: {fieldName}
@@ -45,12 +64,14 @@ Field: {fieldName}
 Existing content:
 {text}
 
-Continue from where the content ends.`,
+Continue from where the content ends. Reply in {language}.`,
 
     rewrite: `Finding title: "{findingTitle}"
 Field: {fieldName}
 Content to rewrite:
-{text}`,
+{text}
+
+Reply in {language}.`,
 
     'fill-proofs': `Vulnerability: "{findingTitle}"
 Vulnerability description: {vulnDescription}
@@ -61,8 +82,33 @@ Proof analysis from images:
 Image references to integrate (use these exact <img> tags in the output):
 {imageRefsBlock}
 
-Write the proof of concept narrative for this finding, integrating the images at appropriate positions.`
+Write the proof of concept narrative for this finding, integrating the images at appropriate positions. Reply in {language}.`,
+
+    'executive-summary': `Audit: "{auditName}"
+Findings (title, severity and CVSS score):
+{findingsDigest}
+
+Write the executive summary for this penetration test engagement. Reply in {language}.`,
+
+    'severity-summary': `Audit: "{auditName}"
+Severity level: {severity}
+{severity}-severity findings (title and CVSS score):
+{findingsDigest}
+
+Write a concise summary paragraph for all {severity}-severity findings in this audit. Reply in {language}.`
 };
+
+function localeToLanguage(locale) {
+    if (!locale) return 'English';
+    try {
+        const displayNames = new Intl.DisplayNames(['en'], { type: 'language' });
+        const tag = locale.replace('_', '-');
+        const name = displayNames.of(tag);
+        return name || locale;
+    } catch (_) {
+        return locale;
+    }
+}
 
 function ensureV1(url) {
     if (!url) return url;
@@ -167,16 +213,38 @@ async function generate({ action, text, fieldName, context, aiSettings }) {
     const visionSummary = (context && context.visionSummary) || '';
     const vulnDescription = (context && context.vulnDescription) || '';
     const imageRefsBlock = buildImageRefsBlock(context && context.imageDescriptions);
+    const auditName = (context && context.auditName) || '';
+    const severity = (context && context.severity) || '';
+    const findingsDigest = (context && context.findingsDigest) || '';
+    const locale = (context && context.locale) || '';
+    const language = localeToLanguage(locale);
 
-    const systemTemplate = action === 'fill-proofs'
-        ? (DEFAULT_SYSTEM_PROMPTS['fill-proofs'])
-        : (priv.systemPrompt || DEFAULT_SYSTEM_PROMPTS[action] || DEFAULT_SYSTEM_PROMPTS.generate);
-    const userTemplate = action === 'fill-proofs'
-        ? (DEFAULT_USER_PROMPTS['fill-proofs'])
-        : (priv.userPrompt || DEFAULT_USER_PROMPTS[action] || DEFAULT_USER_PROMPTS.generate);
+    let systemTemplate, userTemplate;
+    if (action === 'generate') {
+        systemTemplate = priv.generateSystemPrompt || DEFAULT_SYSTEM_PROMPTS.generate;
+        userTemplate = priv.generateUserPrompt || DEFAULT_USER_PROMPTS.generate;
+    } else if (action === 'complete') {
+        systemTemplate = priv.completeSystemPrompt || DEFAULT_SYSTEM_PROMPTS.complete;
+        userTemplate = priv.completeUserPrompt || DEFAULT_USER_PROMPTS.complete;
+    } else if (action === 'rewrite') {
+        systemTemplate = priv.rewriteSystemPrompt || DEFAULT_SYSTEM_PROMPTS.rewrite;
+        userTemplate = priv.rewriteUserPrompt || DEFAULT_USER_PROMPTS.rewrite;
+    } else if (action === 'fill-proofs') {
+        systemTemplate = priv.fillProofsSystemPrompt || DEFAULT_SYSTEM_PROMPTS['fill-proofs'];
+        userTemplate = DEFAULT_USER_PROMPTS['fill-proofs'];
+    } else if (action === 'executive-summary') {
+        systemTemplate = priv.executiveSummarySystemPrompt || DEFAULT_SYSTEM_PROMPTS['executive-summary'];
+        userTemplate = DEFAULT_USER_PROMPTS['executive-summary'];
+    } else if (action === 'severity-summary') {
+        systemTemplate = priv.severitySummarySystemPrompt || DEFAULT_SYSTEM_PROMPTS['severity-summary'];
+        userTemplate = DEFAULT_USER_PROMPTS['severity-summary'];
+    } else {
+        systemTemplate = DEFAULT_SYSTEM_PROMPTS.generate;
+        userTemplate = DEFAULT_USER_PROMPTS.generate;
+    }
 
-    const systemContent = fillTemplate(systemTemplate, { fieldName, findingTitle });
-    const userContent = fillTemplate(userTemplate, { fieldName, findingTitle, text: text || '', similarVulnsBlock, visionSummary, vulnDescription, imageRefsBlock });
+    const systemContent = fillTemplate(systemTemplate, { fieldName, findingTitle, auditName, severity, language });
+    const userContent = fillTemplate(userTemplate, { fieldName, findingTitle, text: text || '', similarVulnsBlock, visionSummary, vulnDescription, imageRefsBlock, auditName, severity, findingsDigest, language });
 
     const messages = [
         new SystemMessage(systemContent),
@@ -184,7 +252,7 @@ async function generate({ action, text, fieldName, context, aiSettings }) {
     ];
 
     const response = await chatModel.invoke(messages);
-    const raw = response.content || '';
+    const raw = response.content || response.additional_kwargs?.reasoning_content || '';
 
     const html = raw
         .replace(/^```html\s*/i, '')

@@ -73,7 +73,14 @@
             <div class="row">
               <div v-for="(user,idx) in networkUsers" :key="idx" class="col multi-colors-bar" :style="{background:user.color}" />
             </div>
-  
+
+            <q-item :to="'/audits/'+auditId+'/executive-summary'">
+              <q-item-section avatar>
+                <q-icon name="fa fa-file-alt"></q-icon>
+              </q-item-section>
+              <q-item-section>{{$t('executiveSummary')}}</q-item-section>
+            </q-item>
+
             <div v-if="!currentAuditType || !currentAuditType.hidden.includes('findings')">
               <q-separator class="q-my-sm" />
               <q-item>

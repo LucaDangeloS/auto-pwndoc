@@ -108,7 +108,16 @@ const SettingSchema = new Schema({
         },
         visionSystemPrompt: { type: String, default: '' },
         visionAnonymizeLlm: { type: Boolean, default: false },
-        visionAnonymizeRegex: { type: Boolean, default: false }
+        visionAnonymizeRegex: { type: Boolean, default: false },
+        generateSystemPrompt: { type: String, default: '' },
+        generateUserPrompt: { type: String, default: '' },
+        completeSystemPrompt: { type: String, default: '' },
+        completeUserPrompt: { type: String, default: '' },
+        rewriteSystemPrompt: { type: String, default: '' },
+        rewriteUserPrompt: { type: String, default: '' },
+        fillProofsSystemPrompt: { type: String, default: '' },
+        executiveSummarySystemPrompt: { type: String, default: '' },
+        severitySummarySystemPrompt: { type: String, default: '' }
       },
       visionEnabled: { type: Boolean, default: false },
       visionPublic: {

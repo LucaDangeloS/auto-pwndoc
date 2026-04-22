@@ -218,6 +218,7 @@ module.exports = function(app, io) {
         if (req.body.template) update.template = req.body.template;
         if (req.body.customFields) update.customFields = req.body.customFields;
         if (req.body.isRetest !== undefined) update.isRetest = req.body.isRetest;
+        if (req.body.executiveSummary !== undefined) update.executiveSummary = req.body.executiveSummary;
         if (settings.reviews.enabled && settings.reviews.private.removeApprovalsUponUpdate) update.approvals = [];
 
         Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, update)

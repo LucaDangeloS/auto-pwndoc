@@ -17,7 +17,7 @@
  *   4. Document the change in the migration steps below.
  *
  * srcDb  — raw MongoDB Db object connected to the SOURCE (pwndoc-ng) database.
- * dstDb  — raw MongoDB Db object connected to the DESTINATION (autodoc) database.
+ * dstDb  — raw MongoDB Db object connected to the DESTINATION (autopwndoc) database.
  *          All mongoose models are already registered on this connection; you
  *          can use either the raw Db API or require the models directly.
  */
@@ -197,6 +197,34 @@ const STEPS = [
                 { arrayFilters: [{ 'f.cvssv4': { $exists: false } }] }
             );
             console.log(`[migration] add-cvssv4-to-findings: ${result.modifiedCount} audits updated`);
+        },
+    },
+
+    // Step 8: Add executiveSummary object to all audit documents
+    // Audits created before this feature have no executiveSummary subdocument.
+    // Set it to the default empty object for all documents that lack the field.
+    {
+        id: 8,
+        name: 'add-executive-summary-to-audits',
+        async run(_srcDb, dstDb) {
+            const col = dstDb.collection('audits');
+            const result = await col.updateMany(
+                { executiveSummary: { $exists: false } },
+                {
+                    $set: {
+                        executiveSummary: {
+                            overallRisk: '',
+                            summary: '',
+                            criticalSummary: '',
+                            highSummary: '',
+                            mediumSummary: '',
+                            lowSummary: '',
+                            informativeSummary: '',
+                        },
+                    },
+                }
+            );
+            console.log(`[migration] add-executive-summary: ${result.modifiedCount} audits updated`);
         },
     },
 

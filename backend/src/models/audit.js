@@ -80,6 +80,16 @@ var AuditSchema = new Schema({
     customFields:       [customField],
     sortFindings:       [SortOption],
     isRetest:           {type: Boolean, default: false},
+    executiveSummary:   {
+        _id:                false,
+        overallRisk:        {type: String, default: ''},
+        summary:            {type: String, default: ''},
+        criticalSummary:    {type: String, default: ''},
+        highSummary:        {type: String, default: ''},
+        mediumSummary:      {type: String, default: ''},
+        lowSummary:         {type: String, default: ''},
+        informativeSummary: {type: String, default: ''},
+    },
     state:              { type: String, enum: ['EDIT', 'REVIEW', 'APPROVED'], default: 'EDIT'},
     approvals:          [{type: Schema.Types.ObjectId, ref: 'User'}],
 }, {timestamps: true});
@@ -319,7 +329,7 @@ AuditSchema.statics.getGeneral = (isAdmin, auditId, userId) => {
         query.populate('collaborators', 'username firstname lastname')
         query.populate('reviewers', 'username firstname lastname')
         query.populate('company')
-        query.select('name auditType date date_start date_end client collaborators language scope.name template customFields isRetest')
+        query.select('name auditType date date_start date_end client collaborators language scope.name template customFields isRetest executiveSummary')
         query.lean().exec()
         .then((row) => {
             if (!row)

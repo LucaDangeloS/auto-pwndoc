@@ -1508,6 +1508,15 @@ async function prepAuditData(data, settings) {
     result.scope = data.scope.toObject() || []
     result.is_retest = data.isRetest === true
 
+    const execSummary = data.executiveSummary || {}
+    result.overall_risk = execSummary.overallRisk ? $t(execSummary.overallRisk) : ''
+    result.executive_summary = await splitHTMLParagraphs(execSummary.summary || '')
+    result.critical_summary = await splitHTMLParagraphs(execSummary.criticalSummary || '')
+    result.high_summary = await splitHTMLParagraphs(execSummary.highSummary || '')
+    result.medium_summary = await splitHTMLParagraphs(execSummary.mediumSummary || '')
+    result.low_summary = await splitHTMLParagraphs(execSummary.lowSummary || '')
+    result.informative_summary = await splitHTMLParagraphs(execSummary.informativeSummary || '')
+
     result.findings = []
     for (finding of data.findings) {
         // Determine which CVSS version to use

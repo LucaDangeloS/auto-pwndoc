@@ -1,0 +1,142 @@
+<div>
+  <breadcrumb
+    buttons
+    :title="$t('executiveSummary')"
+    :state="parentState"
+    :approvals="parentApprovals"
+  >
+    <template v-slot:buttons>
+      <q-btn
+        v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+        color="positive"
+        :label="$t('btn.save') + ' (ctrl+s)'"
+        no-caps
+        @click="save"
+        :loading="loading"
+      />
+    </template>
+  </breadcrumb>
+
+  <div class="row q-col-gutter-md q-pa-md">
+    <div class="col-md-8 offset-md-2 col-12">
+
+      <!-- Overall Risk Level -->
+      <q-card class="q-mb-md">
+        <q-card-section>
+          <div class="row items-center q-mb-sm">
+            <div class="text-subtitle1 text-weight-medium">{{$t('overallRisk')}}</div>
+            <template-hint template-var="audit.overall_risk" class="q-ml-sm" />
+          </div>
+          <q-select
+            v-model="executiveSummary.overallRisk"
+            :options="riskOptions"
+            option-value="value"
+            option-label="label"
+            emit-value
+            map-options
+            outlined
+            clearable
+            :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+            :label="$t('overallRisk')"
+          >
+            <template #selected-item="scope">
+              <div class="row items-center q-gutter-x-sm">
+                <div
+                  class="rounded-borders"
+                  :style="{ width: '12px', height: '12px', background: selectedRiskOption ? selectedRiskOption.color : 'transparent', flexShrink: 0 }"
+                />
+                <span>{{ scope.opt.label }}</span>
+              </div>
+            </template>
+            <template #option="scope">
+              <q-item v-bind="scope.itemProps">
+                <q-item-section avatar>
+                  <div
+                    class="rounded-borders"
+                    :style="{ width: '14px', height: '14px', background: scope.opt.color }"
+                  />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label>{{ scope.opt.label }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </template>
+          </q-select>
+        </q-card-section>
+      </q-card>
+
+      <!-- Executive Summary Text -->
+      <q-card class="q-mb-md">
+        <q-card-section>
+          <div class="row items-center justify-between q-mb-sm">
+            <div class="row items-center">
+              <div class="text-subtitle1 text-weight-medium">{{$t('executiveSummaryText')}}</div>
+              <template-hint template-var="audit.executive_summary | convertHTML" class="q-ml-sm" />
+            </div>
+            <q-btn
+              v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && $settings && $settings.ai && $settings.ai.enabled"
+              flat dense color="purple" icon="auto_awesome" :label="$t('aiSuggest')"
+              @click="runAiOnEditor('editor_summary', 'executive-summary')"
+              :loading="aiLoadingMap['editor_summary']"
+            />
+          </div>
+          <basic-editor
+            ref="editor_summary"
+            v-model="executiveSummary.summary"
+            :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+            :collab="false"
+            fieldName="executiveSummary"
+            :aiContext="aiContextSummary()"
+          />
+        </q-card-section>
+      </q-card>
+
+      <!-- Per-Severity Summaries -->
+      <q-card>
+        <q-card-section>
+          <div class="text-subtitle1 text-weight-medium q-mb-sm">{{$t('severitySummaries')}}</div>
+
+          <div
+            v-for="level in SEVERITY_LEVELS"
+            :key="level.key"
+            class="q-mb-md"
+          >
+            <div class="row items-center justify-between q-mb-xs">
+              <div class="row items-center">
+                <q-chip
+                  dense
+                  :style="{ background: severityColor[level.key], color: '#fff' }"
+                  class="text-weight-medium"
+                >
+                  {{ $t(level.key.toLowerCase()) }}
+                </q-chip>
+                <template-hint :template-var="`audit.${level.key.toLowerCase()}_summary | convertHTML`" class="q-ml-xs" />
+                <span
+                  v-if="!presentSeverities.has(level.key)"
+                  class="text-caption text-grey q-ml-sm"
+                >
+                  {{ $t('noFindingsOfSeverity') }}
+                </span>
+              </div>
+              <q-btn
+                v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && presentSeverities.has(level.key) && $settings && $settings.ai && $settings.ai.enabled"
+                flat dense color="purple" icon="auto_awesome" :label="$t('aiSuggest')"
+                @click="runAiOnEditor(`editor_${level.field}`, 'severity-summary', level.key)"
+                :loading="aiLoadingMap[`editor_${level.field}`]"
+              />
+            </div>
+            <basic-editor
+              :ref="`editor_${level.field}`"
+              v-model="executiveSummary[level.field]"
+              :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && presentSeverities.has(level.key)"
+              :collab="false"
+              :fieldName="level.field"
+              :aiContext="aiContextFor(level.key)"
+            />
+          </div>
+        </q-card-section>
+      </q-card>
+
+    </div>
+  </div>
+</div>

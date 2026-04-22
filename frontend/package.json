@@ -1,8 +1,8 @@
 {
-  "name": "autodoc-frontend",
+  "name": "autopwndoc-frontend",
   "version": "1.0.0",
-  "description": "autodoc frontend",
-  "productName": "autodoc",
+  "description": "autopwndoc frontend",
+  "productName": "autopwndoc",
   "cordovaId": "org.cordova.quasar.app",
   "author": "Stanley Hammer",
   "private": true,

@@ -1,7 +1,7 @@
 services:
   mongodb:
     image: mongo:4
-    container_name: mongo-pwndoc-ng
+    container_name: autopwndoc-mongodb
     volumes:
       - mongo-data:/data/db
     restart: always
@@ -15,7 +15,7 @@ services:
   backend:
     build: ./backend
     image: pwndoc-ng/pwndoc-ng:backend
-    container_name: pwndoc-ng-backend
+    container_name: autopwndoc-backend
     volumes:
       - ./backend/report-templates:/app/report-templates
       - ./backend/src/config:/app/src/config
@@ -34,7 +34,7 @@ services:
   frontend:
     build: ./frontend
     image: pwndoc-ng/pwndoc-ng:frontend
-    container_name: pwndoc-ng-frontend
+    container_name: autopwndoc-frontend
     restart: always
     environment:
       - Java_Xms=512m
@@ -43,12 +43,27 @@ services:
       - 8443:8443
     networks:
       - backend
+
   languagetool:
     image: erikvl87/languagetool
-    container_name: pwndoc-ng-languagetool
+    container_name: autopwndoc-languagetool
     restart: always
     networks:
       - backend
+
+  chroma:
+      image: chromadb/chroma:1.5.5
+      container_name: autopwndoc-chroma
+      networks:
+        - autopwndoc-net
+      environment:
+        - IS_PERSISTENT=TRUE
+        - ANONYMIZED_TELEMETRY=FALSE
+      volumes:
+        - chroma-data-dev:/data
+      ports:
+        - 127.0.0.1:8000:8000
+      restart: always
 
 volumes:
   mongo-data:

@@ -1,14 +1,14 @@
 networks:
-  autodoc-net:
+  autopwndoc-net:
     driver: bridge
 
 services:
 
   mongodb:
     image: mongo:4.2.15
-    container_name: mongo-pwndoc-ng
+    container_name: autopwndoc-mongodb
     networks:
-      - autodoc-net
+      - autopwndoc-net
     volumes:
       - mongo-data-dev:/data/db
     ports:
@@ -21,12 +21,19 @@ services:
     build:
       context: ./backend/
       dockerfile: Dockerfile.dev
-    container_name: pwndoc-ng-backend
+    container_name: autopwndoc-backend
     entrypoint: ""
     working_dir: "/app"
     command: "npm run dev"
     networks:
-      - autodoc-net
+      - autopwndoc-net
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app
+          ignore:
+            - node_modules/
     environment:
       # Set MIGRATE_FROM to a MongoDB URI to trigger a one-time migration from
       # an existing pwndoc-ng database into this instance on next startup.
@@ -52,9 +59,17 @@ services:
     build:
       context: ./frontend/
       dockerfile: Dockerfile.dev
-    container_name: autodoc-frontend-app-1
+    container_name: autopwndoc-frontend
+    hostname: frontend
     networks:
-      - autodoc-net
+      - autopwndoc-net
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          ignore:
+            - node_modules/
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/ssl:/app/ssl
@@ -67,11 +82,12 @@ services:
       - frontend-node-modules:/app/node_modules
     restart: always
 
-  frontend:
+  proxy:
     image: nginx:stable-alpine
     user: root
+    container_name: autopwndoc-ng-proxy
     networks:
-      - autodoc-net
+      - autopwndoc-net
     volumes:
       - ./frontend/.docker/nginx.dev.conf:/etc/nginx/conf.d/default.conf
       - ./frontend/ssl:/etc/nginx/ssl/
@@ -81,9 +97,9 @@ services:
 
   chroma:
     image: chromadb/chroma:1.5.5
-    container_name: pwndoc-ng-chroma
+    container_name: autopwndoc-ng-chroma
     networks:
-      - autodoc-net
+      - autopwndoc-net
     environment:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=FALSE
@@ -91,6 +107,13 @@ services:
       - chroma-data-dev:/data
     ports:
       - 127.0.0.1:8000:8000
+    restart: always
+
+  languagetool:
+    image: erikvl87/languagetool
+    container_name: autopwndoc-languagetool
+    networks:
+      - autopwndoc-net
     restart: always
 
 volumes:

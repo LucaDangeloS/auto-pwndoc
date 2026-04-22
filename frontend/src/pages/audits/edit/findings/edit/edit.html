@@ -122,18 +122,11 @@
                   <template #append><template-hint template-var="finding.vulnType" /></template>
                 </q-select>
 
-                <div class="col-md-12 row items-center justify-between q-mt-sm">
+                <div class="col-md-12 row items-center q-mt-sm">
                   <span class="row items-center text-subtitle2 text-grey-7">
                     {{ $t('description') }}
                     <template-hint template-var="finding.description | convertHTML" class="q-ml-xs" />
                   </span>
-                  <q-btn
-                    v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
-                    flat dense color="purple" icon="auto_awesome" :label="$t('aiSuggest')"
-                    @click="generateAiDescription"
-                    :loading="aiLoading"
-                    :disable="loading"
-                  />
                 </div>
                 <q-field class="col-md-12 basic-editor" borderless stack-label>
                   <template #control>
@@ -316,15 +309,12 @@
               </q-card-section>
               <q-separator />
               <q-card-section>
-                <q-field borderless>
-                  <template #control>
-                    <basic-editor
-                      v-model="finding.scope"
-                      idUnique="basiceditor_scope"
-                      :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
-                    />
-                  </template>
-                </q-field>
+                <basic-editor
+                  v-model="finding.scope"
+                  idUnique="basiceditor_scope"
+                  :toolbar="['format','marks','list']"
+                  :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                />
               </q-card-section>
             </q-card>
 

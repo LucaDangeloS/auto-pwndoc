@@ -473,10 +473,11 @@
             size="sm"
             dense
             no-icon-animation
+            color="purple"
             :loading="aiLoading"
           >
             <template v-slot:label>
-              <q-icon name="auto_awesome" />
+              <q-icon name="auto_awesome" color="purple" />
               <q-tooltip :delay="500" content-class="text-bold">AI Assistant</q-tooltip>
             </template>
             <q-list>

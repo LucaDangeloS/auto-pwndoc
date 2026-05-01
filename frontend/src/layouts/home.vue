@@ -28,7 +28,7 @@
 
             <q-space />
 
-            <q-item class="gt-sm" to='/settings' active-class="text-green">
+            <q-item v-if="userService.isAllowed('settings:read')" class="gt-sm" to='/settings' active-class="text-green">
             <q-item-section avatar style="min-width:0" class="q-pr-sm">
                 <q-icon name="fa fa-cog" />
             </q-item-section>
@@ -50,7 +50,7 @@
                     <q-item-section side><q-icon size="xs" name="fa fa-database" /></q-item-section>
                     <q-item-section>{{$t('nav.data')}}</q-item-section>
                   </q-item>
-                  <q-item clickable :to="'/settings'">
+                  <q-item v-if="userService.isAllowed('settings:read')" clickable :to="'/settings'">
                     <q-item-section side><q-icon size="xs" name="fa fa-cog" /></q-item-section>
                     <q-item-section>{{$t('settings')}}</q-item-section>
                   </q-item>

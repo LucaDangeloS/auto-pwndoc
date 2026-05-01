@@ -222,6 +222,7 @@ module.exports = function(app) {
 
             //Optionals params
             user.role = usr.role || 'user';
+            if (Array.isArray(usr.permissions)) user.permissions = usr.permissions;
             if (usr.email) user.email = usr.email;
             if (usr.phone) user.phone = usr.phone;
             users.push(user)
@@ -335,6 +336,7 @@ module.exports = function(app) {
         if (!_.isNil(req.body.email)) user.email = req.body.email;
         if (!_.isNil(req.body.phone)) user.phone = req.body.phone;
         if (req.body.role) user.role = req.body.role;
+        if (Array.isArray(req.body.permissions)) user.permissions = req.body.permissions;
         if (typeof(req.body.totpEnabled) === 'boolean') user.totpEnabled = req.body.totpEnabled;
         if (typeof(req.body.enabled) === 'boolean') user.enabled = req.body.enabled;
 

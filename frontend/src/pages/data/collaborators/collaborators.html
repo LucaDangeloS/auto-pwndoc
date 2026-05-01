@@ -31,56 +31,35 @@
                     />
                 </template>
 
-                <template v-slot:top-row="props">
+                <template v-slot:top-row>
                     <q-tr>
                         <q-td style="width: 20%">
-                            <q-input 
-                            dense
-                            :label="$t('search')"
-                            v-model="search.username"
-                            clearable
-                            outlined
-                            />
+                            <q-input dense :label="$t('search')" v-model="search.username" clearable outlined />
                         </q-td>
                         <q-td style="width: 20%">
-                            <q-input 
-                            dense
-                            :label="$t('search')"
-                            v-model="search.firstname"
-                            clearable
-                            outlined
-                            />
+                            <q-input dense :label="$t('search')" v-model="search.firstname" clearable outlined />
                         </q-td>
                         <q-td style="width: 20%">
-                            <q-input 
-                            dense
-                            :label="$t('search')"
-                            v-model="search.lastname"
-                            clearable
-                            outlined
-                            />
+                            <q-input dense :label="$t('search')" v-model="search.lastname" clearable outlined />
                         </q-td>
                         <q-td style="width: 20%">
-                            <q-input 
-                            dense
-                            :label="$t('search')"
-                            v-model="search.email"
-                            clearable
-                            outlined
-                            />
+                            <q-input dense :label="$t('search')" v-model="search.email" clearable outlined />
                         </q-td>
                         <q-td style="width: 20%">
-                            <q-select 
-                            dense
-                            :label="$t('search')"
-                            v-model="search.role"
-                            clearable
-                            :options="roles"
-                            options-sanitize
-                            outlined
-                            />
+                            <q-select dense :label="$t('search')" v-model="search.role" clearable :options="baseRoles" options-sanitize outlined />
                         </q-td>
+                        <q-td />
                     </q-tr>
+                </template>
+
+                <template v-slot:body-cell-permissions="props">
+                    <q-td :props="props">
+                        <q-chip v-if="props.row.role === 'admin'" color="orange" text-color="white" dense>admin</q-chip>
+                        <span v-else-if="props.row.permissions && props.row.permissions.length">
+                            <q-chip v-for="p in summarisePermissions(props.row.permissions)" :key="p" dense outline>{{p}}</q-chip>
+                        </span>
+                        <span v-else class="text-grey-5 text-caption">—</span>
+                    </q-td>
                 </template>
 
                 <template v-slot:body-cell-action="props">
@@ -93,35 +72,17 @@
                         icon="fa fa-edit"
                         @click="clone(props.row); $refs.editModal.show()"
                       >
-                        <q-tooltip
-                          anchor="bottom middle"
-                          self="center left"
-                          :delay="500"
-                          content-class="text-bold"
-                        >
-                          Edit
-                        </q-tooltip>
+                        <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">Edit</q-tooltip>
                       </q-btn>
                     </q-td>
-                  </template>
-                  
+                </template>
 
                 <template v-slot:bottom="scope">
                     <span v-if="collabs.length === 1">1 {{$t('quantifier')}}{{$t('collatorator')}}</span>                
                     <span v-else>{{collabs.length}} {{$t('quantifier')}}{{$t('collaborators')}}</span>   
                     <q-space />
                     <span>{{$t('resultsPerPage')}}</span>
-                    <q-select
-                    class="q-px-md"
-                    v-model="pagination.rowsPerPage"
-                    :options="rowsPerPageOptions"
-                    emit-value
-                    map-options
-                    dense
-                    options-dense
-                    options-cover
-                    borderless
-                    />
+                    <q-select class="q-px-md" v-model="pagination.rowsPerPage" :options="rowsPerPageOptions" emit-value map-options dense options-dense options-cover borderless />
                     <q-pagination input v-model="pagination.page" :max="scope.pagesNumber" />            
                 </template> 
         
@@ -129,97 +90,52 @@
         </div>
     </div>
     
+    <!-- ── Create Modal ── -->
     <q-dialog ref="createModal" persistent @hide="cleanErrors()">
-        <q-card style="width:800px">
+        <q-card style="width:860px; max-width:95vw">
             <q-bar class="bg-fixed-primary text-white">
-                <div class="q-toolbar-title">
-                    {{$t('addCollaborator')}}
-                </div>
+                <div class="q-toolbar-title">{{$t('addCollaborator')}}</div>
                 <q-space />
                 <q-btn dense flat icon="close" @click="$refs.createModal.hide()" />
             </q-bar>
             
-            <q-card-section>
-                <q-input
-                :label="$t('username')+' *'"
-                autofocus
-                class="col-md-12"
-                :error="!!errors.username"
-                :error-message="errors.username"
-                hide-bottom-space
-                @keyup.enter="createCollab()"
-                v-model="currentCollab.username"
-                outlined
-                />
+            <q-card-section class="q-col-gutter-md row">
+                <q-input class="col-12 col-md-6" :label="$t('username')+' *'" autofocus :error="!!errors.username" :error-message="errors.username" hide-bottom-space @keyup.enter="createCollab()" v-model="currentCollab.username" outlined />
+                <q-input class="col-12 col-md-6" :label="$t('firstname')+' *'" :error="!!errors.firstname" :error-message="errors.firstname" hide-bottom-space @keyup.enter="createCollab()" v-model="currentCollab.firstname" outlined />
+                <q-input class="col-12 col-md-6" :label="$t('lastname')+' *'" :error="!!errors.lastname" :error-message="errors.lastname" hide-bottom-space @keyup.enter="createCollab()" v-model="currentCollab.lastname" outlined />
+                <q-input class="col-12 col-md-6" :label="$t('email')" hide-bottom-space @keyup.enter="createCollab()" v-model="currentCollab.email" outlined />
+                <q-input class="col-12 col-md-6" :label="$t('phone')" hide-bottom-space @keyup.enter="createCollab()" v-model="currentCollab.phone" outlined />
+                <q-input class="col-12 col-md-6" v-model="currentCollab.password" :label="$t('password')+' *'" type="password" :error="!!errors.password" :error-message="errors.password" hide-bottom-space @keyup.enter="createCollab()" outlined />
             </q-card-section>
+
+            <q-separator />
+
+            <!-- Role + Permissions -->
             <q-card-section>
-                <q-input
-                :label="$t('firstname')+' *'"
-                class="col-md-12"
-                :error="!!errors.firstname"
-                :error-message="errors.firstname"
-                hide-bottom-space
-                @keyup.enter="createCollab()"
-                v-model="currentCollab.firstname"
-                outlined
-                />
-            </q-card-section>  
-            <q-card-section>
-                <q-input
-                :label="$t('lastname')+' *'"
-                class="col-md-12"
-                :error="!!errors.lastname"
-                :error-message="errors.lastname"
-                hide-bottom-space
-                @keyup.enter="createCollab()"
-                v-model="currentCollab.lastname"
-                outlined
-                />
+                <div class="text-subtitle2 q-mb-sm">{{$t('roleAndPermissions')}}</div>
+                <div class="row q-col-gutter-md">
+                    <q-select class="col-12 col-md-4" :label="$t('role')+' *'" v-model="currentCollab.role" :options="baseRoles" options-sanitize outlined @update:model-value="onRoleChange('create')" />
+                    <div class="col-12" v-if="currentCollab.role !== 'admin'">
+                        <div class="text-caption text-grey-7 q-mb-sm">{{$t('additionalPermissions')}}</div>
+                        <div class="row q-col-gutter-sm">
+                            <div v-for="group in permissionGroups" :key="group.label" class="col-12 col-md-6">
+                                <div class="text-caption text-weight-medium q-mb-xs">{{$t(group.labelKey)}}</div>
+                                <q-checkbox v-for="perm in group.perms" :key="perm.value"
+                                    dense
+                                    :label="$t(perm.labelKey)"
+                                    :val="perm.value"
+                                    v-model="currentCollab.permissions"
+                                    class="q-mr-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12" v-else>
+                        <div class="text-caption text-grey-6">{{$t('adminHasAllPermissions')}}</div>
+                    </div>
+                </div>
             </q-card-section>
-            <q-card-section>
-                <q-input
-                :label="$t('email')"
-                class="col-md-12"
-                hide-bottom-space
-                @keyup.enter="createCollab()"
-                v-model="currentCollab.email"
-                outlined
-                />
-            </q-card-section>
-            <q-card-section>
-                <q-input
-                :label="$t('phone')"
-                class="col-md-12"
-                hide-bottom-space
-                @keyup.enter="createCollab()"
-                v-model="currentCollab.phone"
-                outlined
-                />
-            </q-card-section>
-            <q-card-section>
-                <q-select
-                :label="$t('role')+' *'"
-                class="col-md-12"
-                v-model="currentCollab.role"
-                :options=roles
-                @keyup.enter="createCollab()"
-                options-sanitize
-                outlined
-                />
-            </q-card-section>
-            <q-card-section>
-                <q-input
-                v-model="currentCollab.password" 
-                :label="$t('password')+' *'"
-                type="password"
-                :error="!!errors.password" 
-                :error-message="errors.password"
-                hide-bottom-space
-                @keyup.enter="createCollab()"
-                outlined
-                />
-            </q-card-section>
-    
+
             <q-separator />
     
             <q-card-actions align="right">
@@ -229,106 +145,62 @@
         </q-card>
     </q-dialog>
     
+    <!-- ── Edit Modal ── -->
     <q-dialog ref="editModal" persistent @hide="cleanErrors()">
-        <q-card style="width:800px">
+        <q-card style="width:860px; max-width:95vw">
             <q-bar class="bg-fixed-primary text-white">
-                <div class="q-toolbar-title">
-                    {{$t('editCollaborator')}}
-                </div>
+                <div class="q-toolbar-title">{{$t('editCollaborator')}}</div>
                 <q-space />
                 <q-btn dense flat icon="close" @click="$refs.editModal.hide()" />
             </q-bar>
             
-            <q-card-section>
-                <q-input
-                :label="$t('username')+' *'"
-                autofocus
-                class="col-md-12"
-                :error="!!errors.username"
-                :error-message="errors.username"
-                hide-bottom-space
-                @keyup.enter="updateCollab()"
-                v-model="currentCollab.username"
-                outlined
-                />
+            <q-card-section class="q-col-gutter-md row">
+                <q-input class="col-12 col-md-6" :label="$t('username')+' *'" autofocus :error="!!errors.username" :error-message="errors.username" hide-bottom-space @keyup.enter="updateCollab()" v-model="currentCollab.username" outlined />
+                <q-input class="col-12 col-md-6" :label="$t('firstname')+' *'" :error="!!errors.firstname" :error-message="errors.firstname" hide-bottom-space @keyup.enter="updateCollab()" v-model="currentCollab.firstname" outlined />
+                <q-input class="col-12 col-md-6" :label="$t('lastname')+' *'" :error="!!errors.lastname" :error-message="errors.lastname" hide-bottom-space @keyup.enter="updateCollab()" v-model="currentCollab.lastname" outlined />
+                <q-input class="col-12 col-md-6" :label="$t('email')" hide-bottom-space @keyup.enter="updateCollab()" v-model="currentCollab.email" outlined />
+                <q-input class="col-12 col-md-6" :label="$t('phone')" hide-bottom-space @keyup.enter="updateCollab()" v-model="currentCollab.phone" outlined />
+                <q-input class="col-12 col-md-6" ref="pwdUpdateRef" v-model="currentCollab.password" :error="!!errors.password" :error-message="errors.password" :label="$t('password')" type="password" @keyup.enter="updateCollab()" outlined />
             </q-card-section>
-            <q-card-section>
-                <q-input
-                :label="$t('firstname')+' *'"
-                class="col-md-12"
-                :error="!!errors.firstname"
-                :error-message="errors.firstname"
-                hide-bottom-space
-                @keyup.enter="updateCollab()"
-                v-model="currentCollab.firstname"
-                outlined
-                />
-            </q-card-section>  
-            <q-card-section>
-                <q-input
-                :label="$t('lastname')+' *'"
-                class="col-md-12"
-                :error="!!errors.lastname"
-                :error-message="errors.lastname"
-                hide-bottom-space
-                @keyup.enter="updateCollab()"
-                v-model="currentCollab.lastname"
-                outlined
-                />
-            </q-card-section>
-            <q-card-section>
-                <q-input
-                :label="$t('email')"
-                class="col-md-12"
-                hide-bottom-space
-                @keyup.enter="updateCollab()"
-                v-model="currentCollab.email"
-                outlined
-                />
-            </q-card-section>
-            <q-card-section>
-                <q-input
-                :label="$t('phone')"
-                class="col-md-12"
-                hide-bottom-space
-                @keyup.enter="updateCollab()"
-                v-model="currentCollab.phone"
-                outlined
-                />
-            </q-card-section>
-            <q-card-section>
-                <q-select
-                :label="$t('role')+' *'"
-                class="col-md-12"
-                v-model="currentCollab.role"
-                :options=roles
-                @keyup.enter="updateCollab()"
-                options-sanitize
-                outlined
-                />
-            </q-card-section>   
-            <q-card-section>
-                <q-input 
-                ref="pwdUpdateRef"
-                v-model="currentCollab.password"
-                :error="!!errors.password" 
-                :error-message="errors.password"
-                :label="$t('password')" 
-                type="password"
-                @keyup.enter="updateCollab()"
-                outlined
-                />
-            </q-card-section>
-            <q-card-section>
-                <div class="q-pl-sm">
-                    <p v-if="currentCollab.totpEnabled">2FA <b>enabled</b> for this user</p>
-                    <p v-else>2FA <b>disabled</b> for this user</p>
-                </div>
 
-                <q-toggle
-                v-model="currentCollab.enabled" 
-                :label="currentCollab.enabled ? $t('btn.accountEnabled') : $t('btn.accountDisabled')"
-                />
+            <q-separator />
+
+            <!-- Role + Permissions -->
+            <q-card-section>
+                <div class="text-subtitle2 q-mb-sm">{{$t('roleAndPermissions')}}</div>
+                <div class="row q-col-gutter-md">
+                    <q-select class="col-12 col-md-4" :label="$t('role')+' *'" v-model="currentCollab.role" :options="baseRoles" options-sanitize outlined @update:model-value="onRoleChange('edit')" />
+                    <div class="col-12" v-if="currentCollab.role !== 'admin'">
+                        <div class="text-caption text-grey-7 q-mb-sm">{{$t('additionalPermissions')}}</div>
+                        <div class="row q-col-gutter-sm">
+                            <div v-for="group in permissionGroups" :key="group.label" class="col-12 col-md-6">
+                                <div class="text-caption text-weight-medium q-mb-xs">{{$t(group.labelKey)}}</div>
+                                <q-checkbox v-for="perm in group.perms" :key="perm.value"
+                                    dense
+                                    :label="$t(perm.labelKey)"
+                                    :val="perm.value"
+                                    v-model="currentCollab.permissions"
+                                    class="q-mr-sm"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12" v-else>
+                        <div class="text-caption text-grey-6">{{$t('adminHasAllPermissions')}}</div>
+                    </div>
+                </div>
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section>
+                <div class="row items-center q-gutter-md">
+                    <div>
+                        <span v-if="currentCollab.totpEnabled" class="text-caption">2FA <b>enabled</b></span>
+                        <span v-else class="text-caption">2FA <b>disabled</b></span>
+                    </div>
+                    <q-toggle v-model="currentCollab.enabled" :label="currentCollab.enabled ? $t('btn.accountEnabled') : $t('btn.accountDisabled')" />
+                </div>
             </q-card-section>
             
             <q-separator />

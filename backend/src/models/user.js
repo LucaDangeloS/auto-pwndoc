@@ -18,6 +18,7 @@ var UserSchema = new Schema({
     email:          {type: String, required: false},
     phone:          {type: String, required: false},
     role:           {type: String, default: 'user'},
+    permissions:    {type: [String], default: []},
     totpEnabled:    {type: Boolean, default: false},
     totpSecret:     {type: String, default: ''},
     enabled:        {type: Boolean, default: true},
@@ -99,7 +100,7 @@ UserSchema.statics.create = function (users) {
 UserSchema.statics.getAll = function () {
     return new Promise((resolve, reject) => {
         var query = this.find();
-        query.select('username firstname lastname email phone role totpEnabled enabled');
+        query.select('username firstname lastname email phone role permissions totpEnabled enabled');
         query.exec()
         .then(function(rows) {
             resolve(rows);
@@ -114,7 +115,7 @@ UserSchema.statics.getAll = function () {
 UserSchema.statics.export = () => {
     return new Promise((resolve, reject) => {
         var query = User.find();
-        query.select('username password firstname lastname email phone role totpEnabled enabled -_id')
+        query.select('username password firstname lastname email phone role permissions totpEnabled enabled -_id')
         query.exec()
         .then((rows) => {
             resolve(rows);
@@ -193,7 +194,7 @@ UserSchema.statics.updateProfile = function (username, user) {
 UserSchema.statics.updateUser = function (userId, user) {
     return new Promise((resolve, reject) => {
         if (user.password) user.password = bcrypt.hashSync(user.password, 10);
-        var query = this.findOneAndUpdate({_id: userId}, user);
+        var query = this.findOneAndUpdate({_id: userId}, { $set: user });
         query.exec()
         .then(function(row) {
             if (row)
@@ -247,7 +248,9 @@ UserSchema.statics.updateRefreshToken = function (refreshToken, userAgent) {
                 payload.lastname = row.lastname
                 payload.email = row.email
                 payload.phone = row.phone
-                payload.roles = auth.acl.getRoles(payload.role)
+                var baseRoles = auth.acl.getRoles(payload.role)
+                payload.roles = baseRoles === '*' ? '*'
+                    : [...new Set([...baseRoles, ...(row.permissions || [])])]
 
                 token = jwt.sign(payload, auth.jwtSecret, {expiresIn: '15 minutes'})
 
@@ -272,7 +275,10 @@ UserSchema.statics.updateRefreshToken = function (refreshToken, userAgent) {
                     newRefreshToken = jwt.sign({sessionId: sessionId, userId: userId, exp: expiration}, auth.jwtRefreshSecret)
                     row.refreshTokens[foundIndex].token = newRefreshToken
                 }
-                return row.save()
+                return User.updateOne(
+                    { _id: row._id },
+                    { $set: { refreshTokens: row.refreshTokens } }
+                )
             }
             else if (row) {
                 reject({fn: 'Unauthorized', message: 'Authentication Failed.'})

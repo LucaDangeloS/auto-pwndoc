@@ -59,6 +59,21 @@ Rules:
 - Write in third person past tense (e.g. "The tester navigated to...", "It was observed that...")
 - Be concise but technically precise
 Reply exclusively in {language}.`,
+    field_description_generateSystemPrompt: '',
+    field_description_completeSystemPrompt: '',
+    field_description_rewriteSystemPrompt: '',
+    field_observation_generateSystemPrompt: '',
+    field_observation_completeSystemPrompt: '',
+    field_observation_rewriteSystemPrompt: '',
+    field_remediation_generateSystemPrompt: '',
+    field_remediation_completeSystemPrompt: '',
+    field_remediation_rewriteSystemPrompt: '',
+    field_poc_generateSystemPrompt: '',
+    field_poc_completeSystemPrompt: '',
+    field_poc_rewriteSystemPrompt: '',
+    field_retestEvidence_generateSystemPrompt: '',
+    field_retestEvidence_completeSystemPrompt: '',
+    field_retestEvidence_rewriteSystemPrompt: '',
 
     executiveSummarySystemPrompt: `You are a cybersecurity expert writing executive summaries for professional penetration test reports.
 Your target audience is management and non-technical stakeholders.
@@ -84,13 +99,15 @@ export default {
             settings: {
                 danger:{enabled:false,public:{nbdaydelete: 0}},
                 reviews:{enabled:false},
-                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:4096,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o'},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:'',visionAnonymizeLlm:false,visionAnonymizeRegex:false,generateSystemPrompt:'',generateUserPrompt:'',completeSystemPrompt:'',completeUserPrompt:'',rewriteSystemPrompt:'',rewriteUserPrompt:'',fillProofsSystemPrompt:'',executiveSummarySystemPrompt:'',severitySummarySystemPrompt:''}}
+                mcp:{enabled:false,apiKey:'',apiKeyCreatedAt:null,appUrl:''},
+                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:4096,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o'},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:'',visionAnonymizeLlm:false,visionAnonymizeRegex:false,generateSystemPrompt:'',generateUserPrompt:'',completeSystemPrompt:'',completeUserPrompt:'',rewriteSystemPrompt:'',rewriteUserPrompt:'',fillProofsSystemPrompt:'',executiveSummarySystemPrompt:'',severitySummarySystemPrompt:'',field_description_generateSystemPrompt:'',field_description_completeSystemPrompt:'',field_description_rewriteSystemPrompt:'',field_observation_generateSystemPrompt:'',field_observation_completeSystemPrompt:'',field_observation_rewriteSystemPrompt:'',field_remediation_generateSystemPrompt:'',field_remediation_completeSystemPrompt:'',field_remediation_rewriteSystemPrompt:'',field_poc_generateSystemPrompt:'',field_poc_completeSystemPrompt:'',field_poc_rewriteSystemPrompt:'',field_retestEvidence_generateSystemPrompt:'',field_retestEvidence_completeSystemPrompt:'',field_retestEvidence_rewriteSystemPrompt:''}}
             },
-            settingsOrig : {danger:{enabled:false},reviews:{enabled:false},ai:{enabled:false}},
+            settingsOrig : {danger:{enabled:false},reviews:{enabled:false},mcp:{enabled:false},ai:{enabled:false}},
             canEdit: false,
             showApiKey: false,
             showEmbeddingApiKey: false,
             showVisionApiKey: false,
+            showMcpApiKey: false,
             reindexing: false,
             reindexStarted: false,
             activeSection: 'section-general',
@@ -102,6 +119,7 @@ export default {
                 { id: 'section-reports', label: 'reports' },
                 { id: 'section-reviews', label: 'reviews' },
                 { id: 'section-ai', label: 'aiSettings' },
+                { id: 'section-mcp', label: 'mcpSettings' },
                 { id: 'section-actions', label: 'saveSettings' }
             ],
             DEFAULT_PROMPTS,
@@ -121,6 +139,13 @@ export default {
                 { label: 'Ollama', value: 'ollama' },
                 { label: 'Azure OpenAI', value: 'azure-openai' },
                 { label: 'OpenAI Compatible', value: 'openai-compatible' }
+            ],
+            aiFieldPromptFields: [
+                { key: 'description',    labelKey: 'fieldDescription',    icon: 'description' },
+                { key: 'observation',    labelKey: 'fieldObservation',     icon: 'visibility' },
+                { key: 'remediation',    labelKey: 'fieldRemediation',     icon: 'build' },
+                { key: 'poc',            labelKey: 'fieldPoc',             icon: 'bug_report' },
+                { key: 'retestEvidence', labelKey: 'fieldRetestEvidence',  icon: 'replay' }
             ]
         }
     },
@@ -149,7 +174,7 @@ export default {
                 'anthropic': 'https://api.anthropic.com/v1',
                 'ollama': 'http://localhost:11434',
                 'azure-openai': 'https://<instance>.openai.azure.com',
-                'openai-compatible': ''
+                'openai-compatible': 'http://<host>:<port>'
             };
             return defaults[this.settings.ai.public.provider] || '';
         },
@@ -157,9 +182,9 @@ export default {
             var defaults = {
                 'openai': 'https://api.openai.com/v1',
                 'anthropic': '',
-                'ollama': 'http://localhost:11434/v1',
+                'ollama': 'http://localhost:11434',
                 'azure-openai': 'https://<instance>.openai.azure.com',
-                'openai-compatible': 'http://<host>:<port>/v1'
+                'openai-compatible': 'http://<host>:<port>'
             };
             return defaults[this.settings.ai.public.embeddingProvider] || '';
         },
@@ -169,9 +194,33 @@ export default {
                 'anthropic': 'https://api.anthropic.com/v1',
                 'ollama': 'http://localhost:11434',
                 'azure-openai': 'https://<instance>.openai.azure.com',
-                'openai-compatible': ''
+                'openai-compatible': 'http://<host>:<port>'
             };
             return defaults[(this.settings.ai.visionPublic && this.settings.ai.visionPublic.visionProvider) || 'openai'] || '';
+        },
+        mcpEndpointUrl: function() {
+            var appUrl = (this.settings.mcp && this.settings.mcp.appUrl) || window.location.origin;
+            return appUrl.replace(/\/$/, '') + '/api/mcp';
+        },
+        mcpClaudeConfig: function() {
+            return JSON.stringify({
+                mcpServers: {
+                    autopwndoc: {
+                        type: 'http',
+                        url: this.mcpEndpointUrl,
+                        headers: {
+                            'X-API-Key': this.settings.mcp.apiKey || 'YOUR_API_KEY_HERE'
+                        }
+                    }
+                }
+            }, null, 2);
+        },
+        mcpCurlExample: function() {
+            var key = this.settings.mcp.apiKey || 'YOUR_API_KEY_HERE';
+            return `curl -sk ${this.mcpEndpointUrl} \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: ${key}" \\
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'`;
         }
     },
 
@@ -233,12 +282,13 @@ export default {
                     {
                       danger: { enabled: false, public:{nbdaydelete: 0}},
                       reviews: { enabled: false, public: { minReviewers: 1 } },
-                      ai: { enabled: false, embeddingEnabled: false, visionEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 4096, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8 }, visionPublic: { visionProvider: 'openai', visionModel: 'gpt-4o' }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionApiUrl: '', visionApiKey: '', visionAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionSystemPrompt: '', visionAnonymizeLlm: false, visionAnonymizeRegex: false } }
+                      mcp: { enabled: false, apiKey: '', apiKeyCreatedAt: null, appUrl: '' },
+                      ai: { enabled: false, embeddingEnabled: false, visionEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 4096, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8 }, visionPublic: { visionProvider: 'openai', visionModel: 'gpt-4o' }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionApiUrl: '', visionApiKey: '', visionAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionSystemPrompt: '', visionAnonymizeLlm: false, visionAnonymizeRegex: false, field_description_generateSystemPrompt: '', field_description_completeSystemPrompt: '', field_description_rewriteSystemPrompt: '', field_observation_generateSystemPrompt: '', field_observation_completeSystemPrompt: '', field_observation_rewriteSystemPrompt: '', field_remediation_generateSystemPrompt: '', field_remediation_completeSystemPrompt: '', field_remediation_rewriteSystemPrompt: '', field_poc_generateSystemPrompt: '', field_poc_completeSystemPrompt: '', field_poc_rewriteSystemPrompt: '', field_retestEvidence_generateSystemPrompt: '', field_retestEvidence_completeSystemPrompt: '', field_retestEvidence_rewriteSystemPrompt: '' } }
                     },
                     data.data.datas
                   );
                   
-                const promptFields = ['generateSystemPrompt','generateUserPrompt','completeSystemPrompt','completeUserPrompt','rewriteSystemPrompt','rewriteUserPrompt','fillProofsSystemPrompt','executiveSummarySystemPrompt','severitySummarySystemPrompt'];
+                const promptFields = ['generateSystemPrompt','generateUserPrompt','completeSystemPrompt','completeUserPrompt','rewriteSystemPrompt','rewriteUserPrompt','fillProofsSystemPrompt','executiveSummarySystemPrompt','severitySummarySystemPrompt','field_description_generateSystemPrompt','field_description_completeSystemPrompt','field_description_rewriteSystemPrompt','field_observation_generateSystemPrompt','field_observation_completeSystemPrompt','field_observation_rewriteSystemPrompt','field_remediation_generateSystemPrompt','field_remediation_completeSystemPrompt','field_remediation_rewriteSystemPrompt','field_poc_generateSystemPrompt','field_poc_completeSystemPrompt','field_poc_rewriteSystemPrompt','field_retestEvidence_generateSystemPrompt','field_retestEvidence_completeSystemPrompt','field_retestEvidence_rewriteSystemPrompt'];
                 promptFields.forEach(k => {
                     if (!this.settings.ai.private[k]) this.settings.ai.private[k] = DEFAULT_PROMPTS[k] || '';
                 });
@@ -399,6 +449,46 @@ export default {
                 this.aiTest[type].response = err.response?.data?.datas || err.message || $t('aiTestFailed');
             })
             .finally(() => { this.aiTest[type].loading = false; });
+        },
+
+        rotateMcpKey: function() {
+            Dialog.create({
+                title: $t('mcpGenerateKey'),
+                message: $t('mcpRotateKeyConfirm'),
+                ok: {label: $t('btn.confirm'), color: 'negative'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
+            })
+            .onOk(() => {
+                SettingsService.rotateMcpKey()
+                .then((res) => {
+                    this.settings.mcp.apiKey = res.data.datas.apiKey;
+                    this.settings.mcp.apiKeyCreatedAt = res.data.datas.apiKeyCreatedAt;
+                    this.settingsOrig = this.$_.cloneDeep(this.settings);
+                    Notify.create({ message: $t('mcpKeyRotated'), color: 'positive', textColor: 'white', position: 'top-right' });
+                })
+                .catch((err) => {
+                    Notify.create({ message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right' });
+                });
+            });
+        },
+
+        clearMcpKey: function() {
+            SettingsService.clearMcpKey()
+            .then(() => {
+                this.settings.mcp.apiKey = '';
+                this.settings.mcp.apiKeyCreatedAt = null;
+                this.settingsOrig = this.$_.cloneDeep(this.settings);
+                Notify.create({ message: $t('mcpKeyCleared'), color: 'positive', textColor: 'white', position: 'top-right' });
+            })
+            .catch((err) => {
+                Notify.create({ message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right' });
+            });
+        },
+
+        copyText: function(text) {
+            navigator.clipboard.writeText(text)
+            .then(() => Notify.create({ message: $t('copied'), color: 'positive', textColor: 'white', position: 'top-right' }))
+            .catch(() => Notify.create({ message: $t('copyFailed'), color: 'negative', textColor: 'white', position: 'top-right' }));
         },
 
         unsavedChanges() {

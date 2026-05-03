@@ -40,6 +40,8 @@ services:
       # Example: mongodb://192.168.1.10:27017/pwndoc
       # Leave blank (or remove) to skip migration entirely.
       - MIGRATE_FROM=
+      # Public application URL used in generated MCP client sample configs.
+      - APP_URL=https://localhost:8443
     volumes:
       - ./backend/src/:/app/src/
       - ./backend/report-templates/:/app/report-templates/

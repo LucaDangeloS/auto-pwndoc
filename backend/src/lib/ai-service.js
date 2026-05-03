@@ -219,15 +219,20 @@ async function generate({ action, text, fieldName, context, aiSettings }) {
     const locale = (context && context.locale) || '';
     const language = localeToLanguage(locale);
 
+    const SUPPORTED_FIELDS = ['description', 'observation', 'remediation', 'poc', 'retestEvidence'];
+
     let systemTemplate, userTemplate;
     if (action === 'generate') {
-        systemTemplate = priv.generateSystemPrompt || DEFAULT_SYSTEM_PROMPTS.generate;
+        const fieldKey = SUPPORTED_FIELDS.includes(fieldName) ? `field_${fieldName}_generateSystemPrompt` : null;
+        systemTemplate = (fieldKey && priv[fieldKey]) || priv.generateSystemPrompt || DEFAULT_SYSTEM_PROMPTS.generate;
         userTemplate = priv.generateUserPrompt || DEFAULT_USER_PROMPTS.generate;
     } else if (action === 'complete') {
-        systemTemplate = priv.completeSystemPrompt || DEFAULT_SYSTEM_PROMPTS.complete;
+        const fieldKey = SUPPORTED_FIELDS.includes(fieldName) ? `field_${fieldName}_completeSystemPrompt` : null;
+        systemTemplate = (fieldKey && priv[fieldKey]) || priv.completeSystemPrompt || DEFAULT_SYSTEM_PROMPTS.complete;
         userTemplate = priv.completeUserPrompt || DEFAULT_USER_PROMPTS.complete;
     } else if (action === 'rewrite') {
-        systemTemplate = priv.rewriteSystemPrompt || DEFAULT_SYSTEM_PROMPTS.rewrite;
+        const fieldKey = SUPPORTED_FIELDS.includes(fieldName) ? `field_${fieldName}_rewriteSystemPrompt` : null;
+        systemTemplate = (fieldKey && priv[fieldKey]) || priv.rewriteSystemPrompt || DEFAULT_SYSTEM_PROMPTS.rewrite;
         userTemplate = priv.rewriteUserPrompt || DEFAULT_USER_PROMPTS.rewrite;
     } else if (action === 'fill-proofs') {
         systemTemplate = priv.fillProofsSystemPrompt || DEFAULT_SYSTEM_PROMPTS['fill-proofs'];

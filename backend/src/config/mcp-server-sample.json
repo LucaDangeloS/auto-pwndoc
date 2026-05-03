@@ -1,0 +1,13 @@
+{
+  "description": "Copy the mcpServers block into your MCP client configuration. The URL should match the APP_URL environment variable plus /api/mcp.",
+  "mcpServers": {
+    "autopwndoc": {
+      "type": "http",
+      "url": "https://localhost:8443/api/mcp",
+      "headers": {
+        "X-API-Key": "YOUR_API_KEY_HERE"
+      }
+    }
+  },
+  "curlExample": "curl -sk https://localhost:8443/api/mcp -H \"Content-Type: application/json\" -H \"X-API-Key: YOUR_API_KEY_HERE\" -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}'"
+}

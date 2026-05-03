@@ -65,6 +65,11 @@ const SettingSchema = new Schema({
       },
       private: {}
      },
+    mcp: {
+      enabled: { type: Boolean, default: false },
+      apiKey: { type: String, default: '' },
+      apiKeyCreatedAt: { type: Date, default: null }
+    },
     ai: {
       enabled: { type: Boolean, default: false },
       embeddingEnabled: { type: Boolean, default: false },
@@ -117,7 +122,22 @@ const SettingSchema = new Schema({
         rewriteUserPrompt: { type: String, default: '' },
         fillProofsSystemPrompt: { type: String, default: '' },
         executiveSummarySystemPrompt: { type: String, default: '' },
-        severitySummarySystemPrompt: { type: String, default: '' }
+        severitySummarySystemPrompt: { type: String, default: '' },
+        field_description_generateSystemPrompt: { type: String, default: '' },
+        field_description_completeSystemPrompt: { type: String, default: '' },
+        field_description_rewriteSystemPrompt: { type: String, default: '' },
+        field_observation_generateSystemPrompt: { type: String, default: '' },
+        field_observation_completeSystemPrompt: { type: String, default: '' },
+        field_observation_rewriteSystemPrompt: { type: String, default: '' },
+        field_remediation_generateSystemPrompt: { type: String, default: '' },
+        field_remediation_completeSystemPrompt: { type: String, default: '' },
+        field_remediation_rewriteSystemPrompt: { type: String, default: '' },
+        field_poc_generateSystemPrompt: { type: String, default: '' },
+        field_poc_completeSystemPrompt: { type: String, default: '' },
+        field_poc_rewriteSystemPrompt: { type: String, default: '' },
+        field_retestEvidence_generateSystemPrompt: { type: String, default: '' },
+        field_retestEvidence_completeSystemPrompt: { type: String, default: '' },
+        field_retestEvidence_rewriteSystemPrompt: { type: String, default: '' }
       },
       visionEnabled: { type: Boolean, default: false },
       visionPublic: {
@@ -148,7 +168,7 @@ SettingSchema.statics.getAll = () => {
 SettingSchema.statics.getPublic = () => {
     return new Promise((resolve, reject) => {
         const query = Settings.findOne({});
-        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public ai.enabled ai.embeddingEnabled ai.public ai.visionEnabled ai.visionPublic');
+        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public mcp.enabled ai.enabled ai.embeddingEnabled ai.public ai.visionEnabled ai.visionPublic');
         query.exec()
             .then(settings => resolve(settings))
             .catch(err => reject(err));

@@ -19,5 +19,13 @@ export default {
 
   revertDefaults() {
     return api.put(`settings/revert`)
+  },
+
+  rotateMcpKey() {
+    return api.post(`settings/mcp/rotate-key`)
+  },
+
+  clearMcpKey() {
+    return api.delete(`settings/mcp/key`)
   }
 }

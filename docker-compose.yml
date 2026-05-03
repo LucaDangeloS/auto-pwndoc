@@ -23,6 +23,7 @@ services:
       - mongodb
     environment:
       - COLLAB_WEBSOCKET_PORT=8440
+      - APP_URL=https://localhost:8443
     restart: always
     ports:
       - 4242:4242

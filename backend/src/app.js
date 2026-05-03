@@ -106,7 +106,7 @@ io.on('connection', (socket) => {
 app.use(function(req, res, next) {
   // res.header("Access-Control-Allow-Origin", req.headers.origin);
   res.header("Access-Control-Allow-Methods", "GET,POST,DELETE,PUT,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, X-API-Key");
   res.header('Access-Control-Expose-Headers', 'Content-Disposition')
   // res.header('Access-Control-Allow-Credentials', 'true')
   next();
@@ -131,6 +131,7 @@ require('./routes/data')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
 require('./routes/ai')(app);
+require('./routes/mcp')(app);
 
 const { cronJobs } = require('./lib/cron');
 cronJobs();

@@ -472,6 +472,12 @@
                     outlined :disable="!canEdit || !settings.ai.enabled"
                 />
             </q-card-section>
+            <q-card-section v-if="settings.ai.public.provider === 'openai-compatible'" class="q-pt-none">
+                <q-banner rounded dense class="bg-blue-1 text-blue-9" style="font-size:0.82rem;">
+                    <template v-slot:avatar><q-icon name="info" color="blue-7" /></template>
+                    {{$t('aiOpenWebUIHint')}}
+                </q-banner>
+            </q-card-section>
             <!-- Test generation -->
             <q-card-section class="q-pt-none">
                 <div class="row items-center q-gutter-sm">
@@ -556,6 +562,12 @@
                     v-model="settings.ai.private.embeddingAzure.apiVersion"
                     outlined :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
                 />
+            </q-card-section>
+            <q-card-section v-if="settings.ai.public.embeddingProvider === 'openai-compatible' && settings.ai.embeddingEnabled" class="q-pt-none">
+                <q-banner rounded dense class="bg-blue-1 text-blue-9" style="font-size:0.82rem;">
+                    <template v-slot:avatar><q-icon name="info" color="blue-7" /></template>
+                    {{$t('aiOpenWebUIHint')}}
+                </q-banner>
             </q-card-section>
             <q-card-section class="q-col-gutter-md row">
                 <div class="col-12 col-md-6">
@@ -661,6 +673,12 @@
                     v-model="settings.ai.private.visionAzure.apiVersion"
                     outlined :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
                 />
+            </q-card-section>
+            <q-card-section v-if="settings.ai.visionPublic.visionProvider === 'openai-compatible' && settings.ai.visionEnabled" class="q-pt-none">
+                <q-banner rounded dense class="bg-blue-1 text-blue-9" style="font-size:0.82rem;">
+                    <template v-slot:avatar><q-icon name="info" color="blue-7" /></template>
+                    {{$t('aiOpenWebUIHint')}}
+                </q-banner>
             </q-card-section>
             <!-- Test vision -->
             <q-card-section class="q-pt-none">
@@ -891,6 +909,109 @@
                 </q-card-section>
             </q-expansion-item>
 
+            <!-- Per-field prompt overrides -->
+            <q-separator />
+            <q-card-section>
+                <div class="text-bold">{{$t('aiFieldPrompts')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('aiFieldPromptsDescription')}}</div>
+            </q-card-section>
+
+            <template v-for="field in aiFieldPromptFields" :key="field.key">
+                <q-expansion-item
+                    :label="$t(field.labelKey)"
+                    :caption="$t('aiFieldPromptCaption')"
+                    :icon="field.icon"
+                    header-class="text-weight-medium q-pl-md"
+                    :disable="!canEdit || !settings.ai.enabled"
+                >
+                    <q-card-section class="q-col-gutter-md row q-pt-sm q-pl-lg">
+                        <div class="col-12">
+                            <div class="text-caption text-grey-7 q-mb-sm">{{$t('aiFieldPromptInheritNote')}}</div>
+                        </div>
+                        <div class="col-12" v-for="action in ['generate','complete','rewrite']" :key="action">
+                            <div class="row items-center justify-between q-mb-xs">
+                                <span class="text-caption text-grey-8">
+                                    <q-chip dense size="sm" :color="action === 'generate' ? 'blue-2' : action === 'complete' ? 'green-2' : 'orange-2'" text-color="dark" class="q-mr-xs">{{$t('aiPromptSection' + action.charAt(0).toUpperCase() + action.slice(1))}}</q-chip>
+                                    {{$t('aiSystemPrompt')}}
+                                </span>
+                                <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('field_' + field.key + '_' + action + 'SystemPrompt')"><q-tooltip>{{$t('aiFieldPromptResetTooltip')}}</q-tooltip></q-btn>
+                            </div>
+                            <q-input
+                                v-model="settings.ai.private['field_' + field.key + '_' + action + 'SystemPrompt']"
+                                outlined type="textarea" autogrow
+                                :disable="!canEdit || !settings.ai.enabled"
+                                :placeholder="$t('aiFieldPromptPlaceholder')"
+                                hint="Tags: {fieldName}, {findingTitle}, {language}"
+                            />
+                        </div>
+                    </q-card-section>
+                </q-expansion-item>
+            </template>
+
+        </q-card>
+
+        <q-card id="section-mcp" v-if="UserService.isAllowed('settings:read')" class="q-my-lg">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section class="col-11">
+                        <div class="text-h6">{{$t('mcpSettings')}}</div>
+                    </q-item-section>
+                    <q-item-section class="col-md-1 items-center">
+                        <q-toggle color="primary" keep-color :disable="!canEdit" v-model="settings.mcp.enabled" />
+                    </q-item-section>
+                </q-item>
+            </q-card-section>
+
+            <q-card-section>
+                <div class="text-bold">{{$t('mcpServer')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('mcpServerDescription')}}</div>
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section>
+                <div class="text-bold">{{$t('mcpApiKey')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('mcpApiKeyHint')}}</div>
+            </q-card-section>
+            <q-card-section class="q-col-gutter-md row">
+                <q-input
+                    class="col-12 col-md-8"
+                    :label="$t('mcpApiKey')"
+                    v-model="settings.mcp.apiKey"
+                    outlined
+                    readonly
+                    :type="showMcpApiKey ? 'text' : 'password'"
+                    :hint="settings.mcp.apiKeyCreatedAt ? $t('mcpKeyCreatedAt') + ': ' + new Date(settings.mcp.apiKeyCreatedAt).toLocaleString() : $t('mcpNoApiKey')"
+                >
+                    <template v-slot:append>
+                        <q-icon :name="showMcpApiKey ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="showMcpApiKey = !showMcpApiKey" />
+                        <q-icon name="content_copy" class="cursor-pointer q-ml-sm" @click="copyText(settings.mcp.apiKey)" />
+                    </template>
+                </q-input>
+                <div class="col-12 col-md-4 row items-start q-gutter-sm">
+                    <q-btn color="primary" no-caps icon="vpn_key" :label="$t('mcpGenerateKey')" :disable="!canEdit" @click="rotateMcpKey" />
+                    <q-btn outline color="negative" no-caps icon="delete" :label="$t('mcpClearKey')" :disable="!canEdit || !settings.mcp.apiKey" @click="clearMcpKey" />
+                </div>
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section>
+                <div class="text-bold">{{$t('mcpSampleConfig')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('mcpSampleConfigHint')}}</div>
+            </q-card-section>
+            <q-card-section>
+                <div class="row items-center justify-between q-mb-sm">
+                    <div class="text-caption text-grey-8">{{$t('mcpClaudeDesktopTab')}}</div>
+                    <q-btn flat dense icon="content_copy" :label="$t('mcpCopyConfig')" @click="copyText(mcpClaudeConfig)" />
+                </div>
+                <pre class="bg-grey-2 q-pa-md rounded-borders" style="white-space: pre-wrap;"><code>{{mcpClaudeConfig}}</code></pre>
+                <div class="row items-center justify-between q-mt-md q-mb-sm">
+                    <div class="text-caption text-grey-8">{{$t('mcpCurlTab')}}</div>
+                    <q-btn flat dense icon="content_copy" :label="$t('mcpCopyConfig')" @click="copyText(mcpCurlExample)" />
+                </div>
+                <pre class="bg-grey-2 q-pa-md rounded-borders" style="white-space: pre-wrap;"><code>{{mcpCurlExample}}</code></pre>
+            </q-card-section>
         </q-card>
 
         <q-card id="section-actions" class="q-my-lg" v-if="canEdit" align="center">

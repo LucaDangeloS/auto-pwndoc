@@ -56,18 +56,19 @@ services:
       image: chromadb/chroma:1.5.5
       container_name: autopwndoc-chroma
       networks:
-        - autopwndoc-net
+        - backend
       environment:
         - IS_PERSISTENT=TRUE
         - ANONYMIZED_TELEMETRY=FALSE
       volumes:
-        - chroma-data-dev:/data
+        - chroma-data:/data
       ports:
         - 127.0.0.1:8000:8000
       restart: always
 
 volumes:
   mongo-data:
+  chroma-data:
 
 networks:
   backend:

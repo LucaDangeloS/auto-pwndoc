@@ -33,20 +33,14 @@ const STEPS = [
     // Step 1: Copy core collections from pwndoc-ng verbatim
     // Copies users, clients, companies, templates, languages, audit-types,
     // vulnerability-types, vulnerability-categories, custom-sections,
-    // custom-fields, and images.
-    //
-    // Users are matched by username (not _id) so that a pre-seeded admin user
-    // in the destination is updated with the source credentials rather than
-    // duplicated. refreshTokens are always cleared on import — old sessions from
-    // the source instance are invalid in the new one.
-    //
-    // All other collections are matched by _id; documents already present are
-    // left untouched so repeated runs are safe.
+    // custom-fields, and images. Documents already present in the destination
+    // (matched by _id) are left untouched so repeated runs are safe.
     {
         id: 1,
         name: 'copy-base-collections',
         async run(srcDb, dstDb) {
-            const NON_USER_COLLECTIONS = [
+            const COLLECTIONS = [
+                'users',
                 'clients',
                 'companies',
                 'templates',
@@ -59,7 +53,7 @@ const STEPS = [
                 'images',
             ];
 
-            for (const col of NON_USER_COLLECTIONS) {
+            for (const col of COLLECTIONS) {
                 const src = srcDb.collection(col);
                 const dst = dstDb.collection(col);
                 const docs = await src.find({}).toArray();
@@ -74,23 +68,6 @@ const STEPS = [
                 }));
                 const result = await dst.bulkWrite(ops, { ordered: false });
                 console.log(`[migration] ${col}: ${result.upsertedCount} inserted, ${result.matchedCount} already existed`);
-            }
-
-            // Users — match by username, overwrite with source data, clear sessions
-            const srcUsers = await srcDb.collection('users').find({}).toArray();
-            if (srcUsers.length > 0) {
-                const ops = srcUsers.map(doc => {
-                    const { refreshTokens: _dropped, ...rest } = doc;
-                    return {
-                        updateOne: {
-                            filter: { username: doc.username },
-                            update: { $set: { ...rest, refreshTokens: [] } },
-                            upsert: true,
-                        },
-                    };
-                });
-                const result = await dstDb.collection('users').bulkWrite(ops, { ordered: false });
-                console.log(`[migration] users: ${result.upsertedCount} inserted, ${result.matchedCount} merged (sessions cleared)`);
             }
         },
     },

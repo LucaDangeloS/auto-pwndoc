@@ -1,5 +1,5 @@
 <template>
-  <q-dialog v-model="show">
+  <q-dialog v-model="show" maximized>
     <q-card class="similar-vuln-modal column no-wrap">
       <q-bar class="bg-primary text-white">
         <q-icon :name="isProofMode ? 'image_search' : 'search'" />
@@ -282,9 +282,7 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .similar-vuln-modal {
-  width: 90vw;
-  max-width: 1200px;
-  height: 80vh;
+  min-height: 60vh;
 }
 
 .diff-field-block {

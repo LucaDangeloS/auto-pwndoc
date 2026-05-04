@@ -29,7 +29,7 @@ module.exports = function(app) {
             Response.Ok(res, msg)
         })
         .catch(err => {
-            if (err.fn === 'Unauthorized' || err.fn === 'NotFound') {
+            if (err.fn === 'Unauthorized') {
                 res.clearCookie('token')
                 res.clearCookie('refreshToken')
             }

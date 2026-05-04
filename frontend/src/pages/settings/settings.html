@@ -472,12 +472,7 @@
                     outlined :disable="!canEdit || !settings.ai.enabled"
                 />
             </q-card-section>
-            <q-card-section v-if="settings.ai.public.provider === 'openai-compatible'" class="q-pt-none">
-                <q-banner rounded dense class="bg-blue-1 text-blue-9" style="font-size:0.82rem;">
-                    <template v-slot:avatar><q-icon name="info" color="blue-7" /></template>
-                    {{$t('aiOpenWebUIHint')}}
-                </q-banner>
-            </q-card-section>
+
             <!-- Test generation -->
             <q-card-section class="q-pt-none">
                 <div class="row items-center q-gutter-sm">
@@ -563,12 +558,7 @@
                     outlined :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
                 />
             </q-card-section>
-            <q-card-section v-if="settings.ai.public.embeddingProvider === 'openai-compatible' && settings.ai.embeddingEnabled" class="q-pt-none">
-                <q-banner rounded dense class="bg-blue-1 text-blue-9" style="font-size:0.82rem;">
-                    <template v-slot:avatar><q-icon name="info" color="blue-7" /></template>
-                    {{$t('aiOpenWebUIHint')}}
-                </q-banner>
-            </q-card-section>
+
             <q-card-section class="q-col-gutter-md row">
                 <div class="col-12 col-md-6">
                     <div class="text-caption text-grey-8 q-mb-sm">{{$t('aiEmbeddingMaxDistance')}}: <strong>{{settings.ai.public.embeddingMaxDistance}}</strong></div>
@@ -674,12 +664,7 @@
                     outlined :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
                 />
             </q-card-section>
-            <q-card-section v-if="settings.ai.visionPublic.visionProvider === 'openai-compatible' && settings.ai.visionEnabled" class="q-pt-none">
-                <q-banner rounded dense class="bg-blue-1 text-blue-9" style="font-size:0.82rem;">
-                    <template v-slot:avatar><q-icon name="info" color="blue-7" /></template>
-                    {{$t('aiOpenWebUIHint')}}
-                </q-banner>
-            </q-card-section>
+
             <!-- Test vision -->
             <q-card-section class="q-pt-none">
                 <div class="row items-center q-gutter-sm">
@@ -931,7 +916,7 @@
                         <div class="col-12" v-for="action in ['generate','complete','rewrite']" :key="action">
                             <div class="row items-center justify-between q-mb-xs">
                                 <span class="text-caption text-grey-8">
-                                    <q-chip dense size="sm" :color="action === 'generate' ? 'blue-2' : action === 'complete' ? 'green-2' : 'orange-2'" text-color="dark" class="q-mr-xs">{{$t('aiPromptSection' + action.charAt(0).toUpperCase() + action.slice(1))}}</q-chip>
+                                    <q-chip dense size="sm" outline :color="action === 'generate' ? 'blue-5' : action === 'complete' ? 'green-5' : 'orange-5'" class="q-mr-xs">{{$t('aiPromptSection' + action.charAt(0).toUpperCase() + action.slice(1))}}</q-chip>
                                     {{$t('aiSystemPrompt')}}
                                 </span>
                                 <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('field_' + field.key + '_' + action + 'SystemPrompt')"><q-tooltip>{{$t('aiFieldPromptResetTooltip')}}</q-tooltip></q-btn>

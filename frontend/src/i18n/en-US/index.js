@@ -609,7 +609,6 @@ export default {
     aiPromptSectionExecutiveSummaryCaption: 'High-level summary of the full audit for management',
     aiPromptSectionSeveritySummary: 'Severity Summary',
     aiPromptSectionSeveritySummaryCaption: 'Per-severity paragraph summarising findings of a given severity band',
-    aiOpenWebUIHint: 'Open WebUI tip: select "OpenAI Compatible", set the URL to your Open WebUI base address (e.g. http://openwebui:3000), and paste a JWT session token or an API key from Open WebUI Settings → Account → API Keys into the API Key field. The model name must exactly match a model ID shown in Open WebUI. Embedding and vision work only if the chosen model supports those capabilities through Open WebUI.',
     aiFieldPrompts: 'Per-field Prompt Overrides',
     aiFieldPromptsDescription: 'Override the system prompt for each specific finding field and AI action. Leave blank to fall back to the generic action prompt above.',
     aiFieldPromptCaption: 'Generate / Complete / Rewrite overrides',

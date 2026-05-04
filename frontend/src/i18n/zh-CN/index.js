@@ -564,7 +564,6 @@ export default {
     aiPromptSectionExecutiveSummaryCaption: '面向管理层的完整审计高层摘要',
     aiPromptSectionSeveritySummary: '严重性摘要',
     aiPromptSectionSeveritySummaryCaption: '按严重性级别汇总相应发现的段落',
-    aiOpenWebUIHint: 'Open WebUI 提示：选择"OpenAI Compatible"，将 URL 设置为 Open WebUI 的基础地址（如 http://openwebui:3000），并将 Open WebUI 的 JWT 会话令牌或 API 密钥（设置 → 账户 → API 密钥）粘贴到 API 密钥字段。模型名称必须与 Open WebUI 中显示的模型 ID 完全一致。Embedding 和视觉功能仅在所选模型通过 Open WebUI 支持这些能力时可用。',
     aiFieldPrompts: '按字段提示词覆盖',
     aiFieldPromptsDescription: '为每个特定发现字段和 AI 操作覆盖系统提示词。留空则回退到通用操作提示词。',
     aiFieldPromptCaption: '生成 / 补全 / 重写覆盖',

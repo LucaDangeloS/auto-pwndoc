@@ -492,7 +492,6 @@ export default {
     aiPromptSectionExecutiveSummaryCaption: 'Résumé de haut niveau de l\'audit complet pour la direction',
     aiPromptSectionSeveritySummary: 'Résumé par Sévérité',
     aiPromptSectionSeveritySummaryCaption: 'Paragraphe par bande de sévérité résumant les constats correspondants',
-    aiOpenWebUIHint: 'Astuce Open WebUI : sélectionnez « OpenAI Compatible », saisissez l\'URL de base de votre instance (ex. http://openwebui:3000) et collez un token JWT de session ou une clé API obtenue dans Open WebUI (Paramètres → Compte → Clés API) dans le champ Clé API. Le nom du modèle doit correspondre exactement à l\'identifiant visible dans Open WebUI. Les embeddings et la vision ne fonctionnent que si le modèle choisi prend en charge ces capacités via Open WebUI.',
     aiFieldPrompts: 'Prompts par champ',
     aiFieldPromptsDescription: 'Remplacez le prompt système pour chaque champ de constat et action IA spécifique. Laissez vide pour utiliser le prompt générique de l\'action.',
     aiFieldPromptCaption: 'Remplacements Générer / Compléter / Réécrire',

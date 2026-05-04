@@ -606,7 +606,6 @@ export default {
     aiPromptSectionExecutiveSummaryCaption: 'Resumen de alto nivel del audit completo para la dirección',
     aiPromptSectionSeveritySummary: 'Resumen por Severidad',
     aiPromptSectionSeveritySummaryCaption: 'Párrafo por banda de severidad que resume los hallazgos correspondientes',
-    aiOpenWebUIHint: 'Consejo para Open WebUI: selecciona "OpenAI Compatible", introduce la URL base de tu instancia (p. ej. http://openwebui:3000) y pega un token JWT de sesión o una clave API de Open WebUI (Configuración → Cuenta → Claves API) en el campo Clave API. El nombre del modelo debe coincidir exactamente con el ID de modelo que aparece en Open WebUI. Los embeddings y la visión solo funcionan si el modelo seleccionado admite esas capacidades a través de Open WebUI.',
     aiFieldPrompts: 'Prompts por campo',
     aiFieldPromptsDescription: 'Sobreescribe el prompt de sistema para cada campo específico del hallazgo y acción de IA. Deja en blanco para usar el prompt genérico de la acción.',
     aiFieldPromptCaption: 'Sobreescrituras de Generar / Completar / Reescribir',

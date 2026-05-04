@@ -604,7 +604,6 @@ export default {
     aiPromptSectionExecutiveSummaryCaption: 'Übergeordnete Zusammenfassung des gesamten Audits für das Management',
     aiPromptSectionSeveritySummary: 'Zusammenfassung nach Schweregrad',
     aiPromptSectionSeveritySummaryCaption: 'Absatz je Schweregrad-Band mit Zusammenfassung der entsprechenden Befunde',
-    aiOpenWebUIHint: 'Open WebUI-Tipp: Wählen Sie „OpenAI Compatible", geben Sie die Basis-URL Ihrer Instanz ein (z. B. http://openwebui:3000) und fügen Sie ein JWT-Sitzungstoken oder einen API-Schlüssel aus Open WebUI (Einstellungen → Konto → API-Schlüssel) in das Feld „API-Schlüssel" ein. Der Modellname muss genau mit der in Open WebUI angezeigten Modell-ID übereinstimmen. Embeddings und Vision funktionieren nur, wenn das gewählte Modell diese Fähigkeiten über Open WebUI unterstützt.',
     aiFieldPrompts: 'Feldspezifische Prompt-Überschreibungen',
     aiFieldPromptsDescription: 'Überschreiben Sie den System-Prompt für jedes spezifische Befundfeld und jede KI-Aktion. Leer lassen, um auf den generischen Aktions-Prompt zurückzufallen.',
     aiFieldPromptCaption: 'Überschreibungen für Generieren / Vervollständigen / Umschreiben',

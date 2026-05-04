@@ -4,7 +4,7 @@
 
 **AutoPwnDoc** is an AI-powered pentest report generation tool, built as a master's thesis project on top of [PwnDoc-ng](https://github.com/pwndoc-ng/pwndoc-ng) (itself a maintained fork of the original [PwnDoc](https://github.com/pwndoc/pwndoc) by [yeln4ts](https://github.com/yeln4ts)).
 
-The core goal remains the same — more time to **Pwn**, less time to **Doc** — but AutoPwnDoc takes it further by integrating AI assistance directly into the reporting workflow: from generating finding descriptions to analysing proof screenshots and writing executive summaries.
+The core goal remains the same - more time to **Pwn**, less time to **Doc** - but AutoPwnDoc takes it further by integrating AI assistance directly into the reporting workflow: from generating finding descriptions to analysing proof screenshots and writing executive summaries.
 
 ---
 
@@ -12,13 +12,13 @@ The core goal remains the same — more time to **Pwn**, less time to **Doc** �
 
 ### AI features
 
-- **In-editor AI toolbar** — generate, complete, and rewrite any finding field (description, observation, remediation, proof, retest evidence) with one click, powered by any OpenAI-compatible provider.
-- **RAG-augmented generation** — ChromaDB vector store indexes the vulnerability library; when writing a finding, the AI retrieves semantically similar past vulnerabilities as context.
-- **Semantic similarity search** — find related vulnerabilities from the library while editing a finding; apply fields selectively with a two-panel diff dialog.
-- **Multimodal proof analysis** — the AI reads proof-of-concept screenshots and generates a structured observation/evidence narrative.
-- **Executive summary AI assist** — per-severity summaries and overall executive summary generated from the audit's findings digest.
-- **Configurable prompts** — every AI action has a configurable system prompt; field-level overrides allow different prompts per field per action.
-- **Multiple provider support** — OpenAI, Anthropic, Ollama, Azure OpenAI, and any OpenAI-compatible endpoint (e.g. Open WebUI, LM Studio).
+- **In-editor AI toolbar** - generate, complete, and rewrite any finding field (description, observation, remediation, proof, retest evidence) with one click, powered by any OpenAI-compatible provider.
+- **RAG-augmented generation** - ChromaDB vector store indexes the vulnerability library; when writing a finding, the AI retrieves semantically similar past vulnerabilities as context.
+- **Semantic similarity search** - find related vulnerabilities from the library while editing a finding; apply fields selectively with a two-panel diff dialog.
+- **Multimodal proof analysis** - the AI reads proof-of-concept screenshots and generates a structured observation/evidence narrative.
+- **Executive summary AI assist** - per-severity summaries and overall executive summary generated from the audit's findings digest.
+- **Configurable prompts** - every AI action has a configurable system prompt; field-level overrides allow different prompts per field per action.
+- **Multiple provider support** - OpenAI, Anthropic, Ollama, Azure OpenAI, and any OpenAI-compatible endpoint (e.g. Open WebUI, LM Studio).
 
 ### Retest support
 
@@ -119,7 +119,7 @@ curl -sk -X POST https://localhost:8443/api/vulnerabilities \
 ```
 PwnDoc (yeln4ts)
   └── PwnDoc-ng (pwndoc-ng/pwndoc-ng)
-        └── AutoPwnDoc (this repo) — AI features, MCP server, retest, executive summary
+        └── AutoPwnDoc (this repo) - AI features, MCP server, retest, executive summary
 ```
 
 ---

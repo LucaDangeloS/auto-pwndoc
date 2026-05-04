@@ -7,6 +7,11 @@ module.exports = function(app) {
     var jwt = require('jsonwebtoken')
     var _ = require('lodash')
     var passwordpolicy = require('../lib/passwordpolicy')
+
+    function clearAuthCookies(res) {
+        res.clearCookie('token', {secure: true, sameSite: 'strict', httpOnly: true})
+        res.clearCookie('refreshToken', {secure: true, httpOnly: true, sameSite: 'strict', path: '/api/users/refreshtoken'})
+    }
 	
     // Check token validity
     app.get("/api/users/checktoken", acl.hasPermission('validtoken'), function(req, res) {
@@ -29,9 +34,10 @@ module.exports = function(app) {
             Response.Ok(res, msg)
         })
         .catch(err => {
-            if (err.fn === 'Unauthorized') {
-                res.clearCookie('token')
-                res.clearCookie('refreshToken')
+            if (err.fn === 'Unauthorized' || err.fn === 'NotFound') {
+                clearAuthCookies(res)
+                Response.Unauthorized(res, err.message)
+                return
             }
             Response.Internal(res, err)
         })
@@ -46,8 +52,7 @@ module.exports = function(app) {
             var decoded = jwt.verify(token, jwtRefreshSecret)
         }
         catch (err) {
-            res.clearCookie('token')
-            res.clearCookie('refreshToken')
+            clearAuthCookies(res)
             if (err.name === 'TokenExpiredError')
                 Response.Unauthorized(res, 'Expired refreshToken')
             else
@@ -56,8 +61,7 @@ module.exports = function(app) {
         }
         User.removeSession(decoded.userId, decoded.sessionId)
         .then(msg => {
-            res.clearCookie('token')
-            res.clearCookie('refreshToken')
+            clearAuthCookies(res)
             Response.Ok(res, msg)
         })
         .catch(err => Response.Internal(res, err))

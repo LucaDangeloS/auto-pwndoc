@@ -24,6 +24,43 @@
 
 const mongoose = require('mongoose');
 
+const USER_ID_MAP = new Map();
+
+function idKey(id) {
+    return id ? String(id) : '';
+}
+
+function remapUserId(id) {
+    return USER_ID_MAP.get(idKey(id)) || id;
+}
+
+function remapUserArray(ids) {
+    return Array.isArray(ids) ? ids.map(remapUserId) : ids;
+}
+
+function waitForDestinationDb() {
+    if (mongoose.connection.readyState === 1 && mongoose.connection.db) return Promise.resolve(mongoose.connection.db);
+
+    return new Promise((resolve, reject) => {
+        const onOpen = () => {
+            cleanup();
+            if (!mongoose.connection.db) return reject(new Error('Destination database handle is unavailable after connection opened'));
+            resolve(mongoose.connection.db);
+        };
+        const onError = (err) => {
+            cleanup();
+            reject(err);
+        };
+        const cleanup = () => {
+            mongoose.connection.off('open', onOpen);
+            mongoose.connection.off('error', onError);
+        };
+
+        mongoose.connection.once('open', onOpen);
+        mongoose.connection.once('error', onError);
+    });
+}
+
 // Migration step definitions
 // Every step must be idempotent. Use $set / $setOnInsert / upsert patterns
 // rather than insertOne when the destination might already have data.
@@ -31,16 +68,36 @@ const mongoose = require('mongoose');
 const STEPS = [
 
     // Step 1: Copy core collections from pwndoc-ng verbatim
-    // Copies users, clients, companies, templates, languages, audit-types,
-    // vulnerability-types, vulnerability-categories, custom-sections,
-    // custom-fields, and images. Documents already present in the destination
-    // (matched by _id) are left untouched so repeated runs are safe.
+    // Users are matched by username so existing destination accounts are never
+    // overwritten. Missing source users are inserted with refreshTokens cleared.
+    // Other base collections are matched by _id and left untouched if present.
     {
         id: 1,
         name: 'copy-base-collections',
         async run(srcDb, dstDb) {
+            USER_ID_MAP.clear();
+
+            const userDocs = await srcDb.collection('users').find({}).toArray();
+            let usersInserted = 0;
+            let usersPreserved = 0;
+
+            for (const doc of userDocs) {
+                const existing = await dstDb.collection('users').findOne({ username: doc.username });
+                if (existing) {
+                    USER_ID_MAP.set(idKey(doc._id), existing._id);
+                    usersPreserved++;
+                    continue;
+                }
+
+                const userToInsert = { ...doc, refreshTokens: [] };
+                await dstDb.collection('users').insertOne(userToInsert);
+                USER_ID_MAP.set(idKey(doc._id), doc._id);
+                usersInserted++;
+            }
+
+            console.log(`[migration] users: ${usersInserted} inserted, ${usersPreserved} existing preserved (sessions cleared for inserted users)`);
+
             const COLLECTIONS = [
-                'users',
                 'clients',
                 'companies',
                 'templates',
@@ -118,13 +175,23 @@ const STEPS = [
                 return;
             }
 
-            const ops = docs.map(doc => ({
-                updateOne: {
-                    filter: { _id: doc._id },
-                    update: { $setOnInsert: doc },
-                    upsert: true,
-                },
-            }));
+            const ops = docs.map(doc => {
+                const audit = {
+                    ...doc,
+                    creator: remapUserId(doc.creator),
+                    collaborators: remapUserArray(doc.collaborators),
+                    reviewers: remapUserArray(doc.reviewers),
+                    approvals: remapUserArray(doc.approvals),
+                };
+
+                return {
+                    updateOne: {
+                        filter: { _id: audit._id },
+                        update: { $setOnInsert: audit },
+                        upsert: true,
+                    },
+                };
+            });
             const result = await dst.bulkWrite(ops, { ordered: false });
             console.log(`[migration] audits: ${result.upsertedCount} inserted, ${result.matchedCount} already existed`);
         },
@@ -250,7 +317,7 @@ async function runMigration() {
     }
 
     const srcDb = srcConn.db;
-    const dstDb = mongoose.connection.db;
+    const dstDb = await waitForDestinationDb();
 
     // Ensure the tracking collection exists and has an index on step id.
     const migrationsCol = dstDb.collection('_migrations');

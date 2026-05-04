@@ -39,6 +39,7 @@ global.__basedir = __dirname;
 var mongoose = require('mongoose');
 // Use native promises
 mongoose.Promise = global.Promise;
+mongoose.set('bufferTimeoutMS', 60000);
 // Trim all Strings
 mongoose.Schema.Types.String.set('trim', true);
 

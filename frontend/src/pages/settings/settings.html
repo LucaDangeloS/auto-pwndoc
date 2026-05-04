@@ -722,11 +722,14 @@
                     <div class="text-caption text-grey-8 q-mb-sm">
                         {{$t('aiTemperature')}}: <strong>{{settings.ai.public.temperature}}</strong>
                     </div>
-                    <q-slider
-                        v-model="settings.ai.public.temperature"
-                        :min="0" :max="2" :step="0.1"
-                        color="primary"
-                        :disable="!canEdit || !settings.ai.enabled"
+                    <input
+                        v-model.number="settings.ai.public.temperature"
+                        class="ai-temperature-slider"
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        :disabled="!canEdit || !settings.ai.enabled"
                     />
                     <div class="row justify-between text-caption text-grey-6">
                         <span>0 — precise</span>

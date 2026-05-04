@@ -1,5 +1,5 @@
 <template>
-  <q-dialog v-model="show" maximized>
+  <q-dialog v-model="show" full-width>
     <q-card class="similar-vuln-modal column no-wrap">
       <q-bar class="bg-primary text-white">
         <q-icon :name="isProofMode ? 'image_search' : 'search'" />
@@ -64,7 +64,7 @@
         <!-- Right panel: diff view -->
         <div class="col column no-wrap" style="min-height:0; overflow-y:auto">
           <div v-if="selected" class="col q-pa-md column no-wrap">
-            <div class="row items-center q-mb-md q-gutter-sm">
+            <div class="row items-center q-mb-lg q-pb-sm q-gutter-sm">
               <q-icon name="compare_arrows" color="primary" />
               <span class="text-subtitle2">{{ $t('similarVulnDiffTitle') }}</span>
               <q-space />
@@ -282,7 +282,19 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .similar-vuln-modal {
+  width: calc(100vw - 64px);
+  max-width: 1440px;
   min-height: 60vh;
+  height: calc(100vh - 64px);
+  max-height: calc(100vh - 64px);
+}
+
+@media (max-width: 600px) {
+  .similar-vuln-modal {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 16px);
+    max-height: calc(100vh - 16px);
+  }
 }
 
 .diff-field-block {

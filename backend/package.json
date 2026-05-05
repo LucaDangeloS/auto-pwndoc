@@ -9,6 +9,7 @@
     "dev": "nodemon src/app.js",
     "prod": "cross-env NODE_ENV=prod nodemon src/app.js",
     "test": "cross-env NODE_ENV=test jest tests/index.test.js --testTimeout=10000 --forceExit",
+    "reset-admin": "node src/lib/reset-default-admin.js",
     "swagger-autogen": "node ./swagger.js"
   },
   "devDependencies": {

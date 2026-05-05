@@ -13,6 +13,7 @@ const app = require(__dirname+"/../src/app");
 
 // Import tests
 require('./unauthenticated.test')(request, app)
+require('./auth-default.test')(request, app)
 require('./user.test')(request, app)
 require('./template.test')(request, app)
 require('./data.test')(request, app)

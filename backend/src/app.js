@@ -64,7 +64,10 @@ require('./models/settings');
 
 // Database migration (runs only when MIGRATE_FROM env var is set)
 const { runMigration } = require('./lib/migration');
-runMigration().catch(err => console.error('[migration] Unexpected error:', err));
+const { ensureDefaultAdmin } = require('./lib/seed-admin');
+runMigration()
+  .catch(err => console.error('[migration] Unexpected error:', err))
+  .finally(() => ensureDefaultAdmin());
 
 // Socket IO configuration
 io.on('connection', (socket) => {

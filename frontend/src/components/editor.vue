@@ -590,6 +590,12 @@
     <div v-else class="editor__content q-pa-sm">
       <div class="ProseMirror" v-html="diffContent"></div>
     </div>
+    <ai-diff-modal
+      v-model="aiReview.open"
+      :previous-html="aiReview.previousHtml"
+      :proposed-html="aiReview.proposedHtml"
+      @apply="applyAiReview"
+    />
   </q-card>
 </template>
 
@@ -617,7 +623,8 @@ import { Figure } from "./figure";
 import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
-import { AiAssistantExtension } from './ai-assistant';
+import { AiAssistantExtension, applyAiResult } from './ai-assistant';
+import AiDiffModal from './ai-diff-modal.vue';
 
 // TipTap v3 - Collaboration extensions
 import Collaboration from '@tiptap/extension-collaboration'
@@ -716,7 +723,8 @@ export default defineComponent({
 
   components: {
     EditorContent,
-    BubbleMenu
+    BubbleMenu,
+    AiDiffModal
   },
 
   data() {
@@ -734,6 +742,13 @@ export default defineComponent({
       countChangeAfterUpdate:-1,
       initialeDataUpdated:false,
       htmlEncode: Utils.htmlEncode,
+      aiReview: {
+        open: false,
+        action: '',
+        previousHtml: '',
+        proposedHtml: '',
+        selectionRange: null,
+      },
       stickyConfig: {
         zIndex: 1000,
         top: 50,
@@ -1164,15 +1179,35 @@ export default defineComponent({
     runAi(action) {
       if (!this.editor) return;
       this.aiLoading = true;
-      const done = () => { this.aiLoading = false; };
+      const onResult = (result) => {
+        this.aiReview = {
+          open: true,
+          action: result.action,
+          previousHtml: result.previousHtml,
+          proposedHtml: result.proposedHtml,
+          selectionRange: result.selectionRange,
+        };
+        this.aiLoading = false;
+      };
+      const onDone = () => { this.aiLoading = false; };
       if (action === 'generate') {
-        this.editor.commands.aiGenerate(this.fieldName, this.aiContext);
+        this.editor.commands.aiGenerate(this.fieldName, this.aiContext, { onResult, onDone });
       } else if (action === 'complete') {
-        this.editor.commands.aiComplete(this.fieldName, this.aiContext);
+        this.editor.commands.aiComplete(this.fieldName, this.aiContext, { onResult, onDone });
       } else if (action === 'rewrite') {
-        this.editor.commands.aiRewrite(this.fieldName, this.aiContext);
+        this.editor.commands.aiRewrite(this.fieldName, this.aiContext, { onResult, onDone });
       }
-      setTimeout(done, 30000);
+    },
+    applyAiReview(html) {
+      if (!this.editor) return;
+      applyAiResult(this.editor, this.aiReview.action, html, this.aiReview.selectionRange);
+      this.aiReview = {
+        open: false,
+        action: '',
+        previousHtml: '',
+        proposedHtml: '',
+        selectionRange: null,
+      };
     },
 
     updateHTML() {

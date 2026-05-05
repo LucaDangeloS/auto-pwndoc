@@ -414,14 +414,21 @@ export default {
             // Mark as clean so beforeRouteLeave lets navigation through
             this.findingOrig = this.$_.cloneDeep(this.finding);
             this.needSave = false;
-            var currentIndex = this.$parent.audit.findings.findIndex(e => e._id === this.findingId);
-            if (this.$parent.audit.findings.length === 1) {
-              this.$router.push(`/audits/${this.$parent.auditId}/findings/add`);
-            } else if (currentIndex === this.$parent.audit.findings.length - 1) {
-              this.$router.push(`/audits/${this.$parent.auditId}/findings/${this.$parent.audit.findings[currentIndex - 1]._id}`);
+            const generalPath = `/audits/${this.auditId}/general`;
+            const findings = this.$parent.audit.findings || [];
+            const currentIndex = findings.findIndex(e => e._id === this.findingId);
+            let fallbackFinding = null;
+
+            if (currentIndex !== -1) {
+              fallbackFinding = findings[currentIndex + 1] || findings[currentIndex - 1] || null;
             } else {
-              this.$router.push(`/audits/${this.$parent.auditId}/findings/${this.$parent.audit.findings[currentIndex + 1]._id}`);
+              fallbackFinding = findings.find(e => e._id !== this.findingId) || null;
             }
+
+            const nextPath = fallbackFinding ? `/audits/${this.auditId}/findings/${fallbackFinding._id}` : generalPath;
+            this.$router.push(nextPath).catch(() => {
+              if (nextPath !== generalPath) this.$router.push(generalPath);
+            });
           })
           .catch((err) => {
             Notify.create({

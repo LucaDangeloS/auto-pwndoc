@@ -3,7 +3,7 @@ services:
     image: mongo:4
     container_name: autopwndoc-mongodb
     volumes:
-      - mongo-data:/data/db
+      - ./backend/mongo-data:/data/db
     restart: always
     ports:
       - 127.0.0.1:27017:27017

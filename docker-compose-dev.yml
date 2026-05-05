@@ -10,7 +10,7 @@ services:
     networks:
       - autopwndoc-net
     volumes:
-      - mongo-data-dev:/data/db
+      - ./backend/new-mongo-data:/data/db
     ports:
       - 127.0.0.1:27017:27017
     restart: always
@@ -39,7 +39,9 @@ services:
       # an existing pwndoc-ng database into this instance on next startup.
       # Example: mongodb://192.168.1.10:27017/pwndoc
       # Leave blank (or remove) to skip migration entirely.
-      - MIGRATE_FROM=
+      # For migration from old mongo-data folder: start mongo:5 on port 27018,
+      # then set: mongodb://host.docker.internal:27018/pwndoc
+      #- MIGRATE_FROM=mongodb://host.docker.internal:27018/pwndoc
       # Public application URL used in generated MCP client sample configs.
       - APP_URL=https://localhost:8443
     volumes:

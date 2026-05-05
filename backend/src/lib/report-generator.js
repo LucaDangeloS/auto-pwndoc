@@ -362,6 +362,7 @@ expressions.filters.lines = function(input) {
 
 // Creates a hyperlink: {@input | linkTo: 'https://example.com' | p}
 expressions.filters.linkTo = function(input, url) {
+    input = String(input || '');
     // fix breaking word with special characters in reference
     var entityencodedinput = input.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); // encode to prevent xml issues
 
@@ -380,6 +381,11 @@ expressions.filters.linkTo = function(input, url) {
     </w:rPr><w:t>${entityencodedinput}</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/>
 </w:r></w:p>`;
         
+}
+
+expressions.filters.links = function(input) {
+    if (!input || input == "undefined") return "";
+    return input.filter(reference => reference).map(reference => expressions.filters.linkTo(reference)).join('');
 }
 
 // Loop over the input object, providing acccess to its keys and values: {#findings | loopObject}{key}{value.title}{/findings | loopObject}
@@ -1537,6 +1543,7 @@ async function prepAuditData(data, settings) {
             remediationComplexity: finding.remediationComplexity || "",
             priority: finding.priority || "",
             references: finding.references || [],
+            references_links: expressions.filters.links(finding.references || []),
             poc: await splitHTMLParagraphs(finding.poc),
             retest_evidence: await splitHTMLParagraphs(finding.retestEvidence),
             retest_passed: finding.retestPassed === true ? true : finding.retestPassed === false ? false : null,

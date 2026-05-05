@@ -19,7 +19,9 @@
             "server": "mongodb",
             "port": "27017"
         },
-        "apidoc": false
+        "apidoc": false,
+        "jwtSecret": "d8527177eeac5f101a6ca16ce2f46930a5b613d055bb4f36e423311a7181b169",
+        "jwtRefreshSecret": "d84c1b7d00aea86a789ebecd74dba644089af545008ad8c403a94a51bf77e357"
     },
     "test": {
         "port": 6262,

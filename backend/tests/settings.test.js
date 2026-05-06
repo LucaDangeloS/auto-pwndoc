@@ -6,6 +6,33 @@ module.exports = function(request, app) {
         userToken = response.body.datas.token
       })
 
+      const defaultAiPrivatePrompts = {
+        "generateSystemPrompt": "",
+        "generateUserPrompt": "",
+        "completeSystemPrompt": "",
+        "completeUserPrompt": "",
+        "rewriteSystemPrompt": "",
+        "rewriteUserPrompt": "",
+        "fillProofsSystemPrompt": "",
+        "executiveSummarySystemPrompt": "",
+        "severitySummarySystemPrompt": "",
+        "field_description_generateSystemPrompt": "",
+        "field_description_completeSystemPrompt": "",
+        "field_description_rewriteSystemPrompt": "",
+        "field_observation_generateSystemPrompt": "",
+        "field_observation_completeSystemPrompt": "",
+        "field_observation_rewriteSystemPrompt": "",
+        "field_remediation_generateSystemPrompt": "",
+        "field_remediation_completeSystemPrompt": "",
+        "field_remediation_rewriteSystemPrompt": "",
+        "field_poc_generateSystemPrompt": "",
+        "field_poc_completeSystemPrompt": "",
+        "field_poc_rewriteSystemPrompt": "",
+        "field_retestEvidence_generateSystemPrompt": "",
+        "field_retestEvidence_completeSystemPrompt": "",
+        "field_retestEvidence_rewriteSystemPrompt": "",
+      }
+
       const defaultPublicSettings = {
         "report": {
             "enabled": true,
@@ -65,6 +92,10 @@ module.exports = function(request, app) {
             "visionProvider": "openai",
             "visionModel": "gpt-4o",
           },
+        },
+        "mcp": {
+          "enabled": false,
+          "appUrl": "https://localhost:8443",
         },
       };
 
@@ -153,12 +184,19 @@ module.exports = function(request, app) {
             "visionSystemPrompt": "",
             "visionAnonymizeLlm": false,
             "visionAnonymizeRegex": false,
+            ...defaultAiPrivatePrompts,
           },
           "visionEnabled": false,
           "visionPublic": {
             "visionProvider": "openai",
             "visionModel": "gpt-4o",
           },
+        },
+        "mcp": {
+          "enabled": false,
+          "apiKey": "",
+          "apiKeyCreatedAt": null,
+          "appUrl": "https://localhost:8443",
         },
       };
 
@@ -268,12 +306,19 @@ module.exports = function(request, app) {
               "visionSystemPrompt": "",
               "visionAnonymizeLlm": false,
               "visionAnonymizeRegex": false,
+              ...defaultAiPrivatePrompts,
             },
             "visionEnabled": false,
             "visionPublic": {
               "visionProvider": "openai",
               "visionModel": "gpt-4o",
             },
+          },
+          "mcp": {
+            "enabled": false,
+            "apiKey": "",
+            "apiKeyCreatedAt": null,
+            "appUrl": "https://localhost:8443",
           },
         };
         

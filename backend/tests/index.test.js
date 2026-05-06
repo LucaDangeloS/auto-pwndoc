@@ -4,6 +4,9 @@ var env = process.env.NODE_ENV || 'dev';
 var config = require('../src/config/config.json')[env];
 
 var mongoose = require('mongoose');
+if (config.database.name === 'pwndoc') {
+    throw new Error('Refusing to run tests against the development database "pwndoc"');
+}
 mongoose.connect(`mongodb://${config.database.server}:${config.database.port}/${config.database.name}`, {});
 
 /* Clean the DB */

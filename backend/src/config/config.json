@@ -27,7 +27,7 @@
         "port": 6262,
         "host": "",
         "database": {
-            "name": "pwndoc",
+            "name": "pwndoc-test",
             "server": "127.0.0.1",
             "port": "27017"
         },

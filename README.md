@@ -112,6 +112,86 @@ curl -sk -X POST https://localhost:8443/api/vulnerabilities \
   -d @backend/tests/fixtures/test-vulnerabilities.json
 ```
 
+### Migrate from an existing MongoDB data folder
+
+Use this when you have an old MongoDB data directory named `old-mongo-data` and want to migrate it into a fresh AutoPwnDoc dev database. The old data is mounted read/write by a temporary MongoDB 5 container because older project data may use a newer WiredTiger format than `mongo:4.2.15` can read directly.
+
+PowerShell:
+
+```powershell
+# 1. Stop the dev stack and remove the destination dev volume
+docker compose -f docker-compose-dev.yml down -v
+
+# 2. Start the old database folder on port 27018
+docker run --rm -d `
+  --name mongo-old `
+  -v "${PWD}/old-mongo-data:/data/db" `
+  -p 127.0.0.1:27018:27017 `
+  mongo:5
+
+# 3. Create a temporary Compose override that enables MIGRATE_FROM for backend
+@'
+services:
+  backend:
+    environment:
+      - MIGRATE_FROM=mongodb://host.docker.internal:27018/pwndoc
+'@ | Set-Content -Encoding UTF8 docker-compose-migrate.tmp.yml
+
+# 4. Start AutoPwnDoc with a fresh destination database and migration enabled
+docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml up -d
+
+# 5. Follow backend logs until migration prints "Done"
+docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml logs -f backend
+
+# 6. Disable migration for future restarts and restart backend normally
+docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml down
+Remove-Item docker-compose-migrate.tmp.yml
+docker compose -f docker-compose-dev.yml up -d
+docker compose -f docker-compose-dev.yml restart backend
+
+# 7. Stop the temporary old database
+docker stop mongo-old
+```
+
+Bash:
+
+```bash
+# 1. Stop the dev stack and remove the destination dev volume
+docker compose -f docker-compose-dev.yml down -v
+
+# 2. Start the old database folder on port 27018
+docker run --rm -d \
+  --name mongo-old \
+  -v "$(pwd)/old-mongo-data:/data/db" \
+  -p 127.0.0.1:27018:27017 \
+  mongo:5
+
+# 3. Create a temporary Compose override that enables MIGRATE_FROM for backend
+cat > docker-compose-migrate.tmp.yml <<'YAML'
+services:
+  backend:
+    environment:
+      - MIGRATE_FROM=mongodb://host.docker.internal:27018/pwndoc
+YAML
+
+# 4. Start AutoPwnDoc with a fresh destination database and migration enabled
+docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml up -d
+
+# 5. Follow backend logs until migration prints "Done"
+docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml logs -f backend
+
+# 6. Disable migration for future restarts and restart normally
+docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml down
+rm docker-compose-migrate.tmp.yml
+docker compose -f docker-compose-dev.yml up -d
+docker compose -f docker-compose-dev.yml restart backend
+
+# 7. Stop the temporary old database
+docker stop mongo-old
+```
+
+After migration, log in with an existing migrated user or with the local destination user if you created one before migrating. Imported users have their old refresh sessions cleared automatically.
+
 ---
 
 ## Lineage

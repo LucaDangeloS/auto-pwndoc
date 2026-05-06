@@ -611,6 +611,7 @@ The fixture `backend/tests/fixtures/test-vulnerabilities.json` contains 10 canon
 - `backend/src/lib/migration.js`: migration now waits for the destination Mongoose connection before accessing `mongoose.connection.db`, preventing startup failures when MongoDB recovery is still in progress.
 - User migration preserves existing destination accounts by matching source users on `username`; missing users are inserted with `refreshTokens: []`, and audit user references are remapped to preserved local users when needed.
 - `backend/src/routes/user.js`: refresh-token failures for missing sessions now return `401` and clear both auth cookies using the correct cookie path, preventing stale refresh-token retry loops after migration or DB replacement.
+- `README.md`: includes exact PowerShell and Bash command sequences to migrate from an `old-mongo-data` folder through a temporary `mongo:5` source container and a temporary Compose override that sets `MIGRATE_FROM`.
 
 ### Default admin auto-seed
 
@@ -622,6 +623,8 @@ The fixture `backend/tests/fixtures/test-vulnerabilities.json` contains 10 canon
 ### Agent workflow updates
 
 - Frontend changes under `frontend/src/**` or `frontend/quasar.conf.js` require `docker compose -f docker-compose-dev.yml restart frontend-app` followed by `docker compose -f docker-compose-dev.yml logs --since 1m frontend-app`.
+- Backend tests now use the isolated `pwndoc-test` database and fail fast if pointed at the development `pwndoc` database, preventing test runs from wiping live dev data or changing the documented `admin` / `Admin1admin2` credentials.
+- The frontend dev container runs `npm install` before `npm run dev` so package changes mounted over the persisted `node_modules` volume are installed after container restarts.
 
 ### OpenWebUI provider support
 

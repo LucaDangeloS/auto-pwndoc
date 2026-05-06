@@ -46,6 +46,7 @@ services:
       - APP_URL=https://localhost:8443
     volumes:
       - ./backend/src/:/app/src/
+      - ./backend/audit-archives/:/app/audit-archives/
       - ./backend/report-templates/:/app/report-templates/
       - ./backend/ssl/:/app/ssl/
       - ./backend/tests/:/app/tests/
@@ -65,6 +66,8 @@ services:
       dockerfile: Dockerfile.dev
     container_name: autopwndoc-frontend
     hostname: frontend
+    entrypoint: ""
+    command: "sh -c \"npm install && npm run dev\""
     networks:
       - autopwndoc-net
     develop:

@@ -48,6 +48,7 @@ mongoose.connect(`mongodb://${config.database.server}:${config.database.port}/${
 // Models import
 require('./models/user');
 require('./models/audit');
+require('./models/audit-archive');
 require('./models/client');
 require('./models/company');
 require('./models/template');
@@ -116,9 +117,9 @@ app.use(function(req, res, next) {
   next();
 });
 
-app.use(bodyParser.json({limit: '100mb'}));
+app.use(bodyParser.json({limit: '300mb'}));
 app.use(bodyParser.urlencoded({
-  limit: '10mb',
+  limit: '300mb',
   extended: false // do not need to take care about images, videos -> false: only strings
 }));
 
@@ -127,6 +128,7 @@ app.use(cookieParser())
 // Routes import
 require('./routes/user')(app);
 require('./routes/audit')(app, io);
+require('./routes/audit-archive')(app);
 require('./routes/client')(app);
 require('./routes/company')(app);
 require('./routes/vulnerability')(app);

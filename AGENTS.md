@@ -75,6 +75,7 @@ Read when: adding schema fields, changing validation, understanding stored data 
 |---|---|
 | `settings.js` | **Single-document global config.** Sections: `report`, `reviews`, `danger`, `mcp`, `ai`. Statics: `getAll()` (full, server-only), `getPublic()` (safe for browser — strips `ai.private` and `mcp.apiKey`), `update()`, `restoreDefaults()`. **Always start here when adding any new configurable feature.** |
 | `audit.js` | `AuditSchema` + `Finding` subdocument. Fields: `isRetest`, `executiveSummary` (embedded object), `findings[]`, `scope[]`, `sections[]`, `state`, `approvals[]`. All DB logic in statics (`createFinding`, `updateFinding`, `deleteFinding`, `getGeneral`, `updateGeneral`, etc.). |
+| `audit-archive.js` | Metadata for uploaded historical audit PDFs (`name`, generated disk `filename`, `originalName`, `size`, `mimeType`, `uploadedBy`). PDF bytes are stored on disk under `backend/audit-archives/`, not in MongoDB. |
 | `vulnerability.js` | `VulnerabilitySchema` + `VulnerabilityDetails` subdocument (per-locale). Statics: `getAll`, `getAllByLanguage`, `create`, `update`, `delete`, `Merge`. |
 | `user.js` | User schema with `permissions[]` extra-grants array. `updateRefreshToken` merges base role permissions with `user.permissions` into the JWT `payload.roles`. |
 | `audit-type.js` | Audit type lookup (name, sections, templates). |
@@ -99,6 +100,7 @@ Each file: `module.exports = function(app) { ... }` — no Express Router, route
 | File | Endpoints |
 |---|---|
 | `audit.js` | `GET/POST /api/audits`, `/api/audits/:id` (full), `/api/audits/:id/general`, `/api/audits/:id/network`, `/api/audits/:id/findings` (CRUD), `/api/audits/:id/sections/:sid`, sort, review, approval, report generation. Emits `io.to(auditId).emit('updateAudit')` after every mutation. |
+| `audit-archive.js` | `GET/POST /api/audit-archives`, `GET /api/audit-archives/:id/file`, `DELETE /api/audit-archives/:id`. Uploads accept base64 PDFs up to 200 MB, validate PDF signatures, store files in `backend/audit-archives/`, and stream them inline for the browser reader. |
 | `vulnerability.js` | `GET/POST/PUT/DELETE /api/vulnerabilities[/:id][/:locale]`. Fires `indexVulnAsync` / `deleteVulnAsync` (fire-and-forget ChromaDB hooks) on mutations. |
 | `ai.js` | `POST /api/ai/generate` — RAG + LLM. `POST /api/ai/search-similar` — semantic search. `POST /api/ai/analyze-proofs` — vision pipeline. `POST /api/ai/reindex-all` — background reindex. `POST /api/ai/test` — provider connection tests. |
 | `settings.js` | `GET /api/settings` (full, admin-only), `GET /api/settings/public` (browser-safe), `PUT /api/settings`, `PUT /api/settings/revert`, `GET /api/settings/export`, `POST /api/settings/mcp/rotate-key`, `DELETE /api/settings/mcp/key`. |
@@ -207,6 +209,7 @@ Thin Axios wrappers — one file per API domain. Always call through these; neve
 |---|---|
 | `ai.js` | `/api/ai/*` — `generate`, `searchSimilar`, `analyzeProofs`, `reindexAll`, `testConnection` |
 | `audit.js` | `/api/audits/*` — full audit, findings, network, general, sections, report download |
+| `audit-archive.js` | `/api/audit-archives/*` — list/upload/delete archived PDFs and fetch PDF bytes for the in-app reader |
 | `vulnerability.js` | `/api/vulnerabilities/*` — CRUD + update review + `backupFinding` |
 | `settings.js` | `/api/settings/*` — get/update/export/revert + `rotateMcpKey`, `clearMcpKey` |
 | `user.js` | Auth + profile + `isAllowed(permission)` ACL check (reads `roles` from decoded JWT cookie) |
@@ -251,6 +254,7 @@ Navigate directly to the relevant sub-directory. Do not open others.
 | `audits/edit/network/` | Network/scope hosts editor. |
 | `audits/edit/sections/` | Custom sections editor. |
 | `audits/list/` | Audit list — table, create dialog, filter. |
+| `audits-archive/` | Historical audit PDF archive — upload/list/delete PDFs and read them with embedded outline navigation plus a client-side searchable text index for page jumps. |
 | `vulnerabilities/` | Vulnerability library — list, create/edit modal, update review modal (diff between current and proposed). |
 | `data/collaborators/` | User management — role picker + granular permissions checkbox grid (5 categories × n permissions). |
 | `data/custom/` | Custom fields and sections editor. `section` prop (`'vulnerabilities'`, `'audits'`, `'custom'`) controls which tabs are visible. |
@@ -399,6 +403,7 @@ Users have `role` (`user` or `admin`) + optional `permissions[]` extra-grant arr
 
 ```
 audits:create/read/update/delete/read-all/update-all/review/review-all
+audit-archives:read/create/delete
 vulnerabilities:read/create/update/delete/delete-all
 vulnerability-updates:create
 settings:read/read-public/update
@@ -533,6 +538,13 @@ The fixture `backend/tests/fixtures/test-vulnerabilities.json` contains 10 canon
 ---
 
 ## Changes Log
+
+### Audit archive
+
+- `backend/src/models/audit-archive.js` + `backend/src/routes/audit-archive.js`: historical audit PDF archive with metadata in MongoDB, PDF bytes stored under `backend/audit-archives/`, 200 MB PDF validation, inline streaming, and delete cleanup.
+- `backend/src/app.js`, compose files, and nginx configs: registered archive model/routes, persisted the archive storage directory, and raised JSON/proxy body limits to support 200 MB base64 PDF uploads.
+- Frontend: `services/audit-archive.js`, `/audits-archive` route, main navigation entry, and `pages/audits-archive/` for upload/list/delete plus in-app PDF reading with embedded outline navigation and client-side searchable page index for jump-to-page results.
+- Regression test: `backend/tests/audit-archive.test.js` covers empty list, upload validation, list, file streaming, and delete.
 
 ### AI features
 

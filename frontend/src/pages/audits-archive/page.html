@@ -1,0 +1,194 @@
+<template>
+  <div class="q-pa-md">
+    <div class="row items-center q-mb-md q-gutter-sm">
+      <div>
+        <div class="text-h5">{{ $t('auditsArchive') }}</div>
+        <div class="text-caption text-grey-7">{{ $t('auditsArchiveDescription') }}</div>
+      </div>
+      <q-space />
+      <q-btn color="secondary" unelevated no-caps icon="upload_file" :label="$t('archiveUploadPdf')" @click="openUploadDialog" />
+    </div>
+
+    <div class="row q-col-gutter-md archive-reader-layout">
+      <div class="col-12 col-md-4 col-lg-3">
+        <q-card flat bordered>
+          <q-card-section>
+            <q-input v-model="filter" outlined dense clearable :label="$t('search')">
+              <template #append><q-icon name="search" /></template>
+            </q-input>
+          </q-card-section>
+
+          <q-separator />
+
+          <q-list separator>
+            <q-item v-if="archives.length === 0 && !loading" class="text-grey-7">
+              <q-item-section>{{ $t('archiveNoReports') }}</q-item-section>
+            </q-item>
+            <q-item
+              v-for="archive in filteredArchives"
+              :key="archive._id"
+              clickable
+              :active="selectedArchive && selectedArchive._id === archive._id"
+              active-class="bg-primary text-white"
+              @click="openArchive(archive)"
+            >
+              <q-item-section avatar>
+                <q-icon name="picture_as_pdf" color="negative" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label lines="2">{{ archive.name }}</q-item-label>
+                <q-item-label caption>{{ formatSize(archive.size) }} · {{ formatDate(archive.createdAt) }}</q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <q-btn dense flat round icon="delete" color="negative" @click.stop="confirmDelete(archive)">
+                  <q-tooltip>{{ $t('tooltip.delete') }}</q-tooltip>
+                </q-btn>
+              </q-item-section>
+            </q-item>
+          </q-list>
+          <q-inner-loading :showing="loading"><q-spinner size="32px" color="primary" /></q-inner-loading>
+        </q-card>
+      </div>
+
+      <div class="col-12 col-md-8 col-lg-9">
+        <q-card flat bordered class="full-height">
+          <q-card-section v-if="!selectedArchive" class="flex flex-center text-grey-7" style="min-height: 360px">
+            <div class="text-center">
+              <q-icon name="picture_as_pdf" size="56px" class="q-mb-md" />
+              <div>{{ $t('archiveSelectReport') }}</div>
+            </div>
+          </q-card-section>
+
+          <template v-else>
+            <q-bar class="bg-primary text-white">
+              <q-icon name="picture_as_pdf" />
+              <span class="q-ml-sm text-body1 ellipsis">{{ selectedArchive.name }}</span>
+              <q-space />
+              <q-btn dense flat icon="download" @click="downloadSelected" />
+            </q-bar>
+
+            <div class="row no-wrap">
+              <div class="gt-sm col-3" style="border-right: 1px solid rgba(0,0,0,0.12)">
+                <q-card-section>
+                  <div class="text-subtitle2 q-mb-sm">{{ $t('archiveOutline') }}</div>
+                  <q-list dense class="archive-outline">
+                    <q-item v-if="outline.length === 0" class="text-grey-7">
+                      <q-item-section>{{ $t('archiveNoOutline') }}</q-item-section>
+                    </q-item>
+                    <q-item v-for="item in outline" :key="item.key" clickable @click="jumpToPage(item.pageNumber)">
+                      <q-item-section :style="{ paddingLeft: `${item.level * 12}px` }">
+                        <q-item-label lines="2">{{ item.title }}</q-item-label>
+                        <q-item-label caption>{{ $t('archivePage') }} {{ item.pageNumber }}</q-item-label>
+                      </q-item-section>
+                    </q-item>
+                  </q-list>
+
+                  <q-separator class="q-my-md" />
+
+                  <div class="text-subtitle2 q-mb-sm">{{ $t('archiveSearchInPdf') }}</div>
+                  <q-input v-model="pdfSearch" outlined dense clearable :label="$t('archiveSearchPlaceholder')">
+                    <template #append><q-icon name="search" /></template>
+                  </q-input>
+                  <div v-if="searchIndexLoading" class="text-caption text-grey-7 q-mt-sm">
+                    {{ $t('archiveBuildingIndex') }}
+                  </div>
+                  <q-list v-else dense class="archive-search-results q-mt-sm">
+                    <q-item v-if="pdfSearch && pdfSearchResults.length === 0" class="text-grey-7">
+                      <q-item-section>{{ $t('archiveSearchNoResults') }}</q-item-section>
+                    </q-item>
+                    <q-item v-for="result in pdfSearchResults" :key="result.pageNumber" clickable @click="jumpToPage(result.pageNumber)">
+                      <q-item-section>
+                        <q-item-label>{{ $t('archivePage') }} {{ result.pageNumber }}</q-item-label>
+                        <q-item-label caption lines="2">{{ result.snippet }}</q-item-label>
+                      </q-item-section>
+                    </q-item>
+                  </q-list>
+                </q-card-section>
+              </div>
+
+              <div class="col column" style="min-width:0">
+                <q-toolbar class="lt-md">
+                  <q-btn flat dense icon="menu_book" :label="$t('archiveOutline')" @click="outlineDrawer = true" />
+                </q-toolbar>
+                <div ref="pagesContainer" class="archive-pages q-pa-md col">
+                  <div v-if="pdfLoading" class="flex flex-center q-pa-xl">
+                    <q-spinner size="48px" color="primary" />
+                    <span class="q-ml-md">{{ $t('archiveLoadingPdf') }}</span>
+                  </div>
+                  <canvas
+                    v-for="page in pages"
+                    :key="page"
+                    :ref="el => setPageCanvas(el, page)"
+                    class="archive-page-canvas"
+                  />
+                </div>
+              </div>
+            </div>
+          </template>
+        </q-card>
+      </div>
+    </div>
+
+    <q-dialog v-model="outlineDrawer" position="left">
+      <q-card style="width: 320px; max-width: 90vw">
+        <q-card-section class="row items-center">
+          <div class="text-subtitle1">{{ $t('archiveOutline') }}</div>
+          <q-space />
+          <q-btn dense flat round icon="close" v-close-popup />
+        </q-card-section>
+        <q-separator />
+        <q-list dense>
+          <q-item v-if="outline.length === 0" class="text-grey-7">
+            <q-item-section>{{ $t('archiveNoOutline') }}</q-item-section>
+          </q-item>
+          <q-item v-for="item in outline" :key="item.key" clickable v-close-popup @click="jumpToPage(item.pageNumber)">
+            <q-item-section :style="{ paddingLeft: `${item.level * 12}px` }">
+              <q-item-label>{{ item.title }}</q-item-label>
+              <q-item-label caption>{{ $t('archivePage') }} {{ item.pageNumber }}</q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
+        <q-separator />
+        <q-card-section>
+          <div class="text-subtitle2 q-mb-sm">{{ $t('archiveSearchInPdf') }}</div>
+          <q-input v-model="pdfSearch" outlined dense clearable :label="$t('archiveSearchPlaceholder')">
+            <template #append><q-icon name="search" /></template>
+          </q-input>
+          <div v-if="searchIndexLoading" class="text-caption text-grey-7 q-mt-sm">
+            {{ $t('archiveBuildingIndex') }}
+          </div>
+          <q-list v-else dense class="q-mt-sm">
+            <q-item v-if="pdfSearch && pdfSearchResults.length === 0" class="text-grey-7">
+              <q-item-section>{{ $t('archiveSearchNoResults') }}</q-item-section>
+            </q-item>
+            <q-item v-for="result in pdfSearchResults" :key="result.pageNumber" clickable v-close-popup @click="jumpToPage(result.pageNumber)">
+              <q-item-section>
+                <q-item-label>{{ $t('archivePage') }} {{ result.pageNumber }}</q-item-label>
+                <q-item-label caption lines="2">{{ result.snippet }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="uploadDialog">
+      <q-card style="width: 520px; max-width: 90vw">
+        <q-card-section>
+          <div class="text-h6">{{ $t('archiveUploadPdf') }}</div>
+          <div class="text-caption text-grey-7">{{ $t('archiveUploadHint') }}</div>
+        </q-card-section>
+        <q-card-section class="q-gutter-md">
+          <q-input v-model="upload.name" outlined :label="$t('name')" :error="!!errors.name" :error-message="errors.name" />
+          <q-file v-model="upload.file" outlined accept="application/pdf,.pdf" :label="$t('archivePdfFile')" :error="!!errors.file" :error-message="errors.file">
+            <template #prepend><q-icon name="attach_file" /></template>
+          </q-file>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat no-caps :label="$t('btn.cancel')" v-close-popup />
+          <q-btn color="secondary" unelevated no-caps :loading="uploading" :label="$t('archiveUpload')" @click="uploadArchive" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+  </div>
+</template>

@@ -9,6 +9,8 @@ mongo-data*
 *mongo-data*
 .quasar
 report-templates
+backend/audit-archives/*
+!backend/audit-archives/.gitkeep
 custom-generator.js
 dist
 # Configuration files

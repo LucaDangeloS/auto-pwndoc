@@ -38,6 +38,9 @@ var builtInRoles = {
             'audits:read',
             'audits:update',
             'audits:delete',
+            'audit-archives:read',
+            'audit-archives:create',
+            'audit-archives:delete',
             // Images
             'images:create',
             'images:read',

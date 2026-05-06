@@ -18,6 +18,7 @@ services:
     container_name: autopwndoc-backend
     volumes:
       - ./backend/report-templates:/app/report-templates
+      - ./backend/audit-archives:/app/audit-archives
       - ./backend/src/config:/app/src/config
     depends_on:
       - mongodb

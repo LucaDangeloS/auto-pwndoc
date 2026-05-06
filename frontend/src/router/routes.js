@@ -28,6 +28,7 @@ export default [
       {path: 'custom', component: () => import('pages/data/custom')},
       {path: 'dump', component: () => import('pages/data/dump')}
     ]},
+    {path: 'audits-archive', component: () => import('@/pages/audits-archive'), meta: {breadcrumb: 'Audits Archive'}},
     {path: 'vulnerabilities', component: () => import('@/pages/vulnerabilities'), meta: {breadcrumb: 'Vulnerabilities'}},
     {path: 'profile', component: () => import('pages/profile')},
     {path: 'settings', component: () => import('pages/settings')},

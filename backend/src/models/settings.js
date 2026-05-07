@@ -6,6 +6,7 @@ var Utils = require('../lib/utils.js');
 
 // https://stackoverflow.com/questions/25822289/what-is-the-best-way-to-store-color-hex-values-in-mongodb-mongoose
 const colorValidator = (v) => (/^#([0-9a-f]{3}){1,2}$/i).test(v);
+const optionalFillValidator = (v) => v === 'none' || colorValidator(v);
 
 const SettingSchema = new Schema({
     report: { 
@@ -17,6 +18,26 @@ const SettingSchema = new Schema({
                 mediumColor: { type: String, default: "#f9a009", validate: [colorValidator, 'Invalid color'] },
                 highColor: { type: String, default: "#fe0000", validate: [colorValidator, 'Invalid color'] },
                 criticalColor: { type: String, default: "#212121", validate: [colorValidator, 'Invalid color'] }
+            },
+            chartTheme: {
+                titleColor: { type: String, default: "#000000", validate: [colorValidator, 'Invalid color'] },
+                titleSize: { type: Number, default: 16, min: 6, max: 72 },
+                titleBold: { type: Boolean, default: true },
+                legendColor: { type: String, default: "#404040", validate: [colorValidator, 'Invalid color'] },
+                legendSize: { type: Number, default: 11, min: 6, max: 36 },
+                legendPosition: { type: String, enum: ['r', 'b', 't', 'l', 'tr'], default: 'r' },
+                dataLabelColor: { type: String, default: "#ffffff", validate: [colorValidator, 'Invalid color'] },
+                dataLabelSize: { type: Number, default: 11, min: 6, max: 36 },
+                dataLabelBold: { type: Boolean, default: true },
+                dataLabelMode: { type: String, enum: ['value', 'percent', 'both', 'none'], default: 'value' },
+                borderEnabled: { type: Boolean, default: false },
+                borderColor: { type: String, default: "#d9e2f3", validate: [colorValidator, 'Invalid color'] },
+                borderWidth: { type: Number, default: 1, min: 0, max: 6 },
+                plotAreaFill: { type: String, default: "none", validate: [optionalFillValidator, 'Invalid fill color'] },
+                view3DRotX: { type: Number, default: 30, min: -90, max: 90 },
+                view3DRotY: { type: Number, default: 30, min: 0, max: 359 },
+                view3DPerspective: { type: Number, default: 30, min: 0, max: 100 },
+                view3DRightAngleAxes: { type: Boolean, default: false }
             },
             remediationColorsComplexity: {
                 lowColor: { type: String, default: "#4472c4", validate: [colorValidator, 'Invalid color'] },

@@ -15,6 +15,8 @@
     "Medium": "Midden",
     "Critical": "Kritiek",
     "Informative": "Informatief",
+    "Informational": "Informatief",
+    "Vulnerabilities": "Kwetsbaarheden",
     "None": "Geen",
     "Required": "Verplicht",
     "Unchanged": "Ongewijzigd",

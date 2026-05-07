@@ -5,18 +5,18 @@
             <img src="logo_transparent.png" style="max-height:44px;" />
 
             <!-- Desktop nav: hidden on xs/sm -->
-            <q-item class="gt-sm" to='/audits' active-class="text-green">
-            <q-item-section avatar style="min-width:0" class="q-pr-sm">
-                <q-icon name="fa fa-fingerprint" />
-            </q-item-section>
-            <q-item-section>{{$t('nav.audits')}}</q-item-section>
-            </q-item>
-
             <q-item class="gt-sm" to='/audits-archive' active-class="text-green">
             <q-item-section avatar style="min-width:0" class="q-pr-sm">
                 <q-icon name="fa fa-folder-open" />
             </q-item-section>
             <q-item-section>{{$t('nav.auditsArchive')}}</q-item-section>
+            </q-item>
+
+            <q-item class="gt-sm" to='/audits' active-class="text-green">
+            <q-item-section avatar style="min-width:0" class="q-pr-sm">
+                <q-icon name="fa fa-fingerprint" />
+            </q-item-section>
+            <q-item-section>{{$t('nav.audits')}}</q-item-section>
             </q-item>
 
             <q-item class="gt-sm" to='/vulnerabilities' active-class="text-green">

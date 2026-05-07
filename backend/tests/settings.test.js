@@ -33,6 +33,27 @@ module.exports = function(request, app) {
         "field_retestEvidence_rewriteSystemPrompt": "",
       }
 
+      const defaultChartTheme = {
+        "borderColor": "#d9e2f3",
+        "borderEnabled": false,
+        "borderWidth": 1,
+        "dataLabelBold": true,
+        "dataLabelColor": "#ffffff",
+        "dataLabelMode": "value",
+        "dataLabelSize": 11,
+        "legendColor": "#404040",
+        "legendPosition": "r",
+        "legendSize": 11,
+        "plotAreaFill": "none",
+        "titleBold": true,
+        "titleColor": "#000000",
+        "titleSize": 16,
+        "view3DPerspective": 30,
+        "view3DRightAngleAxes": false,
+        "view3DRotX": 30,
+        "view3DRotY": 30,
+      }
+
       const defaultPublicSettings = {
         "report": {
             "enabled": true,
@@ -40,6 +61,7 @@ module.exports = function(request, app) {
               "captions": [
                 "Figure",
               ],
+              "chartTheme": defaultChartTheme,
               "cvssColors": {
                 "criticalColor": "#212121",
                 "highColor": "#fe0000",
@@ -110,6 +132,7 @@ module.exports = function(request, app) {
               "captions": [
                 "Figure",
               ],
+              "chartTheme": defaultChartTheme,
               "cvssColors": {
                 "criticalColor": "#212121",
                 "highColor": "#fe0000",
@@ -232,6 +255,7 @@ module.exports = function(request, app) {
                   "Figure",
                   "Test",
                 ],
+                "chartTheme": defaultChartTheme,
                 "cvssColors": {
                   "criticalColor": "#123456",
                   "highColor": "#123456",

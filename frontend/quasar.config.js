@@ -1,8 +1,10 @@
-// Configuration for your app
-let path = require('path')
-let fs = require('fs')
+import path from 'node:path'
+import fs from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
-module.exports = function (ctx) {
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+export default function (ctx) {
   return {
     // app boot (/src/boot)
     boot: [
@@ -50,9 +52,12 @@ module.exports = function (ctx) {
         }
     },
     devServer: {
-      https: {
-        key: fs.readFileSync(__dirname+'/ssl/server.key'),
-        cert: fs.readFileSync(__dirname+'/ssl/server.cert')
+      server: {
+        type: 'https',
+        options: {
+          key: fs.readFileSync(__dirname+'/ssl/server.key'),
+          cert: fs.readFileSync(__dirname+'/ssl/server.cert')
+        }
       },
       host: "0.0.0.0",
       port: 8081,
@@ -69,13 +74,14 @@ module.exports = function (ctx) {
           pathname: '/ws',
         },
       },
-      proxy: {
-        '/api': {
+      proxy: [
+        {
+          context: ['/api'],
           target: 'https://pwndoc-ng-backend:5252',
           changeOrigin: true,
           secure: false
         }
-      }
+      ]
       //open: true // opens browser window automatically
     },
     // framework: 'all' --- includes everything; for dev only!

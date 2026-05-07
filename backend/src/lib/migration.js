@@ -295,6 +295,43 @@ const STEPS = [
         },
     },
 
+    // Step 9: Add report chart theme settings
+    {
+        id: 9,
+        name: 'add-chartTheme-to-settings',
+        async run(_srcDb, dstDb) {
+            const col = dstDb.collection('settings');
+            const result = await col.updateMany(
+                { 'report.public.chartTheme': { $exists: false } },
+                {
+                    $set: {
+                        'report.public.chartTheme': {
+                            titleColor: '#000000',
+                            titleSize: 16,
+                            titleBold: true,
+                            legendColor: '#404040',
+                            legendSize: 11,
+                            legendPosition: 'r',
+                            dataLabelColor: '#ffffff',
+                            dataLabelSize: 11,
+                            dataLabelBold: true,
+                            dataLabelMode: 'value',
+                            borderEnabled: false,
+                            borderColor: '#d9e2f3',
+                            borderWidth: 1,
+                            plotAreaFill: 'none',
+                            view3DRotX: 30,
+                            view3DRotY: 30,
+                            view3DPerspective: 30,
+                            view3DRightAngleAxes: false,
+                        },
+                    },
+                }
+            );
+            console.log(`[migration] add-chartTheme-to-settings: ${result.modifiedCount} settings documents updated`);
+        },
+    },
+
 ];
 
 // Runner

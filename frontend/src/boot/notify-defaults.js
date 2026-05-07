@@ -5,7 +5,6 @@ import { Notify } from 'quasar'
 // button row (~60px) so notifications never block UI controls.
 export default boot(() => {
   Notify.setDefaults({
-    position: 'top-right',
-    offset: [10, 70]
+    position: 'top-right'
   })
 })

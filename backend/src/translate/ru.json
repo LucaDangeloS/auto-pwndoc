@@ -15,6 +15,8 @@
     "High": "Высокий",
     "Medium": "Средний",
     "Informative": "Информационный",
+    "Informational": "Информационный",
+    "Vulnerabilities": "Уязвимости",
     "None": "Замечание",
     "Required": "Требуется",
     "Unchanged": "Не оказывает",

@@ -317,6 +317,34 @@
                         </q-item-section>
                     </q-item>
                 </q-card-section>
+                <q-separator />
+                <q-card-section>
+                    <div class="text-bold">{{$t('chartTheme')}}</div>
+                    <br/>
+                    <div class="text-grey-8">{{$t('chartThemeDescription')}}</div>
+                    <br/>
+                    <div class="row q-col-gutter-md">
+                        <q-input class="col-12 col-md-3" :label="$t('titleColor')" v-model="settings.report.public.chartTheme.titleColor" type="color" outlined :disable="!canEdit" />
+                        <q-input class="col-12 col-md-3" :label="$t('titleSize')" v-model.number="settings.report.public.chartTheme.titleSize" type="number" :min="6" :max="72" outlined :disable="!canEdit" />
+                        <q-toggle class="col-12 col-md-3" :label="$t('titleBold')" v-model="settings.report.public.chartTheme.titleBold" :disable="!canEdit" />
+                        <q-select class="col-12 col-md-3" :label="$t('legendPosition')" v-model="settings.report.public.chartTheme.legendPosition" :options="chartLegendPositionOptions" map-options emit-value options-sanitize outlined :disable="!canEdit" />
+                        <q-input class="col-12 col-md-3" :label="$t('legendColor')" v-model="settings.report.public.chartTheme.legendColor" type="color" outlined :disable="!canEdit" />
+                        <q-input class="col-12 col-md-3" :label="$t('legendSize')" v-model.number="settings.report.public.chartTheme.legendSize" type="number" :min="6" :max="36" outlined :disable="!canEdit" />
+                        <q-select class="col-12 col-md-3" :label="$t('dataLabelMode')" v-model="settings.report.public.chartTheme.dataLabelMode" :options="chartDataLabelModeOptions" map-options emit-value options-sanitize outlined :disable="!canEdit" />
+                        <q-input class="col-12 col-md-3" :label="$t('dataLabelColor')" v-model="settings.report.public.chartTheme.dataLabelColor" type="color" outlined :disable="!canEdit" />
+                        <q-input class="col-12 col-md-3" :label="$t('dataLabelSize')" v-model.number="settings.report.public.chartTheme.dataLabelSize" type="number" :min="6" :max="36" outlined :disable="!canEdit" />
+                        <q-toggle class="col-12 col-md-3" :label="$t('dataLabelBold')" v-model="settings.report.public.chartTheme.dataLabelBold" :disable="!canEdit" />
+                        <q-toggle class="col-12 col-md-3" :label="$t('borderEnabled')" v-model="settings.report.public.chartTheme.borderEnabled" :disable="!canEdit" />
+                        <q-input class="col-12 col-md-3" :label="$t('borderColor')" v-model="settings.report.public.chartTheme.borderColor" type="color" outlined :disable="!canEdit || !settings.report.public.chartTheme.borderEnabled" />
+                        <q-input class="col-12 col-md-3" :label="$t('borderWidth')" v-model.number="settings.report.public.chartTheme.borderWidth" type="number" :min="0" :max="6" outlined :disable="!canEdit || !settings.report.public.chartTheme.borderEnabled" />
+                        <q-toggle class="col-12 col-md-3" :label="$t('plotAreaFillNone')" v-model="settings.report.public.chartTheme.plotAreaFill" true-value="none" false-value="#ffffff" :disable="!canEdit" />
+                        <q-input v-if="settings.report.public.chartTheme.plotAreaFill !== 'none'" class="col-12 col-md-3" :label="$t('plotAreaFill')" v-model="settings.report.public.chartTheme.plotAreaFill" type="color" outlined :disable="!canEdit" />
+                        <q-input class="col-12 col-md-3" :label="$t('view3DRotX')" v-model.number="settings.report.public.chartTheme.view3DRotX" type="number" :min="-90" :max="90" outlined :disable="!canEdit" />
+                        <q-input class="col-12 col-md-3" :label="$t('view3DRotY')" v-model.number="settings.report.public.chartTheme.view3DRotY" type="number" :min="0" :max="359" outlined :disable="!canEdit" />
+                        <q-input class="col-12 col-md-3" :label="$t('view3DPerspective')" v-model.number="settings.report.public.chartTheme.view3DPerspective" type="number" :min="0" :max="100" outlined :disable="!canEdit" />
+                        <q-toggle class="col-12 col-md-3" :label="$t('view3DRightAngleAxes')" v-model="settings.report.public.chartTheme.view3DRightAngleAxes" :disable="!canEdit" />
+                    </div>
+                </q-card-section>
             </div>
         </q-card>
 

@@ -16,18 +16,60 @@ var CVSS40 = require('./cvsscalc40.js');
 var translate = require('../translate')
 var $t
 var pieChartXML
+var pie3DChartXML
 var barChartXML
 var zip
 var numberOfPieChart = 0
+var numberOfPie3DChart = 0
 var numberOfBarChart = 0
 var chartRelXml = ''
 var chartContentTypeXml = ''
+var reportSettings
 var globalAbstractNumId = null // Global variable to share abstractNumId between all sections
 var abstractNumCreated = false // Flag to avoid creating abstractNum multiple times
 var bulletDefinitionCreated = false // Flag to avoid creating bullet definition multiple times
 var globalBulletNumId = null // Global variable to store dynamic bullet ID
 
 const encodeHTMLEntities = s => s.replace(/[\u00A0-\u9999<>&]/g, i => '&#'+i.charCodeAt(0)+';')
+
+const DEFAULT_CHART_THEME = {
+    titleColor: '000000',
+    titleSize: 16,
+    titleBold: true,
+    legendColor: '404040',
+    legendSize: 11,
+    legendPosition: 'r',
+    dataLabelColor: 'FFFFFF',
+    dataLabelSize: 11,
+    dataLabelBold: true,
+    dataLabelMode: 'value',
+    borderEnabled: false,
+    borderColor: 'D9E2F3',
+    borderWidth: 1,
+    plotAreaFill: 'none',
+    view3DRotX: 30,
+    view3DRotY: 30,
+    view3DPerspective: 30,
+    view3DRightAngleAxes: false,
+};
+
+function stripHash(color, fallback) {
+    if (!color || typeof color !== 'string') return fallback;
+    return color.replace('#', '').toUpperCase();
+}
+
+function getChartTheme(settings) {
+    const theme = _.get(settings, 'report.public.chartTheme', {}) || {};
+    return {
+        ...DEFAULT_CHART_THEME,
+        ...theme,
+        titleColor: stripHash(theme.titleColor, DEFAULT_CHART_THEME.titleColor),
+        legendColor: stripHash(theme.legendColor, DEFAULT_CHART_THEME.legendColor),
+        dataLabelColor: stripHash(theme.dataLabelColor, DEFAULT_CHART_THEME.dataLabelColor),
+        borderColor: stripHash(theme.borderColor, DEFAULT_CHART_THEME.borderColor),
+        plotAreaFill: theme.plotAreaFill === 'none' ? 'none' : stripHash(theme.plotAreaFill, DEFAULT_CHART_THEME.plotAreaFill),
+    };
+}
 
 // Generate document with docxtemplater
 async function generateDoc(audit) {
@@ -37,6 +79,11 @@ async function generateDoc(audit) {
     abstractNumCreated = false;
     bulletDefinitionCreated = false;
     globalBulletNumId = null;
+    numberOfPieChart = 0;
+    numberOfPie3DChart = 0;
+    numberOfBarChart = 0;
+    chartRelXml = '';
+    chartContentTypeXml = '';
 
     var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
@@ -52,6 +99,7 @@ async function generateDoc(audit) {
     })
 
     var settings = await Settings.getAll();
+    reportSettings = settings;
     var preppedAudit = await prepAuditData(audit, settings)
 
     var opts = {};
@@ -146,6 +194,8 @@ async function generateDoc(audit) {
 
     const piechartStyleXmlPath = "word/charts/pieChart-style-pwndoc.xml";
     const pieChartcolorsXmlPath = "word/charts/pieChart-colors-pwndoc.xml";
+    const pie3DchartStyleXmlPath = "word/charts/pie3DChart-style-pwndoc.xml";
+    const pie3DChartcolorsXmlPath = "word/charts/pie3DChart-colors-pwndoc.xml";
 
     const barChartstyleXmlPath = "word/charts/barChart-style-pwndoc.xml";
     const barChartcolorsXmlPath = "word/charts/barChart-colors-pwndoc.xml";
@@ -158,6 +208,8 @@ async function generateDoc(audit) {
 
     zip.file(piechartStyleXmlPath, pieChartstyleXml);
     zip.file(pieChartcolorsXmlPath, pieChartcolorsXml);
+    zip.file(pie3DchartStyleXmlPath, pieChartstyleXml);
+    zip.file(pie3DChartcolorsXmlPath, pieChartcolorsXml);
     zip.file(barChartstyleXmlPath, barChartstyleXml);
     zip.file(barChartcolorsXmlPath, barChartcolorsXml);
 
@@ -841,6 +893,76 @@ expressions.filters.pieChart = function(input, title, colorCrit, colorHigh, colo
                         <c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"
                                  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
                                  r:id="rId-pwndoc-pie-${numberOfPieChart}"/>
+                    </a:graphicData>
+                </a:graphic>
+            </wp:inline>
+        </w:drawing>
+    </w:r>
+</w:p>`;
+}
+
+function getFindingBaseSeverity(finding) {
+    const cvssSeverity = _.get(finding, 'cvss.baseSeverity');
+    if (cvssSeverity) return cvssSeverity;
+    const cvss4Severity = _.get(finding, 'cvss4.baseSeverity');
+    if (cvss4Severity) return cvss4Severity;
+    return 'Informational';
+}
+
+// Generate a native editable 3D pie chart for findings severity.
+// Example: {@findings | severityPie3D}
+// Example: {@findings | severityPie3D:'Risk distribution'}
+expressions.filters.severityPie3D = function(input, title) {
+    if (!input) return input;
+
+    const counts = { Critical: 0, High: 0, Medium: 0, Low: 0, Informational: 0 };
+    for (var i = 0; i < input.length; i++) {
+        const severity = getFindingBaseSeverity(input[i]);
+        if (counts[severity] !== undefined) counts[severity] += 1;
+        else counts.Informational += 1;
+    }
+
+    const colors = _.get(reportSettings, 'report.public.cvssColors', {});
+    const severities = [
+        { key: 'Critical', label: $t('Critical'), value: counts.Critical, color: stripHash(colors.criticalColor, '212121') },
+        { key: 'High', label: $t('High'), value: counts.High, color: stripHash(colors.highColor, 'FE0000') },
+        { key: 'Medium', label: $t('Medium'), value: counts.Medium, color: stripHash(colors.mediumColor, 'F9A009') },
+        { key: 'Low', label: $t('Low'), value: counts.Low, color: stripHash(colors.lowColor, '008000') },
+        { key: 'Informational', label: $t('Informational'), value: counts.Informational, color: stripHash(colors.noneColor, '4A86E8') },
+    ];
+
+    pie3DChartXML = chartGenerator.generatePie3DChart({
+        title: title || $t('Vulnerabilities'),
+        severities,
+        theme: getChartTheme(reportSettings),
+    });
+
+    numberOfPie3DChart += 1;
+
+    chartRelXml += `<Relationship Id="rId-pwndoc-pie3d-${numberOfPie3DChart}"
+    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"
+    Target="charts/pie3DChart-${numberOfPie3DChart}-pwndoc.xml"/>`;
+
+    chartContentTypeXml += `<Override PartName="/word/charts/pie3DChart-${numberOfPie3DChart}-pwndoc.xml"
+                ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>
+    `;
+
+    const pie3DchartXmlPath = `word/charts/pie3DChart-${numberOfPie3DChart}-pwndoc.xml`;
+    zip.file(pie3DchartXmlPath, pie3DChartXML);
+
+    return `<w:p>
+    <w:r>
+        <w:drawing>
+            <wp:inline distT="0" distB="0" distL="0" distR="0" wp14:anchorId="5CD9E55B" wp14:editId="2E40AF66">
+                <wp:extent cx="5486400" cy="3200400"/>
+                <wp:effectExtent l="0" t="0" r="0" b="0"/>
+                <wp:docPr id="1836246480" name="3D Piechart Severity"/>
+                <wp:cNvGraphicFramePr/>
+                <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">
+                        <c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"
+                                 xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+                                 r:id="rId-pwndoc-pie3d-${numberOfPie3DChart}"/>
                     </a:graphicData>
                 </a:graphic>
             </wp:inline>

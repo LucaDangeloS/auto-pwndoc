@@ -1,6 +1,7 @@
 module.exports = function () {
   var html2ooxml = require("../src/lib/html2ooxml")
   var utils = require("../src/lib/utils")
+  var chartGenerator = require("../src/lib/chart-generator")
 
   describe('Lib functions Suite Tests', () => {
 
@@ -33,6 +34,38 @@ module.exports = function () {
         var filename = "<Vulnerability> 1"
         var result = utils.validFilename(filename)
         expect(result).toEqual(false)
+      })
+    })
+
+    describe('chart generator tests', () => {
+      it('Generates editable 3D pie chart XML', () => {
+        var xml = chartGenerator.generatePie3DChart({
+          title: 'Vulnerabilities',
+          severities: [
+            { label: 'Critical', value: 1, color: '212121' },
+            { label: 'High', value: 2, color: 'FE0000' },
+            { label: 'Medium', value: 3, color: 'F9A009' },
+            { label: 'Low', value: 4, color: '008000' },
+            { label: 'Informational', value: 5, color: '4A86E8' },
+          ],
+          theme: {
+            titleColor: '000000', titleSize: 16, titleBold: true,
+            legendColor: '404040', legendSize: 11, legendPosition: 'r',
+            dataLabelColor: 'FFFFFF', dataLabelSize: 11, dataLabelBold: true, dataLabelMode: 'value',
+            borderEnabled: true, borderColor: 'D9E2F3', borderWidth: 1, plotAreaFill: 'none',
+            view3DRotX: 30, view3DRotY: 30, view3DPerspective: 30, view3DRightAngleAxes: false,
+          }
+        })
+
+        expect(xml).toContain('<c:pie3DChart>')
+        expect(xml).toContain('<c:view3D>')
+        expect(xml).toContain('<c:rotX val="30"/>')
+        expect(xml).toContain('<c:perspective val="30"/>')
+        expect((xml.match(/<c:dPt>/g) || []).length).toEqual(5)
+        expect(xml).toContain('<a:srgbClr val="212121"/>')
+        expect(xml).toContain('<a:srgbClr val="4A86E8"/>')
+        expect(xml).toContain('<c:v>Informational</c:v>')
+        expect(xml).toContain('<c:v>5</c:v>')
       })
     })
 

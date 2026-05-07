@@ -3,9 +3,48 @@ import { Notify, Dialog } from 'quasar'
 import SettingsService from '@/services/settings'
 import UserService from '@/services/user'
 import AiService from '@/services/ai'
+import { notifyError, notifySuccess } from '@/services/ai-helpers'
 
 import { $t } from 'boot/i18n'
 import LanguageSelector from '@/components/language-selector';
+
+const REINDEX_POLL_MS = 1500;
+const TEST_LAST_RUN_KEY = 'autopwndoc.aiTestLastRun';
+
+function safeClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    }
+    // Fallback for insecure HTTP contexts
+    return new Promise((resolve, reject) => {
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(textarea);
+            if (ok) resolve(); else reject(new Error('copy failed'));
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+function loadLastTestRuns() {
+    try {
+        const raw = localStorage.getItem(TEST_LAST_RUN_KEY);
+        return raw ? JSON.parse(raw) : { generation: null, embedding: null, vision: null };
+    } catch (_) {
+        return { generation: null, embedding: null, vision: null };
+    }
+}
+
+function persistLastTestRuns(map) {
+    try { localStorage.setItem(TEST_LAST_RUN_KEY, JSON.stringify(map)); } catch (_) { /* noop */ }
+}
 
 const DEFAULT_PROMPTS = {
     generateSystemPrompt: `You are a cybersecurity expert writing professional penetration test reports.
@@ -125,9 +164,26 @@ export default {
             DEFAULT_PROMPTS,
             promptTags: ['{language}','{fieldName}','{findingTitle}','{similarVulnsBlock}','{text}','{auditName}','{severity}','{findingsDigest}','{visionSummary}','{imageRefsBlock}','{vulnDescription}'],
             aiTest: {
-                generation: { loading: false, status: null, response: '' },
-                embedding:  { loading: false, status: null, response: '' },
-                vision:     { loading: false, status: null, response: '' }
+                generation: { loading: false, status: null, response: '', controller: null },
+                embedding:  { loading: false, status: null, response: '', controller: null },
+                vision:     { loading: false, status: null, response: '', controller: null }
+            },
+            aiTestLastRun: loadLastTestRuns(),
+            saving: false,
+            reindexStatus: {
+                inProgress: false,
+                total: 0,
+                processed: 0,
+                failed: 0,
+                startedAt: null,
+                finishedAt: null,
+                lastError: null
+            },
+            _reindexTimer: null,
+            modelLists: {
+                generation: { loading: false, source: null, models: [], error: '' },
+                embedding:  { loading: false, source: null, models: [], error: '' },
+                vision:     { loading: false, source: null, models: [], error: '' }
             },
             cvssVersionOptions: [
                 { label: 'CVSS 3.1', value: '3.1' },
@@ -229,6 +285,15 @@ export default {
             this.getSettings()
             this.canEdit = this.UserService.isAllowed('settings:update');
             document.addEventListener('keydown', this._listener, false)
+            // Pick up any reindex that was triggered by a different session
+            AiService.reindexStatus()
+                .then((res) => {
+                    const data = res.data && res.data.datas ? res.data.datas : null;
+                    if (!data) return;
+                    this.reindexStatus = data;
+                    if (data.inProgress) this._startReindexPolling();
+                })
+                .catch(() => { /* silent */ });
         }
         else {
             this.loading = false
@@ -238,6 +303,15 @@ export default {
     unmounted: function() {
         document.removeEventListener('keydown', this._listener, false)
         if (this.sectionObserver) this.sectionObserver.disconnect();
+        if (this._reindexTimer) {
+            clearInterval(this._reindexTimer);
+            this._reindexTimer = null;
+        }
+        Object.keys(this.aiTest).forEach((k) => {
+            if (this.aiTest[k] && this.aiTest[k].controller) {
+                try { this.aiTest[k].controller.abort(); } catch (_) { /* noop */ }
+            }
+        });
     },
 
     methods: {
@@ -307,30 +381,23 @@ export default {
         },
 
         updateSettings: function() {
+            if (this.saving) return;
             var min = 1;
             var max = 99;
             if(this.settings.reviews.public.minReviewers < min || this.settings.reviews.public.minReviewers > max) {
                 this.settings.reviews.public.minReviewers = this.settings.reviews.public.minReviewers < min ? min: max;
             }
+            this.saving = true;
             SettingsService.updateSettings(this.settings)
             .then((data) => {
                 this.settingsOrig = this.$_.cloneDeep(this.settings);
                 this.$settings.refresh();
-                Notify.create({
-                    message: $t('msg.settingsUpdatedOk'),
-                    color: 'positive',
-                    textColor:'white',
-                    position: 'top-right'
-                })
+                notifySuccess('msg.settingsUpdatedOk');
             })
             .catch((err) => {
-                Notify.create({
-                    message: err.message || err.response.data.datas,
-                    color: 'negative',
-                    textColor:'white',
-                    position: 'top-right'
-                })
+                notifyError(err, 'msg.errorOccurred');
             })
+            .finally(() => { this.saving = false; });
         },
 
         revertToDefaults: function() {
@@ -411,44 +478,136 @@ export default {
         },
 
         reindexAll: function() {
-            this.reindexing = true;
-            this.reindexStarted = false;
-            AiService.reindexAll()
-            .then(() => {
-                this.reindexStarted = true;
-                Notify.create({
-                    message: $t('aiReindexStarted'),
-                    color: 'positive',
-                    textColor: 'white',
-                    position: 'top-right'
-                });
-            })
-            .catch((err) => {
-                Notify.create({
-                    message: err.response?.data?.datas || $t('aiError'),
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                });
-            })
-            .finally(() => { this.reindexing = false; });
+            Dialog.create({
+                title: $t('aiReindexConfirmTitle'),
+                message: $t('aiReindexConfirmMessage'),
+                ok: { label: $t('btn.confirm'), color: 'primary', noCaps: true },
+                cancel: { label: $t('btn.cancel'), color: 'grey-7', flat: true, noCaps: true }
+            }).onOk(() => {
+                this.reindexing = true;
+                this.reindexStarted = false;
+                AiService.reindexAll()
+                .then((res) => {
+                    this.reindexStarted = true;
+                    const data = res.data && res.data.datas ? res.data.datas : {};
+                    if (data.status) this.reindexStatus = data.status;
+                    notifySuccess(data.alreadyRunning ? 'aiReindexAlreadyRunning' : 'aiReindexStarted');
+                    this._startReindexPolling();
+                })
+                .catch((err) => {
+                    notifyError(err, 'aiError');
+                })
+                .finally(() => { this.reindexing = false; });
+            });
+        },
+
+        _startReindexPolling: function() {
+            if (this._reindexTimer) clearInterval(this._reindexTimer);
+            const tick = () => {
+                AiService.reindexStatus()
+                    .then((res) => {
+                        const data = res.data && res.data.datas ? res.data.datas : null;
+                        if (!data) return;
+                        this.reindexStatus = data;
+                        if (!data.inProgress) {
+                            clearInterval(this._reindexTimer);
+                            this._reindexTimer = null;
+                            if (data.processed > 0 || data.failed > 0) {
+                                if (data.failed > 0) {
+                                    Notify.create({
+                                        message: $t('aiReindexFinishedWithFailures', { ok: data.processed, failed: data.failed }),
+                                        color: 'warning',
+                                        textColor: 'white',
+                                        position: 'top-right',
+                                        timeout: 6000
+                                    });
+                                } else {
+                                    notifySuccess('aiReindexFinished', { ok: data.processed });
+                                }
+                            }
+                        }
+                    })
+                    .catch(() => { /* silent */ });
+            };
+            tick();
+            this._reindexTimer = setInterval(tick, REINDEX_POLL_MS);
         },
 
         testAiConnection: function(type) {
+            // Cancel previous test for this type if any
+            if (this.aiTest[type].controller) {
+                try { this.aiTest[type].controller.abort(); } catch (_) { /* noop */ }
+            }
+            const controller = new AbortController();
+            this.aiTest[type].controller = controller;
             this.aiTest[type].loading = true;
             this.aiTest[type].status = null;
             this.aiTest[type].response = '';
-            AiService.testConnection(type)
+            AiService.testConnection(type, controller.signal)
             .then((res) => {
                 const data = res.data.datas;
                 this.aiTest[type].status = data.ok ? 'ok' : 'error';
                 this.aiTest[type].response = data.response || '';
+                this.aiTestLastRun = { ...this.aiTestLastRun, [type]: new Date().toISOString() };
+                persistLastTestRuns(this.aiTestLastRun);
             })
             .catch((err) => {
+                if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
                 this.aiTest[type].status = 'error';
                 this.aiTest[type].response = err.response?.data?.datas || err.message || $t('aiTestFailed');
+                this.aiTestLastRun = { ...this.aiTestLastRun, [type]: new Date().toISOString() };
+                persistLastTestRuns(this.aiTestLastRun);
             })
-            .finally(() => { this.aiTest[type].loading = false; });
+            .finally(() => {
+                this.aiTest[type].loading = false;
+                this.aiTest[type].controller = null;
+            });
+        },
+
+        clearAiTestResult: function(type) {
+            this.aiTest[type].status = null;
+            this.aiTest[type].response = '';
+        },
+
+        formatLastTestRun: function(type) {
+            const iso = this.aiTestLastRun ? this.aiTestLastRun[type] : null;
+            if (!iso) return '';
+            try {
+                const d = new Date(iso);
+                return $t('aiTestLastRunAt', { time: d.toLocaleString() });
+            } catch (_) {
+                return '';
+            }
+        },
+
+        loadModelList: function(type) {
+            const ml = this.modelLists[type];
+            if (ml.loading) return;
+            ml.loading = true;
+            ml.error = '';
+            AiService.listModels(type)
+                .then((res) => {
+                    const data = res.data && res.data.datas ? res.data.datas : {};
+                    ml.source = data.source || 'manual';
+                    ml.models = Array.isArray(data.models) ? data.models : [];
+                    if (data.ok === false && data.error) ml.error = data.error;
+                })
+                .catch((err) => {
+                    ml.source = 'remote';
+                    ml.models = [];
+                    ml.error = err.response?.data?.datas || err.message || 'Failed to load models';
+                })
+                .finally(() => { ml.loading = false; });
+        },
+
+        applyDefaultUrlIfEmpty: function(type) {
+            if (type === 'generation' && !this.settings.ai.private.apiUrl) {
+                this.settings.ai.private.apiUrl = this.aiDefaultUrl || '';
+            } else if (type === 'embedding' && !this.settings.ai.private.embeddingApiUrl) {
+                this.settings.ai.private.embeddingApiUrl = this.embeddingDefaultUrl || '';
+            } else if (type === 'vision' && !this.settings.ai.private.visionApiUrl) {
+                this.settings.ai.private.visionApiUrl = this.visionDefaultUrl || '';
+            }
         },
 
         rotateMcpKey: function() {
@@ -473,26 +632,33 @@ export default {
         },
 
         clearMcpKey: function() {
-            SettingsService.clearMcpKey()
-            .then(() => {
-                this.settings.mcp.apiKey = '';
-                this.settings.mcp.apiKeyCreatedAt = null;
-                this.settingsOrig = this.$_.cloneDeep(this.settings);
-                Notify.create({ message: $t('mcpKeyCleared'), color: 'positive', textColor: 'white', position: 'top-right' });
-            })
-            .catch((err) => {
-                Notify.create({ message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right' });
+            Dialog.create({
+                title: $t('mcpClearKeyConfirmTitle'),
+                message: $t('mcpClearKeyConfirmMessage'),
+                ok: { label: $t('mcpClearKey'), color: 'negative', unelevated: true, noCaps: true },
+                cancel: { label: $t('btn.cancel'), color: 'grey-7', flat: true, noCaps: true }
+            }).onOk(() => {
+                SettingsService.clearMcpKey()
+                .then(() => {
+                    this.settings.mcp.apiKey = '';
+                    this.settings.mcp.apiKeyCreatedAt = null;
+                    this.settingsOrig = this.$_.cloneDeep(this.settings);
+                    notifySuccess('mcpKeyCleared');
+                })
+                .catch((err) => {
+                    notifyError(err);
+                });
             });
         },
 
         copyText: function(text) {
-            navigator.clipboard.writeText(text)
-            .then(() => Notify.create({ message: $t('copied'), color: 'positive', textColor: 'white', position: 'top-right' }))
-            .catch(() => Notify.create({ message: $t('copyFailed'), color: 'negative', textColor: 'white', position: 'top-right' }));
+            safeClipboard(text)
+                .then(() => notifySuccess('copied'))
+                .catch(() => notifyError(null, 'copyFailed'));
         },
 
         unsavedChanges() {
-            return JSON.stringify(this.settingsOrig) !== JSON.stringify(this.settings);
+            return !this.$_.isEqual(this.settingsOrig, this.settings);
         }
     }
 }

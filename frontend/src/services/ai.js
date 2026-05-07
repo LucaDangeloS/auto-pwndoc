@@ -1,23 +1,31 @@
 import { api } from 'boot/axios'
 
 export default {
-    generate: function(payload) {
-        return api.post('ai/generate', payload)
+    generate(payload, signal) {
+        return api.post('ai/generate', payload, { signal })
     },
 
-    searchSimilar: function(query, locale) {
-        return api.post('ai/search-similar', { query, locale })
+    searchSimilar(query, locale, signal) {
+        return api.post('ai/search-similar', { query, locale }, { signal })
     },
 
-    reindexAll: function() {
-        return api.post('ai/reindex-all', {})
+    reindexAll(signal) {
+        return api.post('ai/reindex-all', {}, { signal })
     },
 
-    analyzeProofs: function(pocHtml, locale) {
-        return api.post('ai/analyze-proofs', { pocHtml, locale })
+    reindexStatus(signal) {
+        return api.get('ai/reindex-status', { signal })
     },
 
-    testConnection: function(type) {
-        return api.post('ai/test', { type })
+    analyzeProofs(pocHtml, locale, signal) {
+        return api.post('ai/analyze-proofs', { pocHtml, locale }, { signal })
+    },
+
+    testConnection(type, signal) {
+        return api.post('ai/test', { type }, { signal })
+    },
+
+    listModels(type, signal) {
+        return api.post('ai/list-models', { type }, { signal })
     }
 }

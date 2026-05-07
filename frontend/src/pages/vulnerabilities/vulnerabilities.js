@@ -110,6 +110,13 @@ export default {
         vulnTypesLang: function() {
             return this.vulnTypes.filter(type => type.locale === this.currentLanguage);
         },
+        vulnAiContext: function() {
+            const detail = this.currentVulnerability.details[this.currentDetailsIndex] || {};
+            return {
+                findingTitle: detail.title || '',
+                locale: this.currentLanguage || ''
+            };
+        },
 
         computedVulnerabilities() {
             if (!this.dtLanguage) return [];

@@ -165,20 +165,54 @@ async function searchSimilar(query, locale, aiSettings, topK = 10) {
         .filter(r => r.distance === null || r.distance <= maxDistance);
 }
 
+// Reindex status tracker — exposed via GET /api/ai/reindex-status
+const reindexState = {
+    inProgress: false,
+    total: 0,
+    processed: 0,
+    failed: 0,
+    startedAt: null,
+    finishedAt: null,
+    lastError: null
+};
+
+function getReindexStatus() {
+    return Object.assign({}, reindexState);
+}
+
 async function reindexAll(aiSettings) {
+    if (reindexState.inProgress) {
+        return reindexState.processed;
+    }
     const Vulnerability = require('mongoose').model('Vulnerability');
     const vulns = await Vulnerability.find({});
+    reindexState.inProgress = true;
+    reindexState.total = vulns.length;
+    reindexState.processed = 0;
+    reindexState.failed = 0;
+    reindexState.startedAt = new Date().toISOString();
+    reindexState.finishedAt = null;
+    reindexState.lastError = null;
+
     let indexed = 0;
-    for (const vuln of vulns) {
-        try {
-            await indexVulnerability(vuln, aiSettings);
-            indexed++;
-        } catch (err) {
-            console.error('[Embedding] Failed to index vuln', vuln._id, ':', err.message);
+    try {
+        for (const vuln of vulns) {
+            try {
+                await indexVulnerability(vuln, aiSettings);
+                indexed++;
+                reindexState.processed = indexed;
+            } catch (err) {
+                reindexState.failed++;
+                reindexState.lastError = err.message;
+                console.error('[Embedding] Failed to index vuln', vuln._id, ':', err.message);
+            }
         }
+        console.log(`[Embedding] Re-indexed ${indexed}/${vulns.length} vulnerabilities`);
+    } finally {
+        reindexState.inProgress = false;
+        reindexState.finishedAt = new Date().toISOString();
     }
-    console.log(`[Embedding] Re-indexed ${indexed}/${vulns.length} vulnerabilities`);
     return indexed;
 }
 
-module.exports = { indexVulnerability, deleteVulnerability, searchSimilar, reindexAll };
+module.exports = { indexVulnerability, deleteVulnerability, searchSimilar, reindexAll, getReindexStatus };

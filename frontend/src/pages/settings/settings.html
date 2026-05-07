@@ -426,15 +426,36 @@
                     :options="aiProviderOptions"
                     map-options emit-value options-sanitize outlined
                     :disable="!canEdit || !settings.ai.enabled"
+                    @update:model-value="applyDefaultUrlIfEmpty('generation')"
                 />
-                <q-input
+                <q-select
                     class="col-12 col-md-4"
                     :label="$t('aiModel')"
                     v-model="settings.ai.public.model"
+                    use-input
+                    new-value-mode="add-unique"
+                    :options="modelLists.generation.models"
+                    options-sanitize
                     outlined
                     :disable="!canEdit || !settings.ai.enabled"
                     :hint="$t('aiModelHint')"
-                />
+                    @popup-show="loadModelList('generation')"
+                >
+                    <template v-slot:append>
+                        <q-spinner v-if="modelLists.generation.loading" size="xs" />
+                        <q-btn flat round dense size="sm" icon="refresh" :disable="!canEdit || !settings.ai.enabled || modelLists.generation.loading" @click.stop="loadModelList('generation')">
+                            <q-tooltip>{{ $t('aiRefreshModels') }}</q-tooltip>
+                        </q-btn>
+                    </template>
+                    <template v-slot:no-option>
+                        <q-item>
+                            <q-item-section class="text-grey-7 text-caption">
+                                <span v-if="modelLists.generation.error">{{ modelLists.generation.error }}</span>
+                                <span v-else>{{ $t('aiModelManualHint') }}</span>
+                            </q-item-section>
+                        </q-item>
+                    </template>
+                </q-select>
                 <q-input
                     class="col-12 col-md-4"
                     :label="$t('aiApiUrl')"
@@ -454,7 +475,14 @@
                     :hint="$t('aiApiKeyHint')"
                 >
                     <template v-slot:append>
-                        <q-icon :name="showApiKey ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="showApiKey = !showApiKey" />
+                        <q-btn
+                            flat round dense size="sm"
+                            :icon="showApiKey ? 'visibility_off' : 'visibility'"
+                            :aria-label="showApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey')"
+                            @click="showApiKey = !showApiKey"
+                        >
+                            <q-tooltip>{{ showApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey') }}</q-tooltip>
+                        </q-btn>
                     </template>
                 </q-input>
             </q-card-section>
@@ -475,7 +503,7 @@
 
             <!-- Test generation -->
             <q-card-section class="q-pt-none">
-                <div class="row items-center q-gutter-sm">
+                <div class="row items-start q-gutter-sm ai-test-row">
                     <q-btn
                         outline no-caps size="sm" icon="science"
                         :label="$t('aiTestConnection')"
@@ -484,13 +512,20 @@
                         :disable="!canEdit || !settings.ai.enabled"
                         @click="testAiConnection('generation')"
                     />
-                    <span v-if="aiTest.generation.status === 'ok'" class="text-positive text-caption row items-center q-gutter-xs">
-                        <q-icon name="check_circle" size="xs" />
-                        <span>{{$t('aiTestOk')}}: <em>{{aiTest.generation.response}}</em></span>
+                    <span v-if="aiTestLastRun.generation && !aiTest.generation.status" class="text-caption text-grey-6">{{ formatLastTestRun('generation') }}</span>
+                    <span v-if="aiTest.generation.status === 'ok'" class="text-positive text-caption row items-start q-gutter-xs ai-test-result">
+                        <q-icon name="check_circle" size="xs" class="q-mt-xs" />
+                        <span class="ai-test-message">{{$t('aiTestOk')}}: <em>{{aiTest.generation.response}}</em></span>
+                        <q-btn flat round dense size="xs" icon="close" :aria-label="$t('btn.clear')" @click="clearAiTestResult('generation')">
+                            <q-tooltip>{{ $t('btn.clear') }}</q-tooltip>
+                        </q-btn>
                     </span>
-                    <span v-else-if="aiTest.generation.status === 'error'" class="text-negative text-caption row items-center q-gutter-xs">
-                        <q-icon name="error" size="xs" />
-                        <span>{{aiTest.generation.response}}</span>
+                    <span v-else-if="aiTest.generation.status === 'error'" class="text-negative text-caption row items-start q-gutter-xs ai-test-result">
+                        <q-icon name="error" size="xs" class="q-mt-xs" />
+                        <span class="ai-test-message">{{aiTest.generation.response}}</span>
+                        <q-btn flat round dense size="xs" icon="close" :aria-label="$t('btn.clear')" @click="clearAiTestResult('generation')">
+                            <q-tooltip>{{ $t('btn.clear') }}</q-tooltip>
+                        </q-btn>
                     </span>
                 </div>
             </q-card-section>
@@ -512,15 +547,36 @@
                     :options="aiProviderOptions"
                     map-options emit-value options-sanitize outlined
                     :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                    @update:model-value="applyDefaultUrlIfEmpty('embedding')"
                 />
-                <q-input
+                <q-select
                     class="col-12 col-md-4"
                     :label="$t('aiEmbeddingModel')"
                     v-model="settings.ai.public.embeddingModel"
+                    use-input
+                    new-value-mode="add-unique"
+                    :options="modelLists.embedding.models"
+                    options-sanitize
                     outlined
                     :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
                     :hint="$t('aiEmbeddingModelHint')"
-                />
+                    @popup-show="loadModelList('embedding')"
+                >
+                    <template v-slot:append>
+                        <q-spinner v-if="modelLists.embedding.loading" size="xs" />
+                        <q-btn flat round dense size="sm" icon="refresh" :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled || modelLists.embedding.loading" @click.stop="loadModelList('embedding')">
+                            <q-tooltip>{{ $t('aiRefreshModels') }}</q-tooltip>
+                        </q-btn>
+                    </template>
+                    <template v-slot:no-option>
+                        <q-item>
+                            <q-item-section class="text-grey-7 text-caption">
+                                <span v-if="modelLists.embedding.error">{{ modelLists.embedding.error }}</span>
+                                <span v-else>{{ $t('aiModelManualHint') }}</span>
+                            </q-item-section>
+                        </q-item>
+                    </template>
+                </q-select>
                 <q-input
                     class="col-12 col-md-4"
                     :label="$t('aiEmbeddingApiUrl')"
@@ -540,7 +596,14 @@
                     :hint="$t('aiEmbeddingApiKeyHint')"
                 >
                     <template v-slot:append>
-                        <q-icon :name="showEmbeddingApiKey ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="showEmbeddingApiKey = !showEmbeddingApiKey" />
+                        <q-btn
+                            flat round dense size="sm"
+                            :icon="showEmbeddingApiKey ? 'visibility_off' : 'visibility'"
+                            :aria-label="showEmbeddingApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey')"
+                            @click="showEmbeddingApiKey = !showEmbeddingApiKey"
+                        >
+                            <q-tooltip>{{ showEmbeddingApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey') }}</q-tooltip>
+                        </q-btn>
                     </template>
                 </q-input>
             </q-card-section>
@@ -573,7 +636,7 @@
             </q-card-section>
             <!-- Test embedding -->
             <q-card-section class="q-pt-none">
-                <div class="row items-center q-gutter-sm">
+                <div class="row items-start q-gutter-sm ai-test-row">
                     <q-btn
                         outline no-caps size="sm" icon="science"
                         :label="$t('aiTestConnection')"
@@ -585,19 +648,45 @@
                     <q-btn
                         outline no-caps size="sm" icon="sync" color="secondary"
                         :label="$t('aiReindexAll')"
-                        :loading="reindexing"
-                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                        :loading="reindexing || reindexStatus.inProgress"
+                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled || reindexStatus.inProgress"
                         @click="reindexAll"
                     />
-                    <span v-if="reindexStarted" class="text-positive text-caption">{{$t('aiReindexStarted')}}</span>
-                    <span v-if="aiTest.embedding.status === 'ok'" class="text-positive text-caption row items-center q-gutter-xs">
-                        <q-icon name="check_circle" size="xs" />
-                        <span>{{$t('aiTestOk')}}: <em>{{aiTest.embedding.response}}</em></span>
+                    <span v-if="aiTestLastRun.embedding && !aiTest.embedding.status" class="text-caption text-grey-6">{{ formatLastTestRun('embedding') }}</span>
+                    <span v-if="aiTest.embedding.status === 'ok'" class="text-positive text-caption row items-start q-gutter-xs ai-test-result">
+                        <q-icon name="check_circle" size="xs" class="q-mt-xs" />
+                        <span class="ai-test-message">{{$t('aiTestOk')}}: <em>{{aiTest.embedding.response}}</em></span>
+                        <q-btn flat round dense size="xs" icon="close" :aria-label="$t('btn.clear')" @click="clearAiTestResult('embedding')">
+                            <q-tooltip>{{ $t('btn.clear') }}</q-tooltip>
+                        </q-btn>
                     </span>
-                    <span v-else-if="aiTest.embedding.status === 'error'" class="text-negative text-caption row items-center q-gutter-xs">
-                        <q-icon name="error" size="xs" />
-                        <span>{{aiTest.embedding.response}}</span>
+                    <span v-else-if="aiTest.embedding.status === 'error'" class="text-negative text-caption row items-start q-gutter-xs ai-test-result">
+                        <q-icon name="error" size="xs" class="q-mt-xs" />
+                        <span class="ai-test-message">{{aiTest.embedding.response}}</span>
+                        <q-btn flat round dense size="xs" icon="close" :aria-label="$t('btn.clear')" @click="clearAiTestResult('embedding')">
+                            <q-tooltip>{{ $t('btn.clear') }}</q-tooltip>
+                        </q-btn>
                     </span>
+                </div>
+                <!-- Reindex live progress -->
+                <div v-if="reindexStatus.inProgress || reindexStatus.processed > 0 || reindexStatus.failed > 0" class="q-mt-sm">
+                    <div class="row items-center q-gutter-x-sm text-caption">
+                        <q-icon :name="reindexStatus.inProgress ? 'sync' : (reindexStatus.failed > 0 ? 'warning' : 'check_circle')"
+                                :class="{ 'rotate-anim': reindexStatus.inProgress }"
+                                :color="reindexStatus.failed > 0 ? 'warning' : (reindexStatus.inProgress ? 'secondary' : 'positive')" />
+                        <span v-if="reindexStatus.inProgress">{{ $t('aiReindexProgress', { processed: reindexStatus.processed, total: reindexStatus.total }) }}</span>
+                        <span v-else-if="reindexStatus.failed > 0">{{ $t('aiReindexFinishedWithFailures', { ok: reindexStatus.processed, failed: reindexStatus.failed }) }}</span>
+                        <span v-else>{{ $t('aiReindexFinished', { ok: reindexStatus.processed }) }}</span>
+                    </div>
+                    <q-linear-progress
+                        v-if="reindexStatus.inProgress && reindexStatus.total > 0"
+                        :value="reindexStatus.total > 0 ? reindexStatus.processed / reindexStatus.total : 0"
+                        size="6px"
+                        rounded
+                        color="secondary"
+                        track-color="grey-3"
+                        class="q-mt-xs"
+                    />
                 </div>
             </q-card-section>
 
@@ -618,15 +707,36 @@
                     :options="aiProviderOptions"
                     map-options emit-value options-sanitize outlined
                     :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                    @update:model-value="applyDefaultUrlIfEmpty('vision')"
                 />
-                <q-input
+                <q-select
                     class="col-12 col-md-4"
                     :label="$t('aiVisionModel')"
                     v-model="settings.ai.visionPublic.visionModel"
+                    use-input
+                    new-value-mode="add-unique"
+                    :options="modelLists.vision.models"
+                    options-sanitize
                     outlined
                     :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
                     :hint="$t('aiVisionModelHint')"
-                />
+                    @popup-show="loadModelList('vision')"
+                >
+                    <template v-slot:append>
+                        <q-spinner v-if="modelLists.vision.loading" size="xs" />
+                        <q-btn flat round dense size="sm" icon="refresh" :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled || modelLists.vision.loading" @click.stop="loadModelList('vision')">
+                            <q-tooltip>{{ $t('aiRefreshModels') }}</q-tooltip>
+                        </q-btn>
+                    </template>
+                    <template v-slot:no-option>
+                        <q-item>
+                            <q-item-section class="text-grey-7 text-caption">
+                                <span v-if="modelLists.vision.error">{{ modelLists.vision.error }}</span>
+                                <span v-else>{{ $t('aiModelManualHint') }}</span>
+                            </q-item-section>
+                        </q-item>
+                    </template>
+                </q-select>
                 <q-input
                     class="col-12 col-md-4"
                     :label="$t('aiVisionApiUrl')"
@@ -646,7 +756,14 @@
                     :hint="$t('aiVisionApiKeyHint')"
                 >
                     <template v-slot:append>
-                        <q-icon :name="showVisionApiKey ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="showVisionApiKey = !showVisionApiKey" />
+                        <q-btn
+                            flat round dense size="sm"
+                            :icon="showVisionApiKey ? 'visibility_off' : 'visibility'"
+                            :aria-label="showVisionApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey')"
+                            @click="showVisionApiKey = !showVisionApiKey"
+                        >
+                            <q-tooltip>{{ showVisionApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey') }}</q-tooltip>
+                        </q-btn>
                     </template>
                 </q-input>
             </q-card-section>
@@ -667,7 +784,7 @@
 
             <!-- Test vision -->
             <q-card-section class="q-pt-none">
-                <div class="row items-center q-gutter-sm">
+                <div class="row items-start q-gutter-sm ai-test-row">
                     <q-btn
                         outline no-caps size="sm" icon="science"
                         :label="$t('aiTestConnection')"
@@ -676,13 +793,20 @@
                         :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
                         @click="testAiConnection('vision')"
                     />
-                    <span v-if="aiTest.vision.status === 'ok'" class="text-positive text-caption row items-center q-gutter-xs">
-                        <q-icon name="check_circle" size="xs" />
-                        <span>{{$t('aiTestOk')}}: <em>{{aiTest.vision.response}}</em></span>
+                    <span v-if="aiTestLastRun.vision && !aiTest.vision.status" class="text-caption text-grey-6">{{ formatLastTestRun('vision') }}</span>
+                    <span v-if="aiTest.vision.status === 'ok'" class="text-positive text-caption row items-start q-gutter-xs ai-test-result">
+                        <q-icon name="check_circle" size="xs" class="q-mt-xs" />
+                        <span class="ai-test-message">{{$t('aiTestOk')}}: <em>{{aiTest.vision.response}}</em></span>
+                        <q-btn flat round dense size="xs" icon="close" :aria-label="$t('btn.clear')" @click="clearAiTestResult('vision')">
+                            <q-tooltip>{{ $t('btn.clear') }}</q-tooltip>
+                        </q-btn>
                     </span>
-                    <span v-else-if="aiTest.vision.status === 'error'" class="text-negative text-caption row items-center q-gutter-xs">
-                        <q-icon name="error" size="xs" />
-                        <span>{{aiTest.vision.response}}</span>
+                    <span v-else-if="aiTest.vision.status === 'error'" class="text-negative text-caption row items-start q-gutter-xs ai-test-result">
+                        <q-icon name="error" size="xs" class="q-mt-xs" />
+                        <span class="ai-test-message">{{aiTest.vision.response}}</span>
+                        <q-btn flat round dense size="xs" icon="close" :aria-label="$t('btn.clear')" @click="clearAiTestResult('vision')">
+                            <q-tooltip>{{ $t('btn.clear') }}</q-tooltip>
+                        </q-btn>
                     </span>
                 </div>
             </q-card-section>
@@ -972,8 +1096,23 @@
                     :hint="settings.mcp.apiKeyCreatedAt ? $t('mcpKeyCreatedAt') + ': ' + new Date(settings.mcp.apiKeyCreatedAt).toLocaleString() : $t('mcpNoApiKey')"
                 >
                     <template v-slot:append>
-                        <q-icon :name="showMcpApiKey ? 'visibility_off' : 'visibility'" class="cursor-pointer" @click="showMcpApiKey = !showMcpApiKey" />
-                        <q-icon name="content_copy" class="cursor-pointer q-ml-sm" @click="copyText(settings.mcp.apiKey)" />
+                        <q-btn
+                            flat round dense size="sm"
+                            :icon="showMcpApiKey ? 'visibility_off' : 'visibility'"
+                            :aria-label="showMcpApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey')"
+                            @click="showMcpApiKey = !showMcpApiKey"
+                        >
+                            <q-tooltip>{{ showMcpApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey') }}</q-tooltip>
+                        </q-btn>
+                        <q-btn
+                            flat round dense size="sm"
+                            icon="content_copy"
+                            :disable="!settings.mcp.apiKey"
+                            :aria-label="$t('mcpCopyKey')"
+                            @click="copyText(settings.mcp.apiKey)"
+                        >
+                            <q-tooltip>{{ $t('mcpCopyKey') }}</q-tooltip>
+                        </q-btn>
                     </template>
                 </q-input>
                 <div class="col-12 col-md-4 row items-start q-gutter-sm">
@@ -1012,6 +1151,7 @@
                         no-caps
                         flat
                         class="bg-secondary text-white"
+                        :loading="saving"
                         @click="updateSettings"
                         ></q-btn>
                     </q-item-section>

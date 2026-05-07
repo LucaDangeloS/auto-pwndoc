@@ -15,15 +15,23 @@
             :disable="loading"
             @click="backupFinding()"
           />
-          <q-btn
-            v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && $settings && $settings.ai && $settings.ai.enabled && $settings.ai.embeddingEnabled"
-            color="secondary"
+          <ai-action-btn
+            v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
             class="q-mr-sm"
-            no-caps
-            icon="search"
+            :flat="false"
+            :outline="true"
+            :dense="false"
+            color="purple"
+            icon="manage_search"
             :label="$t('similarVulnSearch')"
-            :disable="loading"
+            :loading="similarVulnLoading && !similarVulnIsProofMode"
+            :disabled="loading || !aiSimilarReady"
+            :disabled-reason="aiSimilarDisabledReason"
+            :tooltip="$t('similarVulnSearchTooltip')"
+            cancellable
+            :cancel-hint="$t('btn.cancel')"
             @click="searchSimilarVulns()"
+            @cancel="cancelSimilarSearch()"
           />
           <q-btn
             color="negative"
@@ -208,17 +216,23 @@
                       {{ $t('proofs') }}
                       <template-hint template-var="finding.poc | convertHTML" class="q-ml-xs" />
                     </span>
-                    <q-btn
-                      v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && $settings && $settings.ai && $settings.ai.enabled && $settings.ai.visionEnabled"
-                      color="secondary"
-                      no-caps
+                    <ai-action-btn
+                      v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :flat="false"
+                      :outline="true"
+                      :dense="false"
+                      size="sm"
+                      color="purple"
                       icon="image_search"
                       :label="$t('searchSimilarFromProofs')"
                       :loading="similarVulnLoading && similarVulnIsProofMode"
-                      :disable="loading"
+                      :disabled="loading || !aiVisionReady"
+                      :disabled-reason="aiVisionDisabledReason"
+                      :tooltip="$t('searchSimilarFromProofsTooltip')"
+                      cancellable
+                      :cancel-hint="$t('btn.cancel')"
                       @click="searchSimilarFromProofs()"
-                      size="sm"
-                      outline
+                      @cancel="cancelSimilarSearch()"
                     />
                   </q-card-section>
                   <q-card-section>
@@ -418,6 +432,8 @@
         :poc-loading="proofPocLoading"
         @apply="applySimilarVuln"
         @select="onProofResultSelected"
+        @retry="similarVulnIsProofMode ? searchSimilarFromProofs() : searchSimilarVulns()"
+        @close="onSimilarModalClose"
       />
     </div>
   </template>

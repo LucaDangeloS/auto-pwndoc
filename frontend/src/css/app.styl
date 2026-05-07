@@ -184,15 +184,82 @@
 // AI loading animation
 @keyframes ai-pulse
     0%, 100%
-        opacity: 0.4
+        opacity: 0.45
     50%
         opacity: 1
 
-p.ai-loading
+.ai-loading
     color: $secondary
     font-style: italic
     animation: ai-pulse 1.2s ease-in-out infinite
 
-    &::before
-        content: '✦ '
-        font-style: normal
+@media (prefers-reduced-motion: reduce)
+    .ai-loading
+        animation: none
+        opacity: 0.85
+
+// AI in-flight overlay (sits on top of editor body)
+.ai-overlay
+    position: absolute
+    inset: 0
+    z-index: 10
+    display: flex
+    align-items: center
+    justify-content: center
+    flex-direction: column
+    gap: 12px
+    background: rgba(255, 255, 255, 0.72)
+    backdrop-filter: blur(2px)
+    -webkit-backdrop-filter: blur(2px)
+    border-radius: 4px
+    pointer-events: auto
+    user-select: none
+
+.ai-overlay__label
+    color: $purple-7
+    font-weight: 500
+    letter-spacing: 0.01em
+    display: flex
+    align-items: center
+    gap: 6px
+
+.body--dark .ai-overlay
+    background: rgba(20, 24, 32, 0.78)
+
+.body--dark .ai-overlay__label
+    color: #d6b8ff
+
+.ai-overlay__cancel
+    margin-top: 6px
+
+// Containers that host an ai-overlay must be position:relative
+.ai-overlay-host
+    position: relative
+
+// Settings AI test results
+.ai-test-row
+    flex-wrap: wrap
+
+.ai-test-result
+    flex-wrap: nowrap
+    max-width: 100%
+
+.ai-test-message
+    max-width: 640px
+    max-height: 8em
+    overflow-y: auto
+    word-break: break-word
+    white-space: pre-wrap
+
+@keyframes spin-slow
+    from
+        transform: rotate(0deg)
+    to
+        transform: rotate(360deg)
+
+.rotate-anim
+    animation: spin-slow 1.6s linear infinite
+
+@media (prefers-reduced-motion: reduce)
+    .rotate-anim
+        animation: none

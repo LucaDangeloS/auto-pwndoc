@@ -467,31 +467,43 @@
           v-if="toolbar.indexOf('caption') !== -1"
         />
 
-        <div v-if="toolbar.indexOf('ai') !== -1 && $settings && $settings.ai && $settings.ai.enabled">
+        <div v-if="toolbar.indexOf('ai') !== -1">
           <q-btn-dropdown
             flat
             size="sm"
             dense
             no-icon-animation
-            color="purple"
+            :color="aiAvailable ? 'purple' : 'grey-5'"
             :loading="aiLoading"
+            :disable="!aiAvailable"
           >
             <template v-slot:label>
-              <q-icon name="auto_awesome" color="purple" />
-              <q-tooltip :delay="500" content-class="text-bold">AI Assistant</q-tooltip>
+              <q-icon name="auto_awesome" :color="aiAvailable ? 'purple' : 'grey-5'" />
+              <q-tooltip :delay="400" content-class="text-bold">
+                {{ aiAvailable ? $t('aiAssistant') : $t('aiDisabledReasonGlobal') }}
+              </q-tooltip>
             </template>
-            <q-list>
-              <q-item clickable v-close-popup @click="runAi('generate')">
+            <q-list role="menu">
+              <q-item clickable v-close-popup @click="runAi('generate')" role="menuitem">
                 <q-item-section side><q-icon name="add_circle_outline" size="xs" /></q-item-section>
-                <q-item-section><q-item-label>{{$t('aiGenerate')}}</q-item-label></q-item-section>
+                <q-item-section>
+                  <q-item-label>{{$t('aiGenerate')}}</q-item-label>
+                  <q-item-label caption>{{$t('aiGenerateTooltip')}}</q-item-label>
+                </q-item-section>
               </q-item>
-              <q-item clickable v-close-popup @click="runAi('complete')">
+              <q-item clickable v-close-popup @click="runAi('complete')" role="menuitem">
                 <q-item-section side><q-icon name="edit_note" size="xs" /></q-item-section>
-                <q-item-section><q-item-label>{{$t('aiComplete')}}</q-item-label></q-item-section>
+                <q-item-section>
+                  <q-item-label>{{$t('aiComplete')}}</q-item-label>
+                  <q-item-label caption>{{$t('aiCompleteTooltip')}}</q-item-label>
+                </q-item-section>
               </q-item>
-              <q-item clickable v-close-popup @click="runAi('rewrite')">
+              <q-item clickable v-close-popup @click="runAi('rewrite')" role="menuitem">
                 <q-item-section side><q-icon name="auto_fix_high" size="xs" /></q-item-section>
-                <q-item-section><q-item-label>{{$t('aiRewrite')}}</q-item-label></q-item-section>
+                <q-item-section>
+                  <q-item-label>{{$t('aiRewrite')}}</q-item-label>
+                  <q-item-label caption>{{$t('aiRewriteTooltip')}}</q-item-label>
+                </q-item-section>
               </q-item>
             </q-list>
           </q-btn-dropdown>
@@ -582,19 +594,28 @@
     </section>
   </section>
 </bubble-menu>
-    <editor-content
-      v-if="typeof diff === 'undefined' || !toggleDiff"
-      class="editor__content q-pa-sm"
-      :editor="editor"
-    />
-    <div v-else class="editor__content q-pa-sm">
-      <div class="ProseMirror" v-html="diffContent"></div>
+    <div class="ai-overlay-host" style="position:relative">
+      <editor-content
+        v-if="typeof diff === 'undefined' || !toggleDiff"
+        class="editor__content q-pa-sm"
+        :editor="editor"
+      />
+      <div v-else class="editor__content q-pa-sm">
+        <div class="ProseMirror" v-html="diffContent"></div>
+      </div>
+      <ai-overlay
+        :show="aiLoading"
+        :label="aiOverlayLabel"
+        cancellable
+        @cancel="cancelAi"
+      />
     </div>
     <ai-diff-modal
       v-model="aiReview.open"
       :previous-html="aiReview.previousHtml"
       :proposed-html="aiReview.proposedHtml"
       @apply="applyAiReview"
+      @regenerate="regenerateAi"
     />
   </q-card>
 </template>
@@ -623,8 +644,9 @@ import { Figure } from "./figure";
 import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
-import { AiAssistantExtension, applyAiResult } from './ai-assistant';
+import { AiAssistantExtension, applyAiResult, cancelAiCommand } from './ai-assistant';
 import AiDiffModal from './ai-diff-modal.vue';
+import AiOverlay from './ai-overlay.vue';
 
 // TipTap v3 - Collaboration extensions
 import Collaboration from '@tiptap/extension-collaboration'
@@ -724,7 +746,8 @@ export default defineComponent({
   components: {
     EditorContent,
     BubbleMenu,
-    AiDiffModal
+    AiDiffModal,
+    AiOverlay
   },
 
   data() {
@@ -749,6 +772,7 @@ export default defineComponent({
         proposedHtml: '',
         selectionRange: null,
       },
+      aiCurrentAction: '',
       stickyConfig: {
         zIndex: 1000,
         top: 50,
@@ -948,6 +972,18 @@ export default defineComponent({
   },
 
   computed: {
+
+    aiAvailable() {
+      return !!(this.$settings && this.$settings.ai && this.$settings.ai.enabled);
+    },
+
+    aiOverlayLabel() {
+      if (!this.aiCurrentAction) return this.$t('aiGenerating');
+      if (this.aiCurrentAction === 'generate') return this.$t('aiGeneratingAction');
+      if (this.aiCurrentAction === 'complete') return this.$t('aiCompletingAction');
+      if (this.aiCurrentAction === 'rewrite') return this.$t('aiRewritingAction');
+      return this.$t('aiGenerating');
+    },
 
     match() {
       return this.editor ? this.editor.extensionStorage.languagetool.match.value : null;
@@ -1178,7 +1214,9 @@ export default defineComponent({
     },
     runAi(action) {
       if (!this.editor) return;
+      if (!this.aiAvailable) return;
       this.aiLoading = true;
+      this.aiCurrentAction = action;
       const onResult = (result) => {
         this.aiReview = {
           open: true,
@@ -1188,8 +1226,12 @@ export default defineComponent({
           selectionRange: result.selectionRange,
         };
         this.aiLoading = false;
+        this.aiCurrentAction = '';
       };
-      const onDone = () => { this.aiLoading = false; };
+      const onDone = () => {
+        this.aiLoading = false;
+        this.aiCurrentAction = '';
+      };
       if (action === 'generate') {
         this.editor.commands.aiGenerate(this.fieldName, this.aiContext, { onResult, onDone });
       } else if (action === 'complete') {
@@ -1197,6 +1239,23 @@ export default defineComponent({
       } else if (action === 'rewrite') {
         this.editor.commands.aiRewrite(this.fieldName, this.aiContext, { onResult, onDone });
       }
+    },
+    cancelAi() {
+      if (!this.editor) return;
+      cancelAiCommand(this.editor);
+      this.aiLoading = false;
+      this.aiCurrentAction = '';
+    },
+    regenerateAi() {
+      const action = this.aiReview.action;
+      this.aiReview = {
+        open: false,
+        action: '',
+        previousHtml: '',
+        proposedHtml: '',
+        selectionRange: null,
+      };
+      if (action) this.runAi(action);
     },
     applyAiReview(html) {
       if (!this.editor) return;

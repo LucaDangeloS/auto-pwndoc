@@ -116,13 +116,117 @@ module.exports = function(app) {
                 return Response.Forbidden(res, 'Embedding features are not enabled');
             }
 
+            var status = embeddingService.getReindexStatus();
+            if (status.inProgress) {
+                return Response.Ok(res, { started: false, alreadyRunning: true, status });
+            }
+
             embeddingService.reindexAll(aiSettings)
                 .catch(err => console.error('[AI] Re-index error:', err.message));
 
-            return Response.Ok(res, { started: true });
+            return Response.Ok(res, { started: true, status: embeddingService.getReindexStatus() });
         } catch (err) {
             console.error('[AI] Re-index error:', err.message);
             return Response.Internal(res, err.message || 'Re-index failed');
+        }
+    });
+
+    app.get('/api/ai/reindex-status', acl.hasPermission('settings:read'), async function(req, res) {
+        try {
+            return Response.Ok(res, embeddingService.getReindexStatus());
+        } catch (err) {
+            return Response.Internal(res, err.message || 'Failed to read reindex status');
+        }
+    });
+
+    app.post('/api/ai/list-models', acl.hasPermission('settings:read'), async function(req, res) {
+        try {
+            var aiSettings = await getAiSettings();
+            if (!aiSettings) return Response.Internal(res, 'Could not load AI settings');
+
+            var { type } = req.body || {};
+            if (!['generation', 'embedding', 'vision'].includes(type)) {
+                return Response.BadParameters(res, 'type must be one of: generation, embedding, vision');
+            }
+
+            var pub = aiSettings.public || {};
+            var visionPub = aiSettings.visionPublic || {};
+            var priv = aiSettings.private || {};
+
+            var provider, apiUrl, apiKey;
+            if (type === 'generation') {
+                provider = pub.provider || 'openai';
+                apiUrl = priv.apiUrl || '';
+                apiKey = priv.apiKey || '';
+            } else if (type === 'embedding') {
+                provider = pub.embeddingProvider || 'openai';
+                apiUrl = priv.embeddingApiUrl || '';
+                apiKey = priv.embeddingApiKey || priv.apiKey || '';
+            } else {
+                provider = visionPub.visionProvider || 'openai';
+                apiUrl = priv.visionApiUrl || '';
+                apiKey = priv.visionApiKey || priv.apiKey || '';
+            }
+
+            // Static lists for providers without a public model-listing API
+            var staticLists = {
+                anthropic: [
+                    'claude-opus-4-20250514', 'claude-sonnet-4-20250514',
+                    'claude-3-7-sonnet-latest', 'claude-3-5-sonnet-latest',
+                    'claude-3-5-haiku-latest', 'claude-3-opus-latest'
+                ]
+            };
+
+            if (provider === 'anthropic') {
+                return Response.Ok(res, { source: 'static', models: staticLists.anthropic });
+            }
+            if (provider === 'azure-openai') {
+                // Azure deployments are user-defined; can't enumerate generically
+                return Response.Ok(res, { source: 'manual', models: [], note: 'Enter the Azure deployment name manually.' });
+            }
+
+            function ensureV1(u) {
+                if (!u) return u;
+                const t = u.replace(/\/+$/, '');
+                return t.endsWith('/v1') ? t : t + '/v1';
+            }
+
+            function defaultUrl(p) {
+                if (p === 'openai') return 'https://api.openai.com/v1';
+                if (p === 'ollama') return 'http://ollama:11434/v1';
+                return '';
+            }
+
+            var baseUrl = ensureV1(apiUrl) || defaultUrl(provider);
+            if (!baseUrl) {
+                return Response.Ok(res, { source: 'manual', models: [], note: 'Configure the API URL first.' });
+            }
+
+            var headers = { 'Accept': 'application/json' };
+            var keyToUse = apiKey || (provider === 'ollama' ? 'ollama' : '');
+            if (keyToUse) headers['Authorization'] = 'Bearer ' + keyToUse;
+
+            try {
+                var fetchFn = (typeof fetch === 'function') ? fetch : require('node-fetch');
+                var response = await fetchFn(baseUrl + '/models', { method: 'GET', headers });
+                if (!response.ok) {
+                    var bodyText = await response.text().catch(() => '');
+                    return Response.Ok(res, { source: 'remote', ok: false, status: response.status, models: [], error: bodyText.slice(0, 240) });
+                }
+                var data = await response.json();
+                var raw = Array.isArray(data && data.data) ? data.data : (Array.isArray(data && data.models) ? data.models : []);
+                var ids = raw.map(function(m) {
+                    if (typeof m === 'string') return m;
+                    return m.id || m.name || m.model || '';
+                }).filter(Boolean);
+                ids = Array.from(new Set(ids)).sort();
+                return Response.Ok(res, { source: 'remote', ok: true, models: ids });
+            } catch (fetchErr) {
+                return Response.Ok(res, { source: 'remote', ok: false, models: [], error: fetchErr.message || 'Failed to fetch models' });
+            }
+        } catch (err) {
+            console.error('[AI] list-models error:', err.message);
+            return Response.Internal(res, err.message || 'list-models failed');
         }
     });
 

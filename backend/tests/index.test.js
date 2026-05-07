@@ -7,12 +7,15 @@ var mongoose = require('mongoose');
 if (config.database.name === 'pwndoc') {
     throw new Error('Refusing to run tests against the development database "pwndoc"');
 }
-mongoose.connect(`mongodb://${config.database.server}:${config.database.port}/${config.database.name}`, {});
-
-/* Clean the DB */
-mongoose.connection.dropDatabase();
+var cleanDatabase = mongoose
+    .connect(`mongodb://${config.database.server}:${config.database.port}/${config.database.name}`, {})
+    .then(() => mongoose.connection.dropDatabase());
 
 const app = require(__dirname+"/../src/app");
+
+beforeAll(async () => {
+    await cleanDatabase;
+});
 
 // Import tests
 require('./unauthenticated.test')(request, app)
@@ -26,4 +29,5 @@ require('./client.test')(request, app)
 require('./vulnerability.test')(request, app)
 require('./audit.test')(request, app)
 require('./settings.test')(request, app)
+require('./ai.test')(request, app)
 require('./lib.test')()

@@ -5,10 +5,20 @@ import _ from 'lodash';
 import Breadcrumb from 'components/breadcrumb';
 import BasicEditor from 'components/editor';
 import TemplateHint from 'components/template-hint';
+import AiActionBtn from 'components/ai-action-btn';
+import AiDiffModal from 'components/ai-diff-modal.vue';
 
 import AuditService from '@/services/audit';
 import AiService from '@/services/ai';
 import Utils from '@/services/utils';
+import {
+    isAiEnabled,
+    aiDisabledReason,
+    notifyError,
+    notifySuccess,
+    isAbortError,
+    sanitizeHtml
+} from '@/services/ai-helpers';
 
 import { $t } from '@/boot/i18n';
 
@@ -32,6 +42,8 @@ export default {
         Breadcrumb,
         BasicEditor,
         TemplateHint,
+        AiActionBtn,
+        AiDiffModal,
     },
 
     data: () => ({
@@ -47,7 +59,17 @@ export default {
         },
         executiveSummaryOrig: {},
         loading: false,
+        saving: false,
         aiLoadingMap: {},
+        aiControllers: {},
+        aiReview: {
+            open: false,
+            refKey: '',
+            action: '',
+            severity: '',
+            previousHtml: '',
+            proposedHtml: '',
+        },
         AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
         SEVERITY_LEVELS,
     }),
@@ -99,6 +121,18 @@ export default {
         auditName() {
             return this.audit ? (this.audit.name || '') : '';
         },
+
+        aiReady() {
+            return isAiEnabled(this.$settings);
+        },
+
+        aiDisabledReasonText() {
+            return aiDisabledReason(this.$settings, 'generation');
+        },
+
+        anyAiInFlight() {
+            return Object.values(this.aiLoadingMap).some(Boolean);
+        },
     },
 
     mounted() {
@@ -110,10 +144,23 @@ export default {
 
     beforeUnmount() {
         document.removeEventListener('keydown', this._listener, false);
+        this._abortAllAi();
     },
 
     beforeRouteLeave(to, from, next) {
         Utils.syncEditors(this.$refs);
+        if (this.anyAiInFlight) {
+            Dialog.create({
+                title: $t('aiInFlightTitle'),
+                message: $t('aiInFlightMessage'),
+                ok: { label: $t('btn.confirm'), color: 'negative' },
+                cancel: { label: $t('btn.cancel'), color: 'white' },
+            }).onOk(() => {
+                this._abortAllAi();
+                next();
+            }).onCancel(() => next(false));
+            return;
+        }
         if (_.isEqual(this.executiveSummary, this.executiveSummaryOrig)) {
             next();
         } else {
@@ -135,6 +182,17 @@ export default {
                     this.save();
                 }
             }
+        },
+
+        _abortAllAi() {
+            Object.keys(this.aiControllers).forEach((k) => {
+                const controller = this.aiControllers[k];
+                if (controller) {
+                    try { controller.abort(); } catch (_) { /* noop */ }
+                }
+            });
+            this.aiControllers = {};
+            this.aiLoadingMap = {};
         },
 
         getExecutiveSummary() {
@@ -161,24 +219,18 @@ export default {
 
         save() {
             Utils.syncEditors(this.$refs);
+            this.saving = true;
             nextTick(() => {
                 AuditService.updateAuditGeneral(this.auditId, { executiveSummary: this.executiveSummary })
                     .then(() => {
                         this.executiveSummaryOrig = _.cloneDeep(this.executiveSummary);
-                        Notify.create({
-                            message: $t('msg.auditUpdateOk'),
-                            color: 'positive',
-                            textColor: 'white',
-                            position: 'top-right',
-                        });
+                        notifySuccess('msg.auditUpdateOk');
                     })
                     .catch(err => {
-                        Notify.create({
-                            message: err.response?.data?.datas || $t('msg.errorOccurred'),
-                            color: 'negative',
-                            textColor: 'white',
-                            position: 'top-right',
-                        });
+                        notifyError(err, 'msg.errorOccurred');
+                    })
+                    .finally(() => {
+                        this.saving = false;
                     });
             });
         },
@@ -207,7 +259,7 @@ export default {
         _findingDigestLine(f) {
             const { severity, score } = this._findingSeverityAndScore(f);
             const scoreStr = score !== null && score !== undefined && score !== '' ? ` (CVSS: ${score})` : '';
-            return `- [${severity}${scoreStr}] ${f.title || '(untitled)'}`;
+            return `- [${severity}${scoreStr}] ${f.title || $t('untitled')}`;
         },
 
         aiContextFor(severity) {
@@ -238,53 +290,89 @@ export default {
             });
         },
 
-        async runAiOnEditor(refKey, action, severity) {
-            const editorRef = this.$refs[refKey];
-            const editorInstance = Array.isArray(editorRef) ? editorRef[0] : editorRef;
-            const hasContent = editorInstance?.editor?.getText().trim().length > 0;
+        _resolveEditorInstance(refKey) {
+            const ref = this.$refs[refKey];
+            return Array.isArray(ref) ? ref[0] : ref;
+        },
 
-            const doGenerate = async () => {
-                this.aiLoadingMap = { ...this.aiLoadingMap, [refKey]: true };
-
-                let context;
-                if (action === 'executive-summary') {
-                    context = this.aiContextSummary();
-                } else {
-                    context = this.aiContextFor(severity);
-                }
-
-                try {
-                    const response = await AiService.generate({ action, fieldName: refKey, context });
-                    const html = response.data?.datas?.html || '';
-                    if (!html) throw new Error('Empty response from AI');
-
-                    if (editorInstance && editorInstance.editor) {
-                        editorInstance.editor.commands.setContent(html);
-                    }
-                } catch (err) {
-                    console.error('[AI Executive Summary]', err);
-                    Notify.create({
-                        message: err.response?.data?.datas || err.message || $t('aiError'),
-                        color: 'negative',
-                        textColor: 'white',
-                        position: 'top-right',
-                        timeout: 4000,
-                    });
-                } finally {
-                    this.aiLoadingMap = { ...this.aiLoadingMap, [refKey]: false };
-                }
-            };
-
-            if (hasContent) {
-                Dialog.create({
-                    title: $t('aiSuggest'),
-                    message: $t('aiGenerateOverwriteConfirm'),
-                    ok: { label: $t('btn.confirm'), color: 'negative' },
-                    cancel: { label: $t('btn.cancel'), color: 'white' },
-                }).onOk(doGenerate);
-            } else {
-                await doGenerate();
+        cancelAiOnEditor(refKey) {
+            const controller = this.aiControllers[refKey];
+            if (controller) {
+                try { controller.abort(); } catch (_) { /* noop */ }
             }
+            this.aiControllers = { ...this.aiControllers, [refKey]: null };
+            this.aiLoadingMap = { ...this.aiLoadingMap, [refKey]: false };
+        },
+
+        async runAiOnEditor(refKey, action, severity) {
+            if (!this.aiReady) return;
+            const editorInstance = this._resolveEditorInstance(refKey);
+            if (!editorInstance) return;
+
+            this.aiLoadingMap = { ...this.aiLoadingMap, [refKey]: true };
+
+            const controller = new AbortController();
+            this.aiControllers = { ...this.aiControllers, [refKey]: controller };
+
+            const context = action === 'executive-summary' ? this.aiContextSummary() : this.aiContextFor(severity);
+
+            try {
+                const response = await AiService.generate({ action, fieldName: refKey, context }, controller.signal);
+                const html = response.data?.datas?.html || '';
+                if (!html) throw new Error($t('aiEmptyResponse'));
+
+                const previousHtml = editorInstance && editorInstance.editor ? editorInstance.editor.getHTML() : '';
+                const proposedHtml = sanitizeHtml(html);
+
+                this.aiReview = {
+                    open: true,
+                    refKey,
+                    action,
+                    severity: severity || '',
+                    previousHtml,
+                    proposedHtml,
+                };
+            } catch (err) {
+                if (isAbortError(err)) return;
+                console.error('[AI Executive Summary]', err);
+                const retry = () => this.runAiOnEditor(refKey, action, severity);
+                notifyError(err, 'aiError', [
+                    { label: $t('btn.retry'), color: 'white', noCaps: true, handler: retry }
+                ]);
+            } finally {
+                this.aiLoadingMap = { ...this.aiLoadingMap, [refKey]: false };
+                this.aiControllers = { ...this.aiControllers, [refKey]: null };
+            }
+        },
+
+        applyAiReview(html) {
+            const refKey = this.aiReview.refKey;
+            if (!refKey) return;
+            const editorInstance = this._resolveEditorInstance(refKey);
+            if (editorInstance && editorInstance.editor) {
+                editorInstance.editor.commands.setContent(sanitizeHtml(html));
+            }
+            this.aiReview = {
+                open: false,
+                refKey: '',
+                action: '',
+                severity: '',
+                previousHtml: '',
+                proposedHtml: '',
+            };
+        },
+
+        regenerateAi() {
+            const { refKey, action, severity } = this.aiReview;
+            this.aiReview = {
+                open: false,
+                refKey: '',
+                action: '',
+                severity: '',
+                previousHtml: '',
+                proposedHtml: '',
+            };
+            if (refKey && action) this.runAiOnEditor(refKey, action, severity);
         },
     },
 };

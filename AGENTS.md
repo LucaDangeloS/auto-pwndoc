@@ -102,7 +102,7 @@ Each file: `module.exports = function(app) { ... }` — no Express Router, route
 | `audit.js` | `GET/POST /api/audits`, `/api/audits/:id` (full), `/api/audits/:id/general`, `/api/audits/:id/network`, `/api/audits/:id/findings` (CRUD), `/api/audits/:id/sections/:sid`, sort, review, approval, report generation. Emits `io.to(auditId).emit('updateAudit')` after every mutation. |
 | `audit-archive.js` | `GET/POST /api/audit-archives`, `GET /api/audit-archives/:id/file`, `DELETE /api/audit-archives/:id`. Uploads accept base64 PDFs up to 200 MB, validate PDF signatures, store files in `backend/audit-archives/`, and stream them inline for the browser reader. |
 | `vulnerability.js` | `GET/POST/PUT/DELETE /api/vulnerabilities[/:id][/:locale]`. Fires `indexVulnAsync` / `deleteVulnAsync` (fire-and-forget ChromaDB hooks) on mutations. |
-| `ai.js` | `POST /api/ai/generate` — RAG + LLM. `POST /api/ai/search-similar` — semantic search. `POST /api/ai/analyze-proofs` — vision pipeline. `POST /api/ai/reindex-all` — background reindex. `POST /api/ai/test` — provider connection tests. |
+| `ai.js` | `POST /api/ai/generate` — RAG + LLM. `POST /api/ai/search-similar` — semantic search. `POST /api/ai/analyze-proofs` — vision pipeline. `POST /api/ai/reindex-all` — background reindex. `GET /api/ai/reindex-status` — progress tracker. `POST /api/ai/list-models` — provider model enumeration. `POST /api/ai/test` — provider connection tests. |
 | `settings.js` | `GET /api/settings` (full, admin-only), `GET /api/settings/public` (browser-safe), `PUT /api/settings`, `PUT /api/settings/revert`, `GET /api/settings/export`, `POST /api/settings/mcp/rotate-key`, `DELETE /api/settings/mcp/key`. |
 | `mcp.js` | `POST /api/mcp` — MCP Streamable HTTP, JSON-RPC 2.0. Guarded by `mcp-auth.js`. Implements: `initialize`, `ping`, `tools/list`, `tools/call` (13 tools). Tool handlers call existing REST endpoints via internal HTTPS with a short-lived admin JWT. |
 | `user.js` | `POST /api/users/token` (login), `GET /api/users/refreshtoken`, `DELETE /api/users/refreshtoken` (logout), `GET/POST/PUT /api/users`, `PUT /api/users/me`, TOTP endpoints. |
@@ -551,11 +551,52 @@ The fixture `backend/tests/fixtures/test-vulnerabilities.json` contains 10 canon
 - `backend/src/lib/ai-service.js`: unified generation via LangChain; provider routing (`openai`, `anthropic`, `ollama`, `azure-openai`, `openai-compatible`); prompt resolution order (per-field → generic action → hardcoded default); `ensureV1()` for URL normalisation.
 - `backend/src/lib/embedding-service.js`: ChromaDB vector store for vulnerability semantic search; strict locale filtering; `float` encoding for non-OpenAI providers.
 - `backend/src/lib/vision-service.js`: multimodal proof analysis — extracts images from POC HTML, calls vision LLM, optional anonymisation.
-- `backend/src/routes/ai.js`: `POST /api/ai/generate` (RAG + LLM), `/search-similar`, `/analyze-proofs`, `/reindex-all`, `/test`.
+- `backend/src/routes/ai.js`: `POST /api/ai/generate` (RAG + LLM), `/search-similar`, `/analyze-proofs`, `/reindex-all`, `/reindex-status`, `/list-models`, `/test`.
 - ChromaDB service in `docker-compose-dev.yml`; startup sync in `app.js`; fire-and-forget index/delete hooks in `vulnerability.js`.
 - Frontend: `services/ai.js`, `components/ai-assistant.js` (TipTap extension), AI toolbar in `editor.vue`, all finding editors wired with `fieldName` + `aiContext`; AI editor actions now open a previous/proposed review dialog before applying generated text and clear loading state when the request finishes.
 - `components/ai-diff-modal.vue`: side-by-side AI comparison dialog with editable proposed text and explicit apply/keep controls.
 - `components/similar-vuln-modal.vue`: two-panel diff dialog with viewport margins and Apply-action spacing; supports text-based and proof-based (vision) modes.
+
+### AI UX polish
+
+Comprehensive polish pass on every user-facing AI interaction point — unified visual language, in-flight feedback, cancellation, sanitisation, accessibility, discoverability, and i18n parity across all five locales.
+
+**Foundations**
+- `frontend/src/services/ai.js`: every AI endpoint accepts an optional `AbortSignal` (`generate`, `searchSimilar`, `analyzeProofs`, `reindexAll`, `reindexStatus`, `testConnection`, `listModels`).
+- `frontend/src/services/ai-helpers.js` (new): `sanitizeHtml` (DOMPurify wrapper), `notifyError` / `notifySuccess` / `notifyWarning` with consistent position + timeout, `isAbortError`, `extractErrorMessage`, `isAiEnabled` / `isEmbeddingEnabled` / `isVisionEnabled`, `aiDisabledReason(kind)`.
+- `frontend/src/components/ai-action-btn.vue` (new): single visual language for every AI button — purple accent, `auto_awesome` icon, `:loading` spinner, `:disabled-reason` tooltip pointing to settings, optional cancel mode.
+- `frontend/src/components/ai-overlay.vue` (new): translucent overlay with spinner + "AI is writing…" label + Cancel button. Used over the editor body and other long-running surfaces.
+- `frontend/src/css/app.styl`: tag-agnostic `.ai-loading` selector, `prefers-reduced-motion` block, replaced glyph with icon, added `.ai-overlay`, `.ai-test-row`, `.ai-test-result`, `.rotate-anim` keyframe.
+- `frontend/package.json`: added `dompurify` dependency.
+
+**Editor**
+- `components/editor.vue`: AI dropdown shows disabled-with-tooltip (instead of `v-if`-removing) when AI is off, with the disabled reason from settings; per-action sub-tooltips wired from existing i18n keys; `<ai-overlay>` mounted over the editor body during requests with a Cancel button; new `regenerateAi` and `cancelAi` methods.
+- `components/ai-assistant.js`: AbortController integration, rewrite-without-selection now shows a confirm dialog ("Rewrite the entire field?"), retry action injected into the error Notify, sanitisation of generated HTML before applying, exposed `cancelAiCommand(editor)` and `aiCancel()` TipTap command.
+- `components/ai-diff-modal.vue`: added Regenerate button, swapped Apply to green/positive and Keep-previous to grey/flat, ARIA roles on contenteditable panes, DOMPurify on both panes, keyboard-accessible Close icon.
+
+**Finding edit & similar-vuln**
+- `pages/audits/edit/findings/edit/edit.html`: Search Similar and Search-from-Proofs both use `<ai-action-btn>` with cancellable mode, disabled-with-tooltip when embeddings/vision are off.
+- `pages/audits/edit/findings/edit/edit.js`: AbortController for searchSimilar / analyzeProofs / fill-proofs; selection token to discard stale fill-proofs results when the user clicks another result; abort-on-modal-close; abort-on-unmount; `applySimilarVuln` now accepts a `{ result, fields }` payload; helpers from `ai-helpers.js` for notifications.
+- `components/similar-vuln-modal.vue`: per-field apply checkboxes (description/observation/remediation/references/cvssv3/cvssv4/poc), "Select all" / "Only changed" quick actions, Apply count badge, ARIA `role="listbox"` + `role="option"` + `aria-selected` on results, Retry button on the error state, vision summary still shown when zero similar results in proof mode, DOMPurify on all `v-html`, `@close` event for parent abort hooks.
+
+**Executive summary**
+- `pages/audits/edit/executive-summary/executive-summary.html`: AI buttons use `<ai-action-btn>` with cancel mode; `<ai-diff-modal>` mounted at page level so AI suggestions go through the same review flow as the editor toolbar (no more direct overwrite after upfront confirm).
+- `pages/audits/edit/executive-summary/executive-summary.js`: per-editor AbortController in `aiControllers` map; navigation guard (`beforeRouteLeave`) prompts when AI is in flight; `regenerateAi` / `cancelAiOnEditor` methods; `Save` button now reflects an actual `saving` flag.
+
+**Settings**
+- `pages/settings/settings.js`: model dropdowns populated by `loadModelList(type)` calling `/api/ai/list-models`; `applyDefaultUrlIfEmpty(type)` triggered on provider change; `safeClipboard` fallback to `document.execCommand('copy')` for insecure HTTP origins; reindex confirm dialog with cost/time warning + live status polling (`_startReindexPolling` / `REINDEX_POLL_MS`); MCP `Clear key` now requires a confirm dialog with explicit destructive warning; Save button has `:loading="saving"` wired to the actual save call; tests track `aiTest[type].controller` so duplicate clicks abort the previous test; `clearAiTestResult(type)` clears inline test indicators; `formatLastTestRun(type)` shows last-tested-at persisted in localStorage.
+- `pages/settings/settings.html`: model selects now use `q-select` with `use-input` + `new-value-mode="add-unique"` + popup `loadModelList` hook; refresh icon next to each model select; API key visibility icons converted to `<q-btn>` with `aria-label` and tooltip; test result rows wrap and use `.ai-test-message` (max-width, max-height, scroll) for long error responses; per-result clear icon; per-type "last tested" caption; reindex live progress bar driven by `/api/ai/reindex-status`.
+
+**Discoverability**
+- `pages/vulnerabilities/vulnerabilities.html` + `.js`: vulnerability create/edit modals now pass `fieldName` + `aiContext = { findingTitle, locale }` to the description/observation/remediation editors so AI generation runs with proper RAG context.
+
+**i18n parity**
+- 47 new keys added to all five locales (`en-US`, `es-ES`, `fr-FR`, `de-DE`, `zh-CN`): `btn.retry`, `btn.clear`, `btn.close`, `aiAssistant`, `aiSuggest` (was missing in 3 locales), `untitled` (was missing in all 5), `aiSuggestTooltip`, `aiSuggestOverwriteTitle`, `aiRewriteWholeTitle`, `aiRewriteWholeMessage`, `aiGeneratingAction`, `aiCompletingAction`, `aiRewritingAction`, `aiEmptyResponse`, `aiInFlightTitle`, `aiInFlightMessage`, `aiRegenerate`, `aiRegenerateTooltip`, `aiDisabledReasonGlobal`, `aiDisabledReasonEmbedding`, `aiDisabledReasonVision`, `aiHideApiKey`, `aiShowApiKey`, `aiRefreshModels`, `aiModelManualHint`, `aiTestLastRunAt`, `aiReindexConfirmTitle`, `aiReindexConfirmMessage`, `aiReindexAlreadyRunning`, `aiReindexProgress`, `aiReindexFinished`, `aiReindexFinishedWithFailures`, `mcpClearKeyConfirmTitle`, `mcpClearKeyConfirmMessage`, `mcpCopyKey`, `similarVulnSearchTooltip`, `searchSimilarFromProofsTooltip`, `similarVulnSelectAll`, `similarVulnSelectChanged`, `similarVulnApplyHint`, `similarVulnApplyCount`, `similarVulnChanged`, `similarVulnSame`.
+
+**Backend additions**
+- `backend/src/routes/ai.js`: `GET /api/ai/reindex-status` returns the live tracker (`{ inProgress, total, processed, failed, startedAt, finishedAt, lastError }`); `POST /api/ai/list-models` enumerates models per provider — static list for Anthropic, manual for Azure, live `/v1/models` fetch for OpenAI / OpenAI-compatible / Ollama, with graceful failure that surfaces the upstream error string for diagnostics.
+- `backend/src/lib/embedding-service.js`: added `reindexState` tracker + `getReindexStatus()` export; `reindexAll(aiSettings)` populates the tracker per vulnerability and now refuses to start a duplicate reindex while one is in progress.
+- `backend/tests/ai.test.js` (new): regression suite covering `reindex-status` shape, `list-models` invalid type rejection, `list-models` static path for Anthropic, `test` invalid type rejection, and `generate` Forbidden when AI is off.
 
 ### Report references
 
@@ -623,7 +664,7 @@ The fixture `backend/tests/fixtures/test-vulnerabilities.json` contains 10 canon
 ### Agent workflow updates
 
 - Frontend changes under `frontend/src/**` or `frontend/quasar.conf.js` require `docker compose -f docker-compose-dev.yml restart frontend-app` followed by `docker compose -f docker-compose-dev.yml logs --since 1m frontend-app`.
-- Backend tests now use the isolated `pwndoc-test` database and fail fast if pointed at the development `pwndoc` database, preventing test runs from wiping live dev data or changing the documented `admin` / `Admin1admin2` credentials.
+- Backend tests now use the isolated `pwndoc-test` database, fail fast if pointed at the development `pwndoc` database, and await the initial cleanup before registering tests so stale test data cannot race the suite.
 - The frontend dev container runs `npm install` before `npm run dev` so package changes mounted over the persisted `node_modules` volume are installed after container restarts.
 
 ### OpenWebUI provider support

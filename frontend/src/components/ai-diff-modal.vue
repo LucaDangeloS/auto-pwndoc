@@ -5,7 +5,9 @@
         <q-icon name="auto_awesome" />
         <span class="q-ml-sm text-body1">{{ $t('aiReviewTitle') }}</span>
         <q-space />
-        <q-btn dense flat icon="close" @click="show = false" />
+        <q-btn dense flat icon="close" @click="show = false">
+          <q-tooltip>{{ $t('btn.close') }}</q-tooltip>
+        </q-btn>
       </q-bar>
 
       <div class="q-pa-md column no-wrap col" style="min-height:0">
@@ -17,7 +19,13 @@
               <q-icon name="history" size="xs" class="q-mr-xs" />
               <span class="text-caption text-weight-medium text-uppercase text-grey-7">{{ $t('aiReviewPrevious') }}</span>
             </div>
-            <div class="ai-diff-pane col" v-html="displayPrevious"></div>
+            <div
+              class="ai-diff-pane col"
+              role="region"
+              aria-readonly="true"
+              :aria-label="$t('aiReviewPrevious')"
+              v-html="displayPreviousSafe"
+            ></div>
           </div>
 
           <div class="col-12 col-md-6 column no-wrap" style="min-height:0">
@@ -29,6 +37,9 @@
               ref="proposedEditor"
               class="ai-diff-pane ai-diff-pane-editable col"
               contenteditable="true"
+              role="textbox"
+              aria-multiline="true"
+              :aria-label="$t('aiReviewProposedEditable')"
               @input="updateEditedHtml"
             ></div>
           </div>
@@ -37,8 +48,32 @@
 
       <q-separator />
       <q-card-actions align="right" class="q-pa-md q-gutter-sm">
-        <q-btn flat no-caps :label="$t('aiUseOriginal')" @click="show = false" />
-        <q-btn color="purple" no-caps icon="check" :label="$t('aiApplyProposed')" @click="apply" />
+        <q-btn
+          flat
+          no-caps
+          color="grey-7"
+          icon="undo"
+          :label="$t('aiUseOriginal')"
+          @click="show = false"
+        />
+        <q-btn
+          flat
+          no-caps
+          color="purple"
+          icon="refresh"
+          :label="$t('aiRegenerate')"
+          @click="regenerate"
+        >
+          <q-tooltip>{{ $t('aiRegenerateTooltip') }}</q-tooltip>
+        </q-btn>
+        <q-btn
+          color="positive"
+          unelevated
+          no-caps
+          icon="check"
+          :label="$t('aiApplyProposed')"
+          @click="apply"
+        />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -46,6 +81,7 @@
 
 <script>
 import { defineComponent } from 'vue';
+import { sanitizeHtml } from '@/services/ai-helpers';
 
 export default defineComponent({
   name: 'AiDiffModal',
@@ -56,7 +92,7 @@ export default defineComponent({
     proposedHtml: { type: String, default: '' },
   },
 
-  emits: ['update:modelValue', 'apply'],
+  emits: ['update:modelValue', 'apply', 'regenerate'],
 
   data() {
     return {
@@ -69,8 +105,10 @@ export default defineComponent({
       get() { return this.modelValue; },
       set(v) { this.$emit('update:modelValue', v); }
     },
-    displayPrevious() {
-      return this.previousHtml || `<em class="text-grey-5">${this.$t('empty')}</em>`;
+    displayPreviousSafe() {
+      const html = this.previousHtml;
+      if (!html) return `<em class="text-grey-5">${this.$t('empty')}</em>`;
+      return sanitizeHtml(html);
     },
   },
 
@@ -85,9 +123,10 @@ export default defineComponent({
 
   methods: {
     setEditedHtml(value) {
-      this.editedHtml = value;
+      const safe = sanitizeHtml(value || '');
+      this.editedHtml = safe;
       this.$nextTick(() => {
-        if (this.$refs.proposedEditor) this.$refs.proposedEditor.innerHTML = value;
+        if (this.$refs.proposedEditor) this.$refs.proposedEditor.innerHTML = safe;
       });
     },
     updateEditedHtml() {
@@ -95,8 +134,11 @@ export default defineComponent({
     },
     apply() {
       this.updateEditedHtml();
-      this.$emit('apply', this.editedHtml);
+      this.$emit('apply', sanitizeHtml(this.editedHtml));
       this.show = false;
+    },
+    regenerate() {
+      this.$emit('regenerate');
     },
   },
 });
@@ -125,7 +167,7 @@ export default defineComponent({
 }
 
 .ai-diff-pane-editable:focus {
-  outline: 2px solid rgba(156, 39, 176, 0.35);
+  outline: 2px solid rgba(156, 39, 176, 0.45);
   outline-offset: 1px;
 }
 

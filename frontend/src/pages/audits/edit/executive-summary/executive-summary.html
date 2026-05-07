@@ -12,7 +12,7 @@
         :label="$t('btn.save') + ' (ctrl+s)'"
         no-caps
         @click="save"
-        :loading="loading"
+        :loading="loading || saving"
       />
     </template>
   </breadcrumb>
@@ -73,11 +73,17 @@
               <div class="text-subtitle1 text-weight-medium">{{$t('executiveSummaryText')}}</div>
               <template-hint template-var="audit.executive_summary | convertHTML" class="q-ml-sm" />
             </div>
-            <q-btn
-              v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && $settings && $settings.ai && $settings.ai.enabled"
-              flat dense color="purple" icon="auto_awesome" :label="$t('aiSuggest')"
+            <ai-action-btn
+              v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+              :label="$t('aiSuggest')"
+              :loading="!!aiLoadingMap['editor_summary']"
+              :disabled="!aiReady"
+              :disabled-reason="aiDisabledReasonText"
+              :tooltip="$t('aiSuggestTooltip')"
+              cancellable
+              :cancel-hint="$t('btn.cancel')"
               @click="runAiOnEditor('editor_summary', 'executive-summary')"
-              :loading="aiLoadingMap['editor_summary']"
+              @cancel="cancelAiOnEditor('editor_summary')"
             />
           </div>
           <basic-editor
@@ -118,11 +124,17 @@
                   {{ $t('noFindingsOfSeverity') }}
                 </span>
               </div>
-              <q-btn
-                v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && presentSeverities.has(level.key) && $settings && $settings.ai && $settings.ai.enabled"
-                flat dense color="purple" icon="auto_awesome" :label="$t('aiSuggest')"
+              <ai-action-btn
+                v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && presentSeverities.has(level.key)"
+                :label="$t('aiSuggest')"
+                :loading="!!aiLoadingMap[`editor_${level.field}`]"
+                :disabled="!aiReady"
+                :disabled-reason="aiDisabledReasonText"
+                :tooltip="$t('aiSuggestTooltip')"
+                cancellable
+                :cancel-hint="$t('btn.cancel')"
                 @click="runAiOnEditor(`editor_${level.field}`, 'severity-summary', level.key)"
-                :loading="aiLoadingMap[`editor_${level.field}`]"
+                @cancel="cancelAiOnEditor(`editor_${level.field}`)"
               />
             </div>
             <basic-editor
@@ -139,4 +151,12 @@
 
     </div>
   </div>
+
+  <ai-diff-modal
+    v-model="aiReview.open"
+    :previous-html="aiReview.previousHtml"
+    :proposed-html="aiReview.proposedHtml"
+    @apply="applyAiReview"
+    @regenerate="regenerateAi"
+  />
 </div>

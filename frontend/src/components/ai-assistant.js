@@ -1,16 +1,17 @@
 import { Extension } from '@tiptap/core'
-import { Notify } from 'quasar'
+import { Dialog } from 'quasar'
 import AiService from '@/services/ai'
-
-const LOADING_CLASS = 'ai-loading'
-const LOADING_PLACEHOLDER = `<p class="${LOADING_CLASS}">…</p>`
+import { sanitizeHtml, isAbortError, notifyError, extractErrorMessage } from '@/services/ai-helpers'
+import { $t } from '@/boot/i18n'
 
 export const AiAssistantExtension = Extension.create({
     name: 'aiAssistant',
 
     addStorage() {
         return {
-            loading: false
+            loading: false,
+            controller: null,
+            currentAction: null
         }
     },
 
@@ -31,51 +32,98 @@ export const AiAssistantExtension = Extension.create({
                 const { from, to } = editor.state.selection
                 const selectedText = editor.state.doc.textBetween(from, to, '\n')
                 if (!selectedText.trim()) {
-                    const text = editor.getHTML()
-                    runAiCommand(editor, 'rewrite', text, fieldName, aiContext, null, options)
+                    confirmAndRewriteWhole(editor, fieldName, aiContext, options)
                 } else {
                     runAiCommand(editor, 'rewrite', selectedText, fieldName, aiContext, { from, to }, options)
                 }
+                return true
+            },
+
+            aiCancel: () => ({ editor }) => {
+                cancelAiCommand(editor)
                 return true
             }
         }
     }
 })
 
-async function runAiCommand(editor, action, text, fieldName, aiContext, selectionRange, options) {
+function getStorage(editor) {
+    if (!editor) return null
     const ext = editor.extensionManager.extensions.find(e => e.name === 'aiAssistant')
-    if (ext) ext.storage.loading = true
+    return ext ? ext.storage : null
+}
+
+function confirmAndRewriteWhole(editor, fieldName, aiContext, options) {
+    Dialog.create({
+        title: $t('aiRewriteWholeTitle'),
+        message: $t('aiRewriteWholeMessage'),
+        ok: { label: $t('aiRewrite'), color: 'purple', noCaps: true },
+        cancel: { label: $t('btn.cancel'), color: 'grey-7', flat: true, noCaps: true }
+    }).onOk(() => {
+        const text = editor.getHTML()
+        runAiCommand(editor, 'rewrite', text, fieldName, aiContext, null, options)
+    })
+}
+
+async function runAiCommand(editor, action, text, fieldName, aiContext, selectionRange, options) {
+    const storage = getStorage(editor)
+    if (storage && storage.loading) {
+        // already running — ignore
+        return
+    }
+
+    const controller = new AbortController()
+    if (storage) {
+        storage.loading = true
+        storage.controller = controller
+        storage.currentAction = action
+    }
+
+    editor.setEditable(false)
 
     try {
         const payload = buildAiPayload(action, text, fieldName, aiContext)
+        const html = await requestAiHtml(payload, controller.signal)
+        if (!html) throw new Error($t('aiEmptyResponse'))
 
-        editor.setEditable(false)
-
-        const html = await requestAiHtml(payload)
-
-        if (!html) throw new Error('Empty response from AI')
+        const sanitized = sanitizeHtml(html)
 
         editor.setEditable(true)
 
         if (options && typeof options.onResult === 'function') {
-            options.onResult(buildAiResult(editor, action, html, selectionRange))
+            options.onResult(buildAiResult(editor, action, sanitized, selectionRange))
         } else {
-            applyAiResult(editor, action, html, selectionRange)
+            applyAiResult(editor, action, sanitized, selectionRange)
         }
     } catch (err) {
         editor.setEditable(true)
+        if (isAbortError(err)) {
+            // cancelled by user or unmount — silent
+            return
+        }
         console.error('[AI Assistant]', err)
-        Notify.create({
-            message: err.response?.data?.datas || err.message || 'AI generation failed',
-            color: 'negative',
-            textColor: 'white',
-            position: 'top-right',
-            timeout: 4000
-        })
+        const retry = () => runAiCommand(editor, action, text, fieldName, aiContext, selectionRange, options)
+        notifyError(err, 'aiError', [
+            { label: $t('btn.retry'), color: 'white', noCaps: true, handler: retry }
+        ])
     } finally {
-        if (ext) ext.storage.loading = false
+        if (storage) {
+            storage.loading = false
+            storage.controller = null
+            storage.currentAction = null
+        }
         if (options && typeof options.onDone === 'function') options.onDone()
     }
+}
+
+export function cancelAiCommand(editor) {
+    const storage = getStorage(editor)
+    if (!storage || !storage.controller) return
+    try { storage.controller.abort() } catch (_) { /* noop */ }
+    storage.controller = null
+    storage.loading = false
+    storage.currentAction = null
+    try { editor.setEditable(true) } catch (_) { /* noop */ }
 }
 
 function buildAiPayload(action, text, fieldName, aiContext) {
@@ -93,8 +141,8 @@ function buildAiPayload(action, text, fieldName, aiContext) {
     }
 }
 
-async function requestAiHtml(payload) {
-    const response = await AiService.generate(payload)
+async function requestAiHtml(payload, signal) {
+    const response = await AiService.generate(payload, signal)
     return response.data && response.data.datas ? response.data.datas.html : ''
 }
 
@@ -119,18 +167,19 @@ function escapeHtml(value) {
 }
 
 export function applyAiResult(editor, action, html, selectionRange) {
+    const safe = sanitizeHtml(html)
     if (action === 'generate') {
-        editor.commands.setContent(html)
+        editor.commands.setContent(safe)
     } else if (action === 'complete') {
-        editor.commands.setContent(html)
+        editor.commands.setContent(safe)
     } else if (action === 'rewrite') {
         if (selectionRange) {
             editor.chain().focus()
                 .deleteRange(selectionRange)
-                .insertContentAt(selectionRange.from, html)
+                .insertContentAt(selectionRange.from, safe)
                 .run()
         } else {
-            editor.commands.setContent(html)
+            editor.commands.setContent(safe)
         }
     }
 }

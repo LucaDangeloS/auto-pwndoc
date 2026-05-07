@@ -8,12 +8,22 @@ import TextareaArray from 'components/textarea-array';
 import CustomFields from 'components/custom-fields';
 import SimilarVulnModal from 'components/similar-vuln-modal';
 import TemplateHint from 'components/template-hint';
+import AiActionBtn from 'components/ai-action-btn';
 
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
 import VulnService from '@/services/vulnerability';
 import AiService from '@/services/ai';
 import Utils from '@/services/utils';
+import {
+    isEmbeddingEnabled,
+    isVisionEnabled,
+    aiDisabledReason,
+    notifyError,
+    notifySuccess,
+    notifyWarning,
+    isAbortError
+} from '@/services/ai-helpers';
 
 import { $t } from '@/boot/i18n';
 
@@ -74,6 +84,9 @@ export default {
       proofImageDescriptions: [],
       proofGeneratedPoc: '',
       proofPocLoading: false,
+      _similarController: null,
+      _proofPocController: null,
+      _proofPocSelectionToken: 0,
     };
   },
 
@@ -85,6 +98,7 @@ export default {
     CustomFields,
     SimilarVulnModal,
     TemplateHint,
+    AiActionBtn,
   },
 
   watch: {
@@ -122,6 +136,7 @@ export default {
 
   beforeUnmount() {
     document.removeEventListener('keydown', this._listener, false);
+    this._abortAllAi();
   },
 
   beforeRouteLeave(to, from, next) {
@@ -186,6 +201,18 @@ export default {
       return this.vulnTypes.filter(
         (type) => type.locale === this.localAudit.language
       );
+    },
+    aiSimilarReady() {
+      return isEmbeddingEnabled(this.$settings);
+    },
+    aiVisionReady() {
+      return isVisionEnabled(this.$settings);
+    },
+    aiSimilarDisabledReason() {
+      return aiDisabledReason(this.$settings, 'embedding');
+    },
+    aiVisionDisabledReason() {
+      return aiDisabledReason(this.$settings, 'vision');
     },
   },
 
@@ -488,14 +515,35 @@ export default {
       return !this.$_.isEqual(this.finding, this.findingOrig);
     },
 
+    _abortAllAi() {
+      if (this._similarController) {
+        try { this._similarController.abort(); } catch (_) { /* noop */ }
+        this._similarController = null;
+      }
+      if (this._proofPocController) {
+        try { this._proofPocController.abort(); } catch (_) { /* noop */ }
+        this._proofPocController = null;
+      }
+      this.similarVulnLoading = false;
+      this.proofPocLoading = false;
+    },
+
+    cancelSimilarSearch() {
+      this._abortAllAi();
+      this.similarVulnModalOpen = false;
+    },
+
+    onSimilarModalClose() {
+      this._abortAllAi();
+    },
+
     searchSimilarVulns() {
+      if (!this.aiSimilarReady) {
+        notifyWarning('aiDisabledReasonEmbedding');
+        return;
+      }
       if (!this.finding.title) {
-        Notify.create({
-          message: $t('similarVulnNeedTitle'),
-          color: 'warning',
-          textColor: 'white',
-          position: 'top-right',
-        });
+        notifyWarning('similarVulnNeedTitle');
         return;
       }
       Utils.syncEditors(this.$refs);
@@ -514,48 +562,55 @@ export default {
       this.proofImageDescriptions = [];
       this.proofGeneratedPoc = '';
       this.similarVulnModalOpen = true;
-      AiService.searchSimilar(query, locale)
+      this._abortAllAi();
+      this._similarController = new AbortController();
+      AiService.searchSimilar(query, locale, this._similarController.signal)
         .then((data) => {
           this.similarVulnResults = data.data.datas || [];
         })
         .catch((err) => {
+          if (isAbortError(err)) return;
           this.similarVulnError = err.response?.data?.datas || $t('aiError');
         })
         .finally(() => {
           this.similarVulnLoading = false;
+          this._similarController = null;
         });
     },
 
-    applySimilarVuln(result) {
-      if (result.description !== undefined) this.finding.description = result.description;
-      if (result.observation !== undefined) this.finding.observation = result.observation;
-      if (result.remediation !== undefined) this.finding.remediation = result.remediation;
-      if (result.references !== undefined) this.finding.references = result.references;
-      if (result.cvssv3 !== undefined) this.finding.cvssv3 = result.cvssv3;
-      if (result.cvssv4 !== undefined) this.finding.cvssv4 = result.cvssv4;
-      if (result.poc !== undefined) this.finding.poc = result.poc;
+    applySimilarVuln(payload) {
+      // payload: { result, fields: ['description', ...] }
+      const result = payload && payload.result ? payload.result : payload;
+      const fields = (payload && Array.isArray(payload.fields)) ? payload.fields : [
+        'description', 'observation', 'remediation', 'references', 'cvssv3', 'cvssv4', 'poc'
+      ];
+      const apply = (key) => {
+        if (!fields.includes(key)) return;
+        if (result[key] === undefined) return;
+        this.finding[key] = result[key];
+      };
+      apply('description');
+      apply('observation');
+      apply('remediation');
+      apply('references');
+      apply('cvssv3');
+      apply('cvssv4');
+      apply('poc');
       nextTick(() => {
         Utils.syncEditors(this.$refs);
-        // Watcher will pick up the diff and set needSave = true automatically
       });
-      Notify.create({
-        message: $t('similarVulnApplied'),
-        color: 'positive',
-        textColor: 'white',
-        position: 'top-right',
-      });
+      notifySuccess('similarVulnApplied');
     },
 
     searchSimilarFromProofs() {
+      if (!this.aiVisionReady) {
+        notifyWarning('aiDisabledReasonVision');
+        return;
+      }
       Utils.syncEditors(this.$refs);
       const locale = this.localAudit.language || 'en';
       if (!this.finding.poc || !this.finding.poc.trim()) {
-        Notify.create({
-          message: $t('proofSearchNeedContent'),
-          color: 'warning',
-          textColor: 'white',
-          position: 'top-right',
-        });
+        notifyWarning('proofSearchNeedContent');
         return;
       }
       this.similarVulnResults = [];
@@ -566,7 +621,9 @@ export default {
       this.proofImageDescriptions = [];
       this.proofGeneratedPoc = '';
       this.similarVulnModalOpen = true;
-      AiService.analyzeProofs(this.finding.poc, locale)
+      this._abortAllAi();
+      this._similarController = new AbortController();
+      AiService.analyzeProofs(this.finding.poc, locale, this._similarController.signal)
         .then((data) => {
           const result = data.data.datas || {};
           this.proofVisionSummary = result.visionSummary || '';
@@ -574,18 +631,27 @@ export default {
           this.similarVulnResults = result.similarResults || [];
         })
         .catch((err) => {
+          if (isAbortError(err)) return;
           this.similarVulnError = err.response?.data?.datas || $t('aiError');
         })
         .finally(() => {
           this.similarVulnLoading = false;
+          this._similarController = null;
         });
     },
 
     onProofResultSelected(result) {
       if (!this.similarVulnIsProofMode || !result) return;
+      // Cancel any pending fill-proofs and bump selection token to discard stale results
+      if (this._proofPocController) {
+        try { this._proofPocController.abort(); } catch (_) { /* noop */ }
+      }
+      this._proofPocSelectionToken++;
+      const myToken = this._proofPocSelectionToken;
       this.proofGeneratedPoc = '';
       this.proofPocLoading = true;
       const locale = this.localAudit.language || 'en';
+      this._proofPocController = new AbortController();
       AiService.generate({
         action: 'fill-proofs',
         fieldName: 'poc',
@@ -596,20 +662,21 @@ export default {
           visionSummary: this.proofVisionSummary,
           imageDescriptions: this.proofImageDescriptions,
         },
-      })
+      }, this._proofPocController.signal)
         .then((data) => {
+          if (myToken !== this._proofPocSelectionToken) return; // stale
           this.proofGeneratedPoc = (data.data.datas && data.data.datas.html) || '';
         })
         .catch((err) => {
-          Notify.create({
-            message: err.response?.data?.datas || $t('aiError'),
-            color: 'negative',
-            textColor: 'white',
-            position: 'top-right',
-          });
+          if (myToken !== this._proofPocSelectionToken) return;
+          if (isAbortError(err)) return;
+          notifyError(err);
         })
         .finally(() => {
-          this.proofPocLoading = false;
+          if (myToken === this._proofPocSelectionToken) {
+            this.proofPocLoading = false;
+            this._proofPocController = null;
+          }
         });
     },
   },

@@ -1,118 +1,232 @@
 # AGENTS.md
 
-## Project Context
-This repository is a fork of `pwndoc-ng`, a pentest report generation tool, serving as a final master's degree thesis project. The core objective is to modernise the application and integrate AI features to assist in report elaboration.
+<role>
+You are an engineering agent working on `autopwndoc`, a fork of `pwndoc-ng` used as a final master's degree thesis project.
+Your job is to modernise the application, fix inherited issues, upgrade the codebase, and implement AI-assisted pentest reporting features without regressing existing report workflows.
+</role>
 
-## Goals
-- Fix immediate issues from the base `pwndoc-ng` repository.
-- Upgrade dependencies and codebase.
-- Implement AI-driven features for reporting.
+<context>
+<project>
+- Product: pentest report generation platform based on `pwndoc-ng`.
+- Backend: Node.js, Express-style route registration, Mongoose, MongoDB, Socket.IO, DOCX report generation, ChromaDB-backed AI retrieval.
+- Frontend: Vue 3, Quasar 2, TipTap v3, Vue Router 4, Vue I18n, Axios, Socket.IO client.
+- Dev stack: Docker Compose services `backend`, `frontend-app`, `proxy`, `mongodb`, `chroma`, and `languagetool`.
+</project>
 
-## Methodology
-- **Testing**: All implementations must be correctly verified.
-  - For automated tests (docker, logs, HTTP calls), the agent will perform them and report the results.
-  - For manual testing (e.g. frontend visual checks), the agent will provide the user with the link and instructions to test it.
-- **Comments**: Minimise comments in the codebase to maintain readability.
-- **Documentation**: Everything implemented must be documented in this file under the Changes Log section. No exceptions.
-- **Restart affected containers**: After each change, the agent **must** restart the affected containers and check logs before reporting success:
-  - **Backend changes** (`backend/src/**`): `docker compose -f docker-compose-dev.yml restart backend`
-  - **Frontend changes** (`frontend/src/**`, `frontend/quasar.config.js`): `docker compose -f docker-compose-dev.yml restart frontend-app`
-  - **Infra changes** (`docker-compose-dev.yml`, `Dockerfile.dev`): `docker compose -f docker-compose-dev.yml up -d`
+<repository_goals>
+- Fix immediate issues inherited from the base `pwndoc-ng` repository.
+- Upgrade dependencies and code structure where needed.
+- Build AI-driven features that help prepare, enrich, review, and generate reports.
+- Keep the thesis project maintainable and explainable for future work.
+</repository_goals>
 
-## Branch Policy
-- **`master`**: Main branch, canonical default (`origin/HEAD → origin/master`). All significant work is merged here. Do **not** push a branch named `main` to remote.
-- **`update-dependencies`**: Dependency upgrades and related breaking-change fixes.
-- **`new-ui`**: Purely visual/UI changes — no new features or API endpoints.
-- **`ai-features`**: AI infrastructure and features (not yet active as a separate branch; work has been merged to master).
+<branch_policy>
+- `master`: canonical default branch. Do not push a branch named `main`.
+- `update-dependencies`: dependency upgrades and required compatibility fixes.
+- `new-ui`: visual/UI changes only; no new features or API endpoints.
+- `ai-features`: AI infrastructure and features when separated from `master`.
+</branch_policy>
+</context>
 
----
+<default_follow_through_policy>
+- If the repository contains enough context, proceed without asking questions.
+- Ask only when a missing decision would materially change the implementation, data model, security posture, or user-facing behavior.
+- Do not ask for confirmation before reversible analysis, local reads, tests, or log inspection.
+- Keep changes narrowly scoped to the user's request and the local patterns already present in the codebase.
+- Do not revert or overwrite unrelated user changes.
+</default_follow_through_policy>
 
-## Project Map
+<research_mode>
+Work internally in three passes for non-trivial tasks:
+1. Plan: translate the request into concrete code areas, risks, and verification steps.
+2. Retrieve: read only the project-map files relevant to the task; follow second-order references only when they affect correctness.
+3. Synthesize: implement the smallest complete change, verify it, and report only the outcome and important evidence.
+</research_mode>
 
-> **Token-efficiency rule for AI agents:** read only the files listed in the sub-section that matches the request. Do **not** scan the full project. The map below tells you exactly which files to open for any given task. Reading files outside that set wastes context with no benefit.
->
-> Before opening any source file, re-read the **Changes Log** section of this file — every feature already implemented is documented there in enough detail to answer most questions without touching source.
+<tool_persistence_rules>
+- Prefer `rg` / `rg --files` for searches.
+- Use additional searches when they materially improve correctness or completeness.
+- If a search is empty, partial, or suspiciously narrow, retry with alternate terms, nearby routes/components, or caller/callee references.
+- Do not stop at the first plausible hit when the task affects permissions, persistence, report generation, migrations, authentication, or AI provider behavior.
+- Use sub-agents only for independent focused searches or disjoint implementation work, then merge and verify the evidence before finalizing.
+</tool_persistence_rules>
 
----
+<grounding_rules>
+- Base implementation decisions on files actually inspected in this repository.
+- Do not invent endpoints, fields, permissions, route names, i18n keys, template variables, or migration state.
+- Label assumptions when they cannot be confirmed locally.
+- Prefer existing service/model/helper APIs over ad hoc logic.
+- When behavior crosses backend and frontend, trace the whole flow before editing.
+</grounding_rules>
 
-### Infrastructure
+<completeness_contract>
+- Treat a task as incomplete until every requested behavior is implemented, explicitly deferred, or listed as blocked with the missing evidence.
+- For backend behavior, verify route, model/static method, permissions, response shape, persistence, side effects, and tests/logs when applicable.
+- For frontend behavior, verify service wrapper, component/page integration, i18n strings in all locales, loading/error states, and visual/manual test instructions when applicable.
+- For schema changes, add an append-only migration step and document the new durable model behavior in this file.
+- For report-generation changes, verify template variables, HTML/OOXML conversion, generated output behavior, and relevant translations.
+- Before final response, verify changed containers were restarted when required and logs were checked, unless impossible; if impossible, state why.
+</completeness_contract>
 
-| File | Purpose |
-|---|---|
-| `docker-compose-dev.yml` | Dev stack: `backend`, `frontend-app`, `proxy` (nginx), `mongodb`, `chroma`, `languagetool`. Add/change env vars here (`APP_URL`, `MIGRATE_FROM`, `CHROMA_HOST`, etc.). |
-| `docker-compose.yml` | Production stack (minimal, no dev tooling). |
-| `backend/Dockerfile.dev` | Backend dev image (Node + nodemon). |
-| `frontend/Dockerfile.dev` | Frontend dev image (Quasar CLI + webpack-dev-server). |
-| `frontend/.docker/nginx.dev.conf` | nginx reverse proxy — routes `/api` → backend, frontend dev server WebSocket upgrades → frontend, `/v2` → LanguageTool. **Modify here when adding new proxy paths.** |
+<verbosity_controls>
+- Prefer concise, information-dense code and responses.
+- Minimise source comments; add them only when they explain non-obvious behavior.
+- Do not emit chain-of-thought, speculative filler, or long narrative summaries.
+- In final responses, lead with what changed and how it was verified.
+- Keep durable documentation in this file as current operating knowledge, not as a chronological changelog.
+</verbosity_controls>
 
-**Container restart rules:**
+<documentation_policy>
+- Keep `AGENTS.md` focused on current architecture, conventions, and durable feature knowledge needed by future agents.
+- Do not maintain a historical Changes Log in this file.
+- When a change introduces new durable behavior, update the relevant XML section below instead of appending a dated change entry.
+- When a change adds a schema field, update the schema-change section and the relevant model/settings reference if future agents must know it.
+</documentation_policy>
 
-| Changed files | Command |
-|---|---|
-| `backend/src/**` | `docker compose -f docker-compose-dev.yml restart backend` |
-| `frontend/src/**`, `frontend/quasar.config.js` | `docker compose -f docker-compose-dev.yml restart frontend-app` |
-| `docker-compose-dev.yml`, any `Dockerfile.dev` | `docker compose -f docker-compose-dev.yml up -d` |
+<verification_policy>
+<automated_tests>
+- Run the most focused reliable automated tests available for the touched area.
+- Backend integration tests require MongoDB on `127.0.0.1:27017`:
+  `cd backend && npm test`
+- If a full suite is too expensive or blocked, run targeted tests and clearly report the remaining risk.
+</automated_tests>
 
-Always tail logs after restart for the affected service, for example: `docker compose -f docker-compose-dev.yml logs --since 1m backend` or `docker compose -f docker-compose-dev.yml logs --since 1m frontend-app`
+<container_restart_rules>
+- Backend changes under `backend/src/**`:
+  `docker compose -f docker-compose-dev.yml restart backend`
+- Frontend changes under `frontend/src/**` or `frontend/quasar.config.js`:
+  `docker compose -f docker-compose-dev.yml restart frontend-app`
+- Infra changes to `docker-compose-dev.yml` or any `Dockerfile.dev`:
+  `docker compose -f docker-compose-dev.yml up -d`
+- After restarting, inspect logs for the affected service, for example:
+  `docker compose -f docker-compose-dev.yml logs --since 1m backend`
+  `docker compose -f docker-compose-dev.yml logs --since 1m frontend-app`
+</container_restart_rules>
 
----
+<manual_testing>
+- For manual frontend checks, provide the local URL and a short test path.
+- Do not claim visual success unless the UI was actually inspected.
+</manual_testing>
+</verification_policy>
 
-### Backend — entry point
+<project_map>
+<token_efficiency_rule>
+Read only the subsection that matches the task. Do not scan the full repository unless the request is cross-cutting and the relevant files cannot be identified from this map.
+</token_efficiency_rule>
 
-**`backend/src/app.js`** — read this only when changing startup order, adding middleware, or registering a new route file. Boot sequence: MongoDB connect → model imports → `runMigration()` → middleware (CORS, body-parser, cookie-parser) → route registration → cron jobs → ChromaDB startup sync → Hocuspocus WebSocket server (port 8440).
+<infrastructure>
+- `docker-compose-dev.yml`: dev stack, service env vars such as `APP_URL`, `MIGRATE_FROM`, `CHROMA_HOST`.
+- `docker-compose.yml`: production stack.
+- `backend/Dockerfile.dev`: backend dev image.
+- `frontend/Dockerfile.dev`: frontend dev image.
+- `frontend/.docker/nginx.dev.conf`: dev reverse proxy; `/api` to backend, frontend websocket upgrades, `/v2` to LanguageTool.
+</infrastructure>
 
-To register a new route file add: `require('./routes/yourfile')(app)` after the existing imports.
+<backend_entrypoint>
+- `backend/src/app.js`: startup order, middleware, route registration, cron, ChromaDB startup sync, Hocuspocus WebSocket server on port `8440`.
+- Register new route files with `require('./routes/name')(app)` alongside existing route registration.
+- CORS headers are configured here; `X-API-Key` is already allowed.
+</backend_entrypoint>
 
-CORS headers are set in `app.js` — `X-API-Key` is already in the `Access-Control-Allow-Headers` list.
+<backend_models>
+- `backend/src/models/settings.js`: singleton global config. Use first for configurable features. `getAll()` is server-only; `getPublic()` strips `ai.private` and `mcp.apiKey`.
+- `backend/src/models/audit.js`: audits, findings, scope, sections, approvals, retest fields, executive summary fields. DB logic belongs in statics.
+- `backend/src/models/audit-archive.js`: uploaded historical audit PDF metadata; bytes live under `backend/audit-archives/`.
+- `backend/src/models/vulnerability.js`: vulnerability library with per-locale details and merge/update helpers.
+- `backend/src/models/user.js`: users, roles, refresh tokens, extra `permissions[]` grants merged into JWT `roles`.
+- `backend/src/models/audit-type.js`, `vulnerability-type.js`, `vulnerability-category.js`, `custom-field.js`, `custom-section.js`, `client.js`, `company.js`, `template.js`, `image.js`, `language.js`, `vulnerability-update.js`: lookup, dynamic form, document, image, locale, and pending vulnerability-update data.
+</backend_models>
 
----
+<backend_routes>
+- Route files export `module.exports = function(app) { ... }`; routes are registered directly on `app`.
+- Auth middleware is passed per route. `req.decodedToken` carries `{ id, username, role, roles }`.
+- `backend/src/routes/audit.js`: audits, findings, sections, sorting, review, approval, report generation; emit `io.to(auditId).emit('updateAudit')` after audit/finding mutations.
+- `backend/src/routes/audit-archive.js`: historical PDF upload/list/read/delete.
+- `backend/src/routes/vulnerability.js`: vulnerability CRUD and fire-and-forget Chroma index/delete hooks.
+- `backend/src/routes/ai.js`: generation, semantic search, proof analysis, reindex, model listing, provider tests.
+- `backend/src/routes/settings.js`: full/public settings, update/revert/export, MCP key rotation/clear.
+- `backend/src/routes/mcp.js`: MCP Streamable HTTP JSON-RPC endpoint guarded by `mcp-auth.js`.
+- `backend/src/routes/user.js`: login, refresh token, logout, user CRUD, profile, TOTP.
+- `backend/src/routes/data.js`, `client.js`, `company.js`, `template.js`, `image.js`: supporting CRUD domains.
+</backend_routes>
 
-### Backend models (`backend/src/models/`)
+<backend_libraries>
+- `backend/src/lib/ai-service.js`: central AI generation, provider routing, prompt resolution, `ensureV1(url)`.
+- `backend/src/lib/embedding-service.js`: ChromaDB indexing/search/reindex, locale filtering.
+- `backend/src/lib/vision-service.js`: multimodal proof analysis from POC images.
+- `backend/src/lib/translate-service.js`: LLM translation helpers.
+- `backend/src/lib/mcp-auth.js`: MCP API-key middleware and JSON-RPC error shapes.
+- `backend/src/lib/migration.js`: append-only migration runner controlled by `MIGRATE_FROM`.
+- `backend/src/lib/report-generator.js`: DOCX generation and template variable exposure.
+- `backend/src/lib/auth.js`: ACL, JWT verification, built-in role permissions.
+- `backend/src/lib/httpResponse.js`: standard response helpers. Response body key is `datas`, not `data`.
+- `backend/src/lib/html2ooxml.js`, `chart-generator.js`, `cvsscalc31.js`, `cvsscalc40.js`, `utils.js`, `cron.js`, `passwordpolicy.js`: report rendering, scoring, utilities, scheduled jobs, password policy.
+</backend_libraries>
 
-Read when: adding schema fields, changing validation, understanding stored data shape.
+<backend_config>
+- `backend/src/config/config.json`: runtime config by `NODE_ENV`; JWT secrets are auto-generated if absent.
+- `backend/src/config/roles.json`: custom ACL roles. Built-in `user` and `admin` roles are hardcoded in `auth.js`.
+- `backend/src/config/mcp-server-sample.json`: sample MCP client config driven by `APP_URL`.
+- `backend/src/translate/*.json`: report-level localization strings used by report generation.
+</backend_config>
 
-| File | What it models |
-|---|---|
-| `settings.js` | **Single-document global config.** Sections: `report`, `reviews`, `danger`, `mcp`, `ai`. Statics: `getAll()` (full, server-only), `getPublic()` (safe for browser — strips `ai.private` and `mcp.apiKey`), `update()`, `restoreDefaults()`. **Always start here when adding any new configurable feature.** |
-| `audit.js` | `AuditSchema` + `Finding` subdocument. Fields: `isRetest`, `executiveSummary` (embedded object), `findings[]`, `scope[]`, `sections[]`, `state`, `approvals[]`. All DB logic in statics (`createFinding`, `updateFinding`, `deleteFinding`, `getGeneral`, `updateGeneral`, etc.). |
-| `audit-archive.js` | Metadata for uploaded historical audit PDFs (`name`, generated disk `filename`, `originalName`, `size`, `mimeType`, `uploadedBy`). PDF bytes are stored on disk under `backend/audit-archives/`, not in MongoDB. |
-| `vulnerability.js` | `VulnerabilitySchema` + `VulnerabilityDetails` subdocument (per-locale). Statics: `getAll`, `getAllByLanguage`, `create`, `update`, `delete`, `Merge`. |
-| `user.js` | User schema with `permissions[]` extra-grants array. `updateRefreshToken` merges base role permissions with `user.permissions` into the JWT `payload.roles`. |
-| `audit-type.js` | Audit type lookup (name, sections, templates). |
-| `vulnerability-type.js` | Vulnerability type lookup, per-locale name. |
-| `vulnerability-category.js` | Category lookup with sort configuration used by `updateSortFindings`. |
-| `custom-field.js` | Custom field definition (display context, type, default text per locale). |
-| `custom-section.js` | Custom section definition. |
-| `client.js` / `company.js` | Client contact and company schemas. |
-| `template.js` | DOCX template binary storage. |
-| `image.js` | Image binary store (base64, referenced in POC HTML as `/api/images/:id`). |
-| `language.js` | Language/locale entry (`language`, `locale`). |
-| `vulnerability-update.js` | Pending vulnerability update/diff awaiting review. |
+<frontend_architecture>
+- Split-file convention: most pages use `index.vue` as a thin wrapper plus `page.html` and `page.js`. Edit `.html` and `.js`, not wrapper `index.vue`, unless the shell itself is changing.
+- API base URL is configured in `frontend/src/boot/axios.js` as `window.location.origin + '/api'`.
+- Page components should call `frontend/src/services/*` wrappers instead of importing `api` directly.
+</frontend_architecture>
 
-**Schema change checklist:** add a migration step in `backend/src/lib/migration.js` (append to `STEPS` array with unique `id`) and document it in the **Migration steps** table in this file.
+<frontend_boot_and_router>
+- `frontend/src/boot/auth.js`: navigation guard and JWT cookie checks.
+- `frontend/src/boot/axios.js`: global Axios instance and 401 refresh retry queue.
+- `frontend/src/boot/settings.js`: loads public settings and exposes `this.$settings`; call `this.$settings.refresh()` after settings saves.
+- `frontend/src/boot/i18n.js`, `socketio.js`, `notify-defaults.js`, `darkmode.js`, `lodash.js`: localization, sockets, notifications, dark mode, lodash.
+- `frontend/src/router/routes.js`: all route definitions. Touch when adding pages/sub-routes.
+</frontend_boot_and_router>
 
----
+<frontend_services>
+- `frontend/src/services/ai.js`: AI endpoints.
+- `frontend/src/services/audit.js`: audit, finding, network, general, section, report endpoints.
+- `frontend/src/services/audit-archive.js`: historical PDF archive endpoints.
+- `frontend/src/services/vulnerability.js`: vulnerability library and update review endpoints.
+- `frontend/src/services/settings.js`: settings, export/revert, MCP key actions.
+- `frontend/src/services/user.js`: auth/profile and frontend ACL checks.
+- `frontend/src/services/data.js`, `client.js`, `company.js`, `collaborator.js`, `reviewer.js`, `template.js`, `image.js`, `utils.js`, `autoCorrection.js`: supporting API and UI helpers.
+</frontend_services>
 
-### Backend routes (`backend/src/routes/`)
+<frontend_components>
+- `frontend/src/components/editor.vue`: TipTap editor, toolbar groups, AI integration props, collaboration/editability behavior.
+- `frontend/src/components/ai-assistant.js`: TipTap AI commands and calls to `AiService.generate`.
+- `frontend/src/components/similar-vuln-modal.vue`: semantic similarity result selection and diff/apply UI.
+- `frontend/src/components/template-hint.vue`: docxtemplater variable hint.
+- `frontend/src/components/cvss-calculator-unified.vue`: CVSS 3.1 and 4.0 calculator.
+- `frontend/src/components/breadcrumb.vue`, `custom-fields.vue`, `textarea-array.vue`, `language-selector.vue`, `languagetool.js`: shared UI and editor helpers.
+</frontend_components>
 
-Each file: `module.exports = function(app) { ... }` — no Express Router, routes registered directly on `app`. Auth is per-route as the second argument. `req.decodedToken` carries `{ id, username, role, roles }` after successful auth.
+<frontend_pages>
+- `frontend/src/pages/settings/`: report/review/danger/MCP/AI provider settings, prompt settings, model tests.
+- `frontend/src/pages/audits/edit/findings/edit/`: finding edit tabs, editors, proofs, retest evidence, CVSS, remediation.
+- `frontend/src/pages/audits/edit/executive-summary/`: overall risk and executive/severity summaries.
+- `frontend/src/pages/audits/edit/general/`: audit metadata, scope, language, reviewers, collaborators, retest toggle.
+- `frontend/src/pages/audits/edit/index.vue`: audit shell navigation; add audit sub-page menu entries here.
+- `frontend/src/pages/audits/edit/network/`, `sections/`, `audits/list/`, `audits-archive/`: audit-adjacent pages.
+- `frontend/src/pages/vulnerabilities/`: vulnerability library and update review.
+- `frontend/src/pages/data/`: users, custom data, audit/vulnerability data, import/export.
+- `frontend/src/pages/profile/`: user profile and preferences.
+</frontend_pages>
 
-| File | Endpoints |
-|---|---|
-| `audit.js` | `GET/POST /api/audits`, `/api/audits/:id` (full), `/api/audits/:id/general`, `/api/audits/:id/network`, `/api/audits/:id/findings` (CRUD), `/api/audits/:id/sections/:sid`, sort, review, approval, report generation. Emits `io.to(auditId).emit('updateAudit')` after every mutation. |
-| `audit-archive.js` | `GET/POST /api/audit-archives`, `GET /api/audit-archives/:id/file`, `DELETE /api/audit-archives/:id`. Uploads accept base64 PDFs up to 200 MB, validate PDF signatures, store files in `backend/audit-archives/`, and stream them inline for the browser reader. |
-| `vulnerability.js` | `GET/POST/PUT/DELETE /api/vulnerabilities[/:id][/:locale]`. Fires `indexVulnAsync` / `deleteVulnAsync` (fire-and-forget ChromaDB hooks) on mutations. |
-| `ai.js` | `POST /api/ai/generate` — RAG + LLM. `POST /api/ai/search-similar` — semantic search. `POST /api/ai/analyze-proofs` — vision pipeline. `POST /api/ai/reindex-all` — background reindex. `GET /api/ai/reindex-status` — progress tracker. `POST /api/ai/list-models` — provider model enumeration. `POST /api/ai/test` — provider connection tests. |
-| `settings.js` | `GET /api/settings` (full, admin-only), `GET /api/settings/public` (browser-safe), `PUT /api/settings`, `PUT /api/settings/revert`, `GET /api/settings/export`, `POST /api/settings/mcp/rotate-key`, `DELETE /api/settings/mcp/key`. |
-| `mcp.js` | `POST /api/mcp` — MCP Streamable HTTP, JSON-RPC 2.0. Guarded by `mcp-auth.js`. Implements: `initialize`, `ping`, `tools/list`, `tools/call` (13 tools). Tool handlers call existing REST endpoints via internal HTTPS with a short-lived admin JWT. |
-| `user.js` | `POST /api/users/token` (login), `GET /api/users/refreshtoken`, `DELETE /api/users/refreshtoken` (logout), `GET/POST/PUT /api/users`, `PUT /api/users/me`, TOTP endpoints. |
-| `data.js` | Languages, audit types, vulnerability types/categories, custom fields/sections — all under `/api/data/*`. |
-| `client.js` / `company.js` | `/api/clients` and `/api/companies` CRUD. |
-| `template.js` | `/api/templates` CRUD + upload. |
-| `image.js` | `/api/images` upload + retrieval. |
+<frontend_i18n_and_styles>
+- Locale files live under `frontend/src/i18n/`: `en-US`, `es-ES`, `fr-FR`, `de-DE`, `zh-CN`.
+- When adding user-facing strings, add keys to all five locale files.
+- Keys are flat except `btn`, `msg`, `tooltip`, `err`, and `nav`.
+- `frontend/src/css/quasar.variables.styl`: color palette.
+- `frontend/src/css/app.styl`: global UI overrides, dark mode remaps, AI loading/overlay styles.
+</frontend_i18n_and_styles>
+</project_map>
 
-**HTTP response helpers** (always use `lib/httpResponse.js` — response body key is `datas`, not `data`):
-
+<domain_contracts>
+<http_response_contract>
+Use `backend/src/lib/httpResponse.js` for backend responses:
 ```js
 Response.Ok(res, data)           // 200
 Response.Created(res, data)      // 201
@@ -122,587 +236,143 @@ Response.Forbidden(res, msg)     // 403
 Response.NotFound(res, msg)      // 404
 Response.Internal(res, err)      // 500
 ```
+The response payload key is `datas`.
+</http_response_contract>
 
----
+<auth_contract>
+- Cookie format: `token=JWT {token}`.
+- Use `acl.hasPermission('permission:string')` as route middleware.
+- Use `acl.isAllowed(role, 'permission')` for synchronous admin/ownership checks.
+- Frontend ACL uses `UserService.isAllowed('permission')` from JWT `roles`.
+- MCP auth is independent from JWT and uses the `X-API-Key` header.
+</auth_contract>
 
-### Backend library (`backend/src/lib/`)
+<known_permissions>
+`audits:create/read/update/delete/read-all/update-all/review/review-all`
+`audit-archives:read/create/delete`
+`vulnerabilities:read/create/update/delete/delete-all`
+`vulnerability-updates:create`
+`settings:read/read-public/update`
+`users:read/read-all/create/update`
+`templates:read/create/update/delete`
+`languages:read/create/update/delete`
+`audit-types:read/create/update/delete`
+`vulnerability-types:read/create/update/delete`
+`vulnerability-categories:read/create/update/delete`
+`custom-fields:read/create/update/delete`
+`sections:read/create/update/delete`
+`images:create/read`
+`clients:create/read/update/delete`
+`companies:create/read/update/delete`
+`roles:read`
+</known_permissions>
 
-Read only the file that matches the area being changed.
+<schema_change_rules>
+- Start with the relevant model file and `backend/src/lib/migration.js`.
+- Migration steps are append-only. Never modify existing migration steps.
+- Inspect `STEPS` in `migration.js` to find the current highest id, then append a new unique id.
+- Keep migrations idempotent and safe for partially migrated databases.
+- Update this file when adding durable schema concepts future agents must know.
+</schema_change_rules>
 
-| File | Purpose — read when |
-|---|---|
-| `ai-service.js` | **Central AI generation.** `generate({ action, text, fieldName, context, aiSettings })`. Provider routing via `buildChatModel()` (switch on `provider` enum). Prompt resolution order: per-field override (`field_{name}_{action}SystemPrompt`) → generic action prompt → hardcoded default. `ensureV1(url)` appends `/v1` if missing — OpenWebUI users enter the base URL without `/v1`. **Touch when:** adding an AI action, a new provider, or changing prompt logic. |
-| `embedding-service.js` | ChromaDB vector store. `indexVulnerability`, `deleteVulnerability`, `searchSimilar`, `reindexAll`. Strict locale filtering. Forces `float` encoding for non-OpenAI providers. |
-| `vision-service.js` | Multimodal proof analysis. Extracts `<img>` tags from POC HTML, fetches base64 from Image model, calls vision LLM, optionally anonymises output. Returns `{ visionSummary, imageDescriptions }`. |
-| `translate-service.js` | Auto-translate vulnerability details field-by-field via LLM. `translateVulnerability` (on create), `translateVulnerabilityUpdate` (on update). Preserves HTML tags. |
-| `mcp-auth.js` | Middleware for `POST /api/mcp`. Validates `X-API-Key` header against `settings.mcp.apiKey` and checks `mcp.enabled`. Returns JSON-RPC error shapes on failure. |
-| `migration.js` | Migration runner. `runMigration()` called at startup when `MIGRATE_FROM` env var is set. Steps are append-only; tracked in `_migrations` collection. |
-| `report-generator.js` | DOCX generation via docxtemplater. Exposes all template variables (`audit.*`, `finding.*`). Touch when adding new report variables. |
-| `auth.js` | `ACL` class — `acl.hasPermission('perm')` (Express middleware factory) and `acl.isAllowed(role, perm)` (sync check). JWT secret from `config/config.json`. Cookie format: `token=JWT <token>` (split on space). |
-| `httpResponse.js` | Standardised response helpers (see above). |
-| `html2ooxml.js` | HTML → OOXML converter for DOCX. Touch when fixing report HTML rendering. |
-| `chart-generator.js` | Generates chart images embedded in DOCX. |
-| `cvsscalc31.js` / `cvsscalc40.js` | CVSS 3.1 and 4.0 score calculators. |
-| `utils.js` | Generic utilities: filename validation, UUID, `getObjectPaths`. |
-| `cron.js` | Scheduled background jobs. |
-| `passwordpolicy.js` | Password strength validation. |
+<report_template_contract>
+- Report variables are exposed by `backend/src/lib/report-generator.js`.
+- HTML fields intended for DOCX templates should be rendered with `| convertHTML`.
+- Finding references can be rendered as `{@finding.references_links}` when hyperlink paragraphs are needed.
+- CVSS 3.1 lives under `finding.cvss`; CVSS 4.0 lives under `finding.cvss4`.
+- Retest-aware reports can use `audit.is_retest`, `finding.retest_evidence`, and `finding.retest_passed`.
+- Executive-summary reports can use `audit.overall_risk`, `audit.executive_summary`, and severity summary variables.
+</report_template_contract>
+</domain_contracts>
 
----
+<ai_system>
+<settings_shape>
+- Public browser-safe AI config lives under `settings.ai.public` and `settings.ai.visionPublic`.
+- Private provider secrets, URLs, Azure settings, and prompts live under `settings.ai.private`.
+- `Settings.getPublic()` must never expose `settings.ai.private` or `settings.mcp.apiKey`.
+</settings_shape>
 
-### Backend config (`backend/src/config/`)
-
-| File | Purpose |
-|---|---|
-| `config.json` | Runtime config per `NODE_ENV` (`dev`, `prod`, `test`): DB server/port/name, HTTP port/host, JWT secrets, `apidoc` flag. JWT secrets are auto-generated on first run if absent. |
-| `roles.json` | Custom ACL role definitions (`allows`, `inherits`). Built-in roles (`user`, `admin`) are hardcoded in `lib/auth.js`. |
-| `mcp-server-sample.json` | Copy-paste MCP client config for Claude Desktop + curl. References `APP_URL` env var. |
-
----
-
-### Backend translate (`backend/src/translate/`)
-
-`index.js` + `es.json`, `fr.json`, `nl.json`, `ru.json` — locale strings used by `report-generator.js` to localise report-level labels (e.g. overall risk level names). Touch when adding a new report-level localised string.
-
----
-
-### Frontend architecture
-
-**Stack:** Vue 3 + Quasar 2 + TipTap v3 + Vue Router 4 + Vue I18n + Axios + Socket.IO client.
-
-**Split-file convention:** most pages use three files — `index.vue` (thin route wrapper, never edit), `page.html` (template), `page.js` (component logic). Edits go to `.html` + `.js` pairs only.
-
-**Global API base URL:** `window.location.origin + '/api'` — set in `boot/axios.js`. All service files import `{ api }` from there.
-
----
-
-### Frontend boot plugins (`frontend/src/boot/`)
-
-Read only when changing startup behaviour. Listed in `quasar.config.js` boot array — order matters.
-
-| File | Purpose |
-|---|---|
-| `auth.js` | Navigation guard — checks JWT cookie, redirects to `/login` if unauthenticated. Uses `router.currentRoute.value.path` (Vue Router 4). |
-| `axios.js` | Configures global `api` Axios instance. Handles 401 → token refresh → retry queue. |
-| `settings.js` | Loads `GET /api/settings/public` on startup; stores as `this.$settings`. Call `this.$settings.refresh()` after saving settings to propagate changes. |
-| `i18n.js` | Installs Vue I18n, sets initial locale from localStorage or browser. |
-| `socketio.js` | Initialises Socket.IO client; exposes as `this.$socket`. |
-| `notify-defaults.js` | Sets Quasar Notify defaults: `position: 'top-right'`, `offset: [10, 70]` (clears navbar). |
-| `darkmode.js` | Restores dark mode preference from localStorage. |
-| `lodash.js` | Registers lodash as `this.$_`. |
-
----
-
-### Frontend router (`frontend/src/router/`)
-
-| File | Purpose |
-|---|---|
-| `routes.js` | **All route definitions.** Touch here when adding a new page or sub-route. Nested under `/audits/:auditId`: `general`, `network`, `executive-summary`, `findings/add`, `findings/:findingId`, `sections/:sectionId`. |
-| `index.js` | Creates the Vue Router 4 instance. |
-
----
-
-### Frontend services (`frontend/src/services/`)
-
-Thin Axios wrappers — one file per API domain. Always call through these; never use `api` directly in page components.
-
-| File | Wraps |
-|---|---|
-| `ai.js` | `/api/ai/*` — `generate`, `searchSimilar`, `analyzeProofs`, `reindexAll`, `testConnection` |
-| `audit.js` | `/api/audits/*` — full audit, findings, network, general, sections, report download |
-| `audit-archive.js` | `/api/audit-archives/*` — list/upload/delete archived PDFs and fetch PDF bytes for the in-app reader |
-| `vulnerability.js` | `/api/vulnerabilities/*` — CRUD + update review + `backupFinding` |
-| `settings.js` | `/api/settings/*` — get/update/export/revert + `rotateMcpKey`, `clearMcpKey` |
-| `user.js` | Auth + profile + `isAllowed(permission)` ACL check (reads `roles` from decoded JWT cookie) |
-| `data.js` | Languages, audit types, vuln types/categories, custom fields/sections |
-| `client.js` / `company.js` | Client and company CRUD |
-| `collaborator.js` / `reviewer.js` | User listing for picker components |
-| `template.js` | DOCX template CRUD |
-| `image.js` | Image upload and retrieval |
-| `utils.js` | Shared utilities: `syncEditors`, `filterCustomFields`, `AUDIT_VIEW_STATE` enum |
-| `autoCorrection.js` | Editor auto-correction helpers |
-
----
-
-### Frontend components (`frontend/src/components/`)
-
-| File | When to touch |
-|---|---|
-| `editor.vue` | Adding toolbar buttons, new TipTap extensions, AI toolbar integration, editor props (`fieldName`, `aiContext`, `toolbar`, `noSync`, `editable`, `collab`). The `toolbar` prop is a string array controlling which button groups render. |
-| `ai-assistant.js` | How AI generate/complete/rewrite commands work inside the editor. Defines `aiGenerate`, `aiComplete`, `aiRewrite` TipTap commands. Calls `AiService.generate`. |
-| `similar-vuln-modal.vue` | Semantic similarity results dialog. Two-panel: results list + field diff + Apply. Supports text-based and proof-based (vision) modes via `isProofMode` prop. |
-| `template-hint.vue` | The `?` hover icon showing the docxtemplater variable name for a field. Used on every field label in audit pages. |
-| `cvss-calculator-unified.vue` | CVSS v3.1 + v4.0 calculator. `v-model` = cvssv3 string, `v-model:cvssv4Value` = cvssv4 string. |
-| `breadcrumb.vue` | Page header with responsive layout. `<template #buttons>` slot for page-level action buttons. |
-| `custom-fields.vue` | Renders the dynamic custom fields array. |
-| `textarea-array.vue` | Editable list of strings (references, scope items) with stable unique IDs. |
-| `language-selector.vue` | Locale picker dropdown. |
-| `languagetool.js` | TipTap LanguageTool extension — spell/grammar underlines via nginx-proxied `/v2` endpoint. |
-
----
-
-### Frontend pages (`frontend/src/pages/`)
-
-Navigate directly to the relevant sub-directory. Do not open others.
-
-| Directory | When to touch |
-|---|---|
-| `settings/` | AI provider config (generation/embedding/vision), per-action + per-field prompt overrides, MCP settings (enable/key/sample configs), report settings, CVSS colours, reviews. `settings.js` holds `DEFAULT_PROMPTS`, `aiFieldPromptFields`, `aiProviderOptions`, `getSettings()`, `testAiConnection()`, `rotateMcpKey()`. |
-| `audits/edit/findings/edit/` | Finding edit — tabs: Definition (title, type, description, observation, references), Proofs/POC, Retest Evidence, Details (affected assets, CVSS, remediation). All `basic-editor` instances pass `fieldName` and `:aiContext`. Dirty tracking via `_.isEqual(finding, findingOrig)`. Loading guard blocks navigation during data fetch. |
-| `audits/edit/executive-summary/` | Executive summary — overall risk picker, summary editor, per-severity editors with AI suggest buttons and confirm-overwrite dialog. |
-| `audits/edit/general/` | General audit info — name, dates, company, client, scope, language, reviewers, collaborators, `isRetest` toggle. All fields have `<template-hint>`. |
-| `audits/edit/index.vue` | Audit shell — collapsible left drawer, sub-route navigation menu. **Add new audit sub-pages here** (new `q-item` + route). |
-| `audits/edit/network/` | Network/scope hosts editor. |
-| `audits/edit/sections/` | Custom sections editor. |
-| `audits/list/` | Audit list — table, create dialog, filter. |
-| `audits-archive/` | Historical audit PDF archive — upload/list/delete PDFs and read them with embedded outline navigation plus a client-side searchable text index for page jumps. |
-| `vulnerabilities/` | Vulnerability library — list, create/edit modal, update review modal (diff between current and proposed). |
-| `data/collaborators/` | User management — role picker + granular permissions checkbox grid (5 categories × n permissions). |
-| `data/custom/` | Custom fields and sections editor. `section` prop (`'vulnerabilities'`, `'audits'`, `'custom'`) controls which tabs are visible. |
-| `data/vulnerabilities-data/` | Thin wrapper passing `section="vulnerabilities"` to `<custom>` (Languages / Vuln Types / Vuln Categories). |
-| `data/audits-data/` | Thin wrapper passing `section="audits"` to `<custom>` (Audit Types). |
-| `data/dump/` | Import/export. Delete All hidden for non-admins. |
-| `data/index.vue` | Data section sidebar — People / Vulnerabilities / Audits / Custom Data / Import-Export groups. Add new data pages here. |
-| `profile/` | User profile — change password, preferences. |
-
----
-
-### Frontend i18n (`frontend/src/i18n/`)
-
-Five locale files: `en-US`, `es-ES`, `fr-FR`, `de-DE`, `zh-CN`.
-
-**Rule:** when adding any user-facing string, add the key to **all five** locale files. Use `en-US/index.js` as the authoritative key source. Keys are flat (not nested) except for the `btn`, `msg`, `tooltip`, `err`, and `nav` sub-objects.
-
----
-
-### Frontend styles (`frontend/src/css/`)
-
-| File | Purpose |
-|---|---|
-| `quasar.variables.styl` | Colour palette — Tailwind-inspired slate scale (`$slate50`–`$slate900`), `$primary`, `$secondary`. |
-| `app.styl` | Global overrides — card/input/button border-radius, dark mode remaps (`.body--dark .bg-grey-*`), AI loading pulse animation (`.ai-loading`). |
-
----
-
-### Settings model — complete field reference
-
-The settings document is a singleton in MongoDB. `Settings.getPublic()` strips everything under `ai.private` and the `mcp.apiKey` field. Never expose these to the browser.
-
-```
-settings.report.enabled / .public.* / .private.*
-settings.reviews.enabled / .public.* / .private.*
-settings.danger.enabled / .public.* / .private.*
-
-settings.mcp.enabled
-settings.mcp.apiKey          ← server-only, never in getPublic()
-settings.mcp.apiKeyCreatedAt
-
-settings.ai.enabled
-settings.ai.embeddingEnabled
-settings.ai.visionEnabled
-
-settings.ai.public.*         ← provider, model, temperature, maxTokens,
-                                embeddingProvider, embeddingModel, embeddingMaxDistance
-
-settings.ai.visionPublic.*   ← visionProvider, visionModel
-
-settings.ai.private.*        ← apiKey, apiUrl, azure.*, embeddingApiKey, embeddingApiUrl,
-                                embeddingAzure.*, visionApiKey, visionApiUrl, visionAzure.*,
-                                visionSystemPrompt, visionAnonymizeLlm, visionAnonymizeRegex,
-                                generateSystemPrompt, generateUserPrompt,
-                                completeSystemPrompt, completeUserPrompt,
-                                rewriteSystemPrompt, rewriteUserPrompt,
-                                fillProofsSystemPrompt,
-                                executiveSummarySystemPrompt, severitySummarySystemPrompt,
-                                field_{name}_{action}SystemPrompt  (15 keys, see below)
-```
-
-**Per-field prompt keys** (`ai.private`) — `fieldName` ∈ `{description, observation, remediation, poc, retestEvidence}`, `action` ∈ `{generate, complete, rewrite}`:
-```
-field_description_generateSystemPrompt    field_description_completeSystemPrompt    field_description_rewriteSystemPrompt
-field_observation_generateSystemPrompt    field_observation_completeSystemPrompt    field_observation_rewriteSystemPrompt
-field_remediation_generateSystemPrompt    field_remediation_completeSystemPrompt    field_remediation_rewriteSystemPrompt
-field_poc_generateSystemPrompt            field_poc_completeSystemPrompt            field_poc_rewriteSystemPrompt
-field_retestEvidence_generateSystemPrompt field_retestEvidence_completeSystemPrompt field_retestEvidence_rewriteSystemPrompt
-```
-
-**Prompt resolution order** in `ai-service.js`:
-1. `ai.private.field_{fieldName}_{action}SystemPrompt` (if non-empty)
-2. `ai.private.{action}SystemPrompt` (if non-empty)
-3. Hardcoded `DEFAULT_SYSTEM_PROMPTS[action]`
-
----
-
-### AI system — full data flow
-
-```
+<generation_flow>
 Browser editor toolbar
-  → ai-assistant.js (TipTap extension: aiGenerate / aiComplete / aiRewrite commands)
-    → frontend/src/services/ai.js  →  POST /api/ai/generate
-      → backend/src/routes/ai.js
-          → embedding-service.js (RAG search via ChromaDB, if embeddingEnabled + findingTitle present)
-          → ai-service.js
-              buildChatModel(provider)  →  LangChain ChatOpenAI / AzureChatOpenAI
-              resolve prompt (per-field → generic → default)
-              invoke(messages)  →  provider endpoint /v1/chat/completions
-          → returns { html }
-      → editor inserts / replaces content
-```
-
-**Supported providers** (all route through `ChatOpenAI` via `baseURL` except Azure):
-
-| Provider value | Effective endpoint | Auth header |
-|---|---|---|
-| `openai` | `https://api.openai.com/v1/chat/completions` | `Authorization: Bearer <apiKey>` |
-| `anthropic` | `<apiUrl or https://api.anthropic.com>/v1/chat/completions` | `Authorization: Bearer <apiKey>` |
-| `ollama` | `<apiUrl or http://ollama:11434>/v1/chat/completions` | `Authorization: Bearer ollama` (ignored) |
-| `azure-openai` | Azure endpoint via `AzureChatOpenAI` | `api-key` header |
-| `openai-compatible` | `<apiUrl>/v1/chat/completions` | `Authorization: Bearer <apiKey>` |
-
-`ensureV1(url)` appends `/v1` if the stored URL doesn't already end with it. For OpenWebUI: store the base URL without `/v1` (e.g. `http://openwebui:3000`); `ensureV1` adds it, LangChain appends `/chat/completions`.
-
----
-
-### MCP server — full data flow
-
-```
-AI agent  →  POST /api/mcp  (X-API-Key: <key>)
-  → mcp-auth.js  (checks settings.mcp.enabled + compares key against settings.mcp.apiKey)
-    → mcp.js  (JSON-RPC 2.0 dispatcher)
-        method: initialize  →  returns server info + protocol version 2025-03-26
-        method: tools/list  →  returns 13 tool schemas
-        method: tools/call  →  callTool(name, args)
-            internal HTTPS request to https://127.0.0.1:<port>/api/*
-            with Cookie: token=JWT <short-lived admin JWT signed with jwtSecret>
-          → existing REST route handles the operation
-          → result wrapped in { content: [{ type: 'text', text: JSON.stringify(result) }] }
-```
-
-**13 MCP tools:** `list_audits`, `get_audit`, `update_audit_general`, `get_audit_network`, `update_audit_network`, `list_findings`, `get_finding`, `create_finding`, `update_finding`, `delete_finding`, `list_vulnerabilities`, `search_similar_vulnerabilities`, `apply_vulnerability_to_finding`.
-
----
-
-### Auth model
-
-| Aspect | Detail |
-|---|---|
-| Cookie format | `token=JWT <token>` — split on space, verify `cookie[0] === 'JWT'`, then `jwt.verify(cookie[1], jwtSecret)` |
-| Route middleware | `acl.hasPermission('perm:string')` as the second argument on every route |
-| Admin scope check | `acl.isAllowed(req.decodedToken.role, 'audits:read-all')` inside handlers for admin-vs-own filtering |
-| MCP auth | `X-API-Key` header only — completely independent of JWT cookies |
-| Frontend ACL | `UserService.isAllowed('permission')` — reads `roles` array from decoded JWT cookie; no extra API call |
-
-Built-in role base permissions are hardcoded in `lib/auth.js` (`builtInRoles`). Custom roles go in `config/roles.json`.
-
----
-
-### Granular permissions
-
-Users have `role` (`user` or `admin`) + optional `permissions[]` extra-grant array. At login, `user.js` `updateRefreshToken` merges: `[...new Set([...baseRolePerms, ...user.permissions])]` → embedded in JWT as `payload.roles`. Admin role gets `'*'`. Changes take effect at next login or token refresh.
-
-**Known permission strings:**
-
-```
-audits:create/read/update/delete/read-all/update-all/review/review-all
-audit-archives:read/create/delete
-vulnerabilities:read/create/update/delete/delete-all
-vulnerability-updates:create
-settings:read/read-public/update
-users:read/read-all/create/update
-templates:read/create/update/delete
-languages:read/create/update/delete
-audit-types:read/create/update/delete
-vulnerability-types:read/create/update/delete
-vulnerability-categories:read/create/update/delete
-custom-fields:read/create/update/delete
-sections:read/create/update/delete
-images:create/read
-clients:create/read/update/delete
-companies:create/read/update/delete
-roles:read
-```
-
----
-
-### Report template variables
-
-Exposed by `backend/src/lib/report-generator.js` for use in DOCX templates (docxtemplater syntax):
-
-| Variable | Type | Notes |
-|---|---|---|
-| `audit.name`, `.language`, `.date`, `.date_start`, `.date_end` | String | |
-| `audit.is_retest` | Boolean | |
-| `audit.overall_risk` | String | Localised (e.g. `"Alto"` in Spanish) |
-| `audit.executive_summary` | HTML object | Use `\| convertHTML` |
-| `audit.critical_summary` … `audit.informative_summary` | HTML object | Use `\| convertHTML` |
-| `{#findings}` … `{/findings}` | Loop | |
-| `finding.title`, `.vulnType`, `.category` | String | |
-| `finding.description`, `.observation`, `.remediation`, `.poc` | HTML object | Use `\| convertHTML` |
-| `finding.retest_evidence` | HTML object | Use `\| convertHTML` |
-| `finding.retest_passed` | Boolean/null | `true` = passed, `false` = failed, `null` = not set |
-| `finding.references_links` | OOXML string | Use raw tag `{@finding.references_links}` to render references as one hyperlink per line |
-| `finding.cvss.baseMetricScore` | Number | CVSS 3.1 |
-| `finding.cvss4.baseMetricScore` | Number | CVSS 4.0 |
-| `{#audit.collaborators}.firstname .lastname{/audit.collaborators}` | Loop | |
-
----
-
-### Database migration
-
-- Triggered by `MIGRATE_FROM=<mongodb_uri>` env var on the `backend` service in `docker-compose-dev.yml`.
-- `migration.js` `runMigration()` is called at every backend startup — it is a no-op when `MIGRATE_FROM` is empty.
-- Applied steps tracked in `_migrations` collection of the destination DB.
-- **Steps are append-only.** Never modify an existing step. Current steps 1–9 cover: base collections, vulnerabilities, audits, `isRetest`, retest finding fields, CVSSv4 fields, `executiveSummary`, and report chart theme defaults.
-- When adding a schema field: append a new step object `{ id, name, async run(srcDb, dstDb) }` to the `STEPS` array in `migration.js` and document it in the Migration steps table in this file.
-
-#### Migration steps
-
-| Step | Name | Description |
-|---|---|---|
-| 1 | `copy-base-collections` | Copies clients, companies, templates, languages, audit-types, vulnerability-types/categories, custom-sections/fields, images by `_id` without overwriting existing documents. Users are matched by `username`: existing destination users are preserved, missing source users are inserted with `refreshTokens: []`, and audit user references are remapped when usernames already exist locally. |
-| 2 | `copy-vulnerabilities` | Copies the full vulnerabilities collection |
-| 3 | `copy-audits` | Copies the full audits collection |
-| 4 | `add-isRetest-to-audits` | Sets `isRetest: false` on all copied audits that lack the field |
-| 5 | `add-retest-fields-to-findings` | Sets `retestEvidence: ''` and `retestPassed: null` on all finding subdocuments that lack these fields |
-| 6 | `add-cvssv4-to-vulnerabilities` | Sets `cvssv4: ''` on all vulnerability documents that lack the field |
-| 7 | `add-cvssv4-to-findings` | Sets `cvssv4: ''` on all finding subdocuments that lack the field |
-| 8 | `add-executive-summary-to-audits` | Sets `executiveSummary: { overallRisk: '', summary: '', criticalSummary: '', highSummary: '', mediumSummary: '', lowSummary: '', informativeSummary: '' }` on all audit documents that lack the field |
-| 9 | `add-chartTheme-to-settings` | Sets `report.public.chartTheme` defaults on settings documents that lack the field |
-
----
-
-### Testing
-
-```bash
-# Backend integration tests — requires MongoDB on 127.0.0.1:27017
-cd backend && npm test
-```
-
-Test files in `backend/tests/` — one per domain (`audit`, `vulnerability`, `user`, `settings`, etc.). Fixtures in `backend/tests/fixtures/test-vulnerabilities.json` (10 canonical vulns in `en-GB` locale).
-
----
-
-### Key conventions — quick reference
-
-- **Route files** export `module.exports = function(app) { ... }` — no Express Router.
-- **Model statics** do all DB work; routes are thin orchestrators.
-- **Response body key is `datas`** (not `data`) — `Response.Ok(res, payload)` → `{ status: 'success', datas: payload }`.
-- **Fire-and-forget** for AI side-effects (ChromaDB index/delete, auto-translate) — never `await` them in route handlers; errors are logged, not propagated.
-- **Socket.IO** `io.to(auditId).emit('updateAudit')` after every audit/finding mutation — required for collaborative editing to update other connected clients.
-- **Split-file pages** — always edit `.html` + `.js`; never edit `index.vue` wrappers.
-- **Settings refresh** — after any `PUT /api/settings` call in the frontend, call `this.$settings.refresh()` to propagate public settings to all components.
-- **Minimise comments** in source files — rely on `AGENTS.md` and this file for context.
-- **Document every change** in the Changes Log section of this file. No exceptions.
-- **i18n** — every user-facing string goes in all 5 locale files.
-- **Schema changes** always require a migration step.
-
----
-
-## Dev Environment Reference
-
-### Default credentials
-- **Username**: `admin`
-- **Password**: `Admin1admin2`
-
-### Access
-- App: `https://localhost:8443`
-- Backend API: `https://localhost:8443/api`
-
-### Test data on fresh install
-After a full restart with data destruction (`docker compose down -v`), the MongoDB volume is wiped. Upon first boot the admin user is pre-seeded automatically. Everything else must be re-created.
-
-**Order matters: add languages before vulnerabilities.**
-
-```bash
-TOKEN=$(curl -sk -X POST https://localhost:8443/api/users/token \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"Admin1admin2"}' | jq -r '.datas.token')
-
-# 1 — languages
-curl -sk -X POST https://localhost:8443/api/data/languages \
-  -H "Content-Type: application/json" -H "Cookie: token=JWT $TOKEN" \
-  -d '{"language":"English","locale":"en-GB"}'
-
-curl -sk -X POST https://localhost:8443/api/data/languages \
-  -H "Content-Type: application/json" -H "Cookie: token=JWT $TOKEN" \
-  -d '{"language":"Spanish","locale":"es-ES"}'
-
-# 2 — vulnerabilities
-curl -sk -X POST https://localhost:8443/api/vulnerabilities \
-  -H "Content-Type: application/json" -H "Cookie: token=JWT $TOKEN" \
-  -d @backend/tests/fixtures/test-vulnerabilities.json
-```
-
-The backend authenticates via cookie (`token=JWT <token>`), not a Bearer header.
-
-The fixture `backend/tests/fixtures/test-vulnerabilities.json` contains 10 canonical test vulnerabilities (SQL Injection, XSS, IDOR, SSRF, Broken Authentication, Path Traversal, Command Injection, Insecure Deserialization, Security Misconfiguration, Sensitive Data Exposure) using the `en-GB` locale.
-
----
-
-## Changes Log
-
-### Audit archive
-
-- `backend/src/models/audit-archive.js` + `backend/src/routes/audit-archive.js`: historical audit PDF archive with metadata in MongoDB, PDF bytes stored under `backend/audit-archives/`, 200 MB PDF validation, inline streaming, and delete cleanup.
-- `backend/src/app.js`, compose files, and nginx configs: registered archive model/routes, persisted the archive storage directory, and raised JSON/proxy body limits to support 200 MB base64 PDF uploads.
-- Frontend: `services/audit-archive.js`, `/audits-archive` route, main navigation entry, and `pages/audits-archive/` for upload/list/delete plus in-app PDF reading with embedded outline navigation and client-side searchable page index for jump-to-page results.
-- Regression test: `backend/tests/audit-archive.test.js` covers empty list, upload validation, list, file streaming, and delete.
-
-### AI features
-
-- `backend/src/lib/ai-service.js`: unified generation via LangChain; provider routing (`openai`, `anthropic`, `ollama`, `azure-openai`, `openai-compatible`); prompt resolution order (per-field → generic action → hardcoded default); `ensureV1()` for URL normalisation.
-- `backend/src/lib/embedding-service.js`: ChromaDB vector store for vulnerability semantic search; strict locale filtering; `float` encoding for non-OpenAI providers.
-- `backend/src/lib/vision-service.js`: multimodal proof analysis — extracts images from POC HTML, calls vision LLM, optional anonymisation.
-- `backend/src/routes/ai.js`: `POST /api/ai/generate` (RAG + LLM), `/search-similar`, `/analyze-proofs`, `/reindex-all`, `/reindex-status`, `/list-models`, `/test`.
-- ChromaDB service in `docker-compose-dev.yml`; startup sync in `app.js`; fire-and-forget index/delete hooks in `vulnerability.js`.
-- Frontend: `services/ai.js`, `components/ai-assistant.js` (TipTap extension), AI toolbar in `editor.vue`, all finding editors wired with `fieldName` + `aiContext`; AI editor actions now open a previous/proposed review dialog before applying generated text and clear loading state when the request finishes.
-- `components/ai-diff-modal.vue`: side-by-side AI comparison dialog with editable proposed text and explicit apply/keep controls.
-- `components/similar-vuln-modal.vue`: two-panel diff dialog with viewport margins and Apply-action spacing; supports text-based and proof-based (vision) modes.
-
-### AI UX polish
-
-Comprehensive polish pass on every user-facing AI interaction point — unified visual language, in-flight feedback, cancellation, sanitisation, accessibility, discoverability, and i18n parity across all five locales.
-
-**Foundations**
-- `frontend/src/services/ai.js`: every AI endpoint accepts an optional `AbortSignal` (`generate`, `searchSimilar`, `analyzeProofs`, `reindexAll`, `reindexStatus`, `testConnection`, `listModels`).
-- `frontend/src/services/ai-helpers.js` (new): `sanitizeHtml` (DOMPurify wrapper), `notifyError` / `notifySuccess` / `notifyWarning` with consistent position + timeout, `isAbortError`, `extractErrorMessage`, `isAiEnabled` / `isEmbeddingEnabled` / `isVisionEnabled`, `aiDisabledReason(kind)`.
-- `frontend/src/components/ai-action-btn.vue` (new): single visual language for every AI button — purple accent, `auto_awesome` icon, `:loading` spinner, `:disabled-reason` tooltip pointing to settings, optional cancel mode.
-- `frontend/src/components/ai-overlay.vue` (new): translucent overlay with spinner + "AI is writing…" label + Cancel button. Used over the editor body and other long-running surfaces.
-- `frontend/src/css/app.styl`: tag-agnostic `.ai-loading` selector, `prefers-reduced-motion` block, replaced glyph with icon, added `.ai-overlay`, `.ai-test-row`, `.ai-test-result`, `.rotate-anim` keyframe.
-- `frontend/package.json`: added `dompurify` dependency.
-
-**Editor**
-- `components/editor.vue`: AI dropdown shows disabled-with-tooltip (instead of `v-if`-removing) when AI is off, with the disabled reason from settings; per-action sub-tooltips wired from existing i18n keys; `<ai-overlay>` mounted over the editor body during requests with a Cancel button; new `regenerateAi` and `cancelAi` methods.
-- `components/ai-assistant.js`: AbortController integration, rewrite-without-selection now shows a confirm dialog ("Rewrite the entire field?"), retry action injected into the error Notify, sanitisation of generated HTML before applying, exposed `cancelAiCommand(editor)` and `aiCancel()` TipTap command.
-- `components/ai-diff-modal.vue`: added Regenerate button, swapped Apply to green/positive and Keep-previous to grey/flat, ARIA roles on contenteditable panes, DOMPurify on both panes, keyboard-accessible Close icon.
-
-**Finding edit & similar-vuln**
-- `pages/audits/edit/findings/edit/edit.html`: Search Similar and Search-from-Proofs both use `<ai-action-btn>` with cancellable mode, disabled-with-tooltip when embeddings/vision are off.
-- `pages/audits/edit/findings/edit/edit.js`: AbortController for searchSimilar / analyzeProofs / fill-proofs; selection token to discard stale fill-proofs results when the user clicks another result; abort-on-modal-close; abort-on-unmount; `applySimilarVuln` now accepts a `{ result, fields }` payload; helpers from `ai-helpers.js` for notifications.
-- `components/similar-vuln-modal.vue`: per-field apply checkboxes (description/observation/remediation/references/cvssv3/cvssv4/poc), "Select all" / "Only changed" quick actions, Apply count badge, ARIA `role="listbox"` + `role="option"` + `aria-selected` on results, Retry button on the error state, vision summary still shown when zero similar results in proof mode, DOMPurify on all `v-html`, `@close` event for parent abort hooks.
-
-**Executive summary**
-- `pages/audits/edit/executive-summary/executive-summary.html`: AI buttons use `<ai-action-btn>` with cancel mode; `<ai-diff-modal>` mounted at page level so AI suggestions go through the same review flow as the editor toolbar (no more direct overwrite after upfront confirm).
-- `pages/audits/edit/executive-summary/executive-summary.js`: per-editor AbortController in `aiControllers` map; navigation guard (`beforeRouteLeave`) prompts when AI is in flight; `regenerateAi` / `cancelAiOnEditor` methods; `Save` button now reflects an actual `saving` flag.
-
-**Settings**
-- `pages/settings/settings.js`: model dropdowns populated by `loadModelList(type)` calling `/api/ai/list-models`; `applyDefaultUrlIfEmpty(type)` triggered on provider change; `safeClipboard` fallback to `document.execCommand('copy')` for insecure HTTP origins; reindex confirm dialog with cost/time warning + live status polling (`_startReindexPolling` / `REINDEX_POLL_MS`); MCP `Clear key` now requires a confirm dialog with explicit destructive warning; Save button has `:loading="saving"` wired to the actual save call; tests track `aiTest[type].controller` so duplicate clicks abort the previous test; `clearAiTestResult(type)` clears inline test indicators; `formatLastTestRun(type)` shows last-tested-at persisted in localStorage.
-- `pages/settings/settings.html`: model selects now use `q-select` with `use-input` + `new-value-mode="add-unique"` + popup `loadModelList` hook; refresh icon next to each model select; API key visibility icons converted to `<q-btn>` with `aria-label` and tooltip; test result rows wrap and use `.ai-test-message` (max-width, max-height, scroll) for long error responses; per-result clear icon; per-type "last tested" caption; reindex live progress bar driven by `/api/ai/reindex-status`.
-
-**Discoverability**
-- `pages/vulnerabilities/vulnerabilities.html` + `.js`: vulnerability create/edit modals now pass `fieldName` + `aiContext = { findingTitle, locale }` to the description/observation/remediation editors so AI generation runs with proper RAG context.
-
-**i18n parity**
-- 47 new keys added to all five locales (`en-US`, `es-ES`, `fr-FR`, `de-DE`, `zh-CN`): `btn.retry`, `btn.clear`, `btn.close`, `aiAssistant`, `aiSuggest` (was missing in 3 locales), `untitled` (was missing in all 5), `aiSuggestTooltip`, `aiSuggestOverwriteTitle`, `aiRewriteWholeTitle`, `aiRewriteWholeMessage`, `aiGeneratingAction`, `aiCompletingAction`, `aiRewritingAction`, `aiEmptyResponse`, `aiInFlightTitle`, `aiInFlightMessage`, `aiRegenerate`, `aiRegenerateTooltip`, `aiDisabledReasonGlobal`, `aiDisabledReasonEmbedding`, `aiDisabledReasonVision`, `aiHideApiKey`, `aiShowApiKey`, `aiRefreshModels`, `aiModelManualHint`, `aiTestLastRunAt`, `aiReindexConfirmTitle`, `aiReindexConfirmMessage`, `aiReindexAlreadyRunning`, `aiReindexProgress`, `aiReindexFinished`, `aiReindexFinishedWithFailures`, `mcpClearKeyConfirmTitle`, `mcpClearKeyConfirmMessage`, `mcpCopyKey`, `similarVulnSearchTooltip`, `searchSimilarFromProofsTooltip`, `similarVulnSelectAll`, `similarVulnSelectChanged`, `similarVulnApplyHint`, `similarVulnApplyCount`, `similarVulnChanged`, `similarVulnSame`.
-
-**Backend additions**
-- `backend/src/routes/ai.js`: `GET /api/ai/reindex-status` returns the live tracker (`{ inProgress, total, processed, failed, startedAt, finishedAt, lastError }`); `POST /api/ai/list-models` enumerates models per provider — static list for Anthropic, manual for Azure, live `/v1/models` fetch for OpenAI / OpenAI-compatible / Ollama, with graceful failure that surfaces the upstream error string for diagnostics.
-- `backend/src/lib/embedding-service.js`: added `reindexState` tracker + `getReindexStatus()` export; `reindexAll(aiSettings)` populates the tracker per vulnerability and now refuses to start a duplicate reindex while one is in progress.
-- `backend/tests/ai.test.js` (new): regression suite covering `reindex-status` shape, `list-models` invalid type rejection, `list-models` static path for Anthropic, `test` invalid type rejection, and `generate` Forbidden when AI is off.
-
-### Report references
-
-- `backend/src/lib/report-generator.js`: added `links` filter and `finding.references_links` report variable so finding references can render as one hyperlink paragraph per line in DOCX templates via `{@finding.references_links}`.
-
-### Severity 3D pie chart filter
-
-- `backend/src/lib/chart-generator.js` + `backend/src/lib/report-generator.js`: added native editable OOXML 3D pie charts via `{@findings | severityPie3D}` or `{@findings | severityPie3D: 'Custom title'}`. The filter buckets findings into Critical, High, Medium, Low, and Informational using CVSSv3 `baseSeverity`, falls back to CVSSv4 `baseSeverity`, and sends missing/unknown severities to Informational.
-- `backend/src/models/settings.js` + migration step 9: added `report.public.chartTheme` for report-wide 3D chart styling: title/legend/data-label colours and sizes, label mode, border, plot-area fill, and 3D rotation/perspective. Slice colours still come from existing `report.public.cvssColors`.
-- Frontend Settings → Report: added Chart theme controls and i18n labels across all five frontend locales.
-- Backend report translations: added `Informational` and `Vulnerabilities` keys for chart labels/titles in supported report locales.
-- Regression coverage: `backend/tests/lib.test.js` now checks that generated 3D pie chart XML contains `<c:pie3DChart>`, `<c:view3D>`, configured slice colours, and all five data points.
-
-### Retest feature
-
-- `audit.js` model: `isRetest: Boolean` on `AuditSchema`; `retestEvidence: String`, `retestPassed: Boolean|null` on `Finding`.
-- Report variables: `audit.is_retest`, `finding.retest_evidence`, `finding.retest_passed`.
-- Frontend: `isRetest` toggle in general page; Retest Evidence tab in finding edit (visible only when `localAudit.isRetest`).
-
-### Finding deletion navigation
-
-- `frontend/src/pages/audits/edit/findings/edit/edit.js`: after deleting the currently open finding, navigation now selects an adjacent remaining finding when available and falls back to the audit General page when no finding exists or the adjacent navigation fails.
-
-### Executive Summary section
-
-- `audit.js` model: `executiveSummary` embedded object (`overallRisk`, `summary`, `criticalSummary`, `highSummary`, `mediumSummary`, `lowSummary`, `informativeSummary`).
-- Report variables: `audit.overall_risk` (localised), `audit.executive_summary`, `audit.critical_summary` … `audit.informative_summary` — all use `| convertHTML`.
-- Page: `audits/edit/executive-summary/` — overall risk dropdown, summary editor, per-severity editors with AI suggest.
-- AI actions: `executive-summary` and `severity-summary` — context keys `auditName`, `severity`, `findingsDigest` (includes severity + CVSS score per finding).
-- Settings: `executiveSummarySystemPrompt`, `severitySummarySystemPrompt` in `ai.private`.
-
-### AI settings — prompts and provider config
-
-- All generation prompts configurable in Settings → AI → Advanced Settings.
-- Generic action prompts: `generateSystemPrompt`, `generateUserPrompt`, `completeSystemPrompt`, `completeUserPrompt`, `rewriteSystemPrompt`, `rewriteUserPrompt`, `fillProofsSystemPrompt`.
-- Per-field overrides (15 keys): `field_{fieldName}_{action}SystemPrompt` for each of `description`, `observation`, `remediation`, `poc`, `retestEvidence` × `generate`, `complete`, `rewrite`.
-- Connection test endpoint: `POST /api/ai/test` (`type: 'generation' | 'embedding' | 'vision'`).
-- UI: `settings.js` holds `DEFAULT_PROMPTS` (all 9 generic keys + 15 field keys), `aiFieldPromptFields` array, `testAiConnection()`.
-- UI: generation temperature uses a styled native range slider (`.ai-temperature-slider`) to remain visible in dark mode.
-
-### Granular user permissions
-
-- `user.js` model: `permissions: [String]` extra-grant array; `updateRefreshToken` merges with base role perms into `payload.roles`.
-- Routes: `POST/PUT /api/users` accept `permissions` array.
-- Frontend: collaborators page has role picker + permissions checkbox grid (5 categories); Settings nav gated on `settings:read`.
-- Permission changes take effect at next login or token refresh.
-
-### Native MCP server
-
-- Endpoint: `POST /api/mcp` — JSON-RPC 2.0, Streamable HTTP transport, protocol version `2025-03-26`.
-- Auth: `X-API-Key` header validated by `mcp-auth.js` against `settings.mcp.apiKey`.
-- Settings: `mcp.enabled`, `mcp.apiKey`, `mcp.apiKeyCreatedAt` (key never in `getPublic()`). Key rotation: `POST /api/settings/mcp/rotate-key`. Clear: `DELETE /api/settings/mcp/key`.
-- Tool handlers make internal HTTPS calls to existing REST routes using a short-lived admin JWT.
-- 13 tools: `list_audits`, `get_audit`, `update_audit_general`, `get_audit_network`, `update_audit_network`, `list_findings`, `get_finding`, `create_finding`, `update_finding`, `delete_finding`, `list_vulnerabilities`, `search_similar_vulnerabilities`, `apply_vulnerability_to_finding`.
-- `APP_URL` env var in both compose files drives the MCP endpoint URL in sample configs.
-- Sample config: `backend/src/config/mcp-server-sample.json` (Claude Desktop + curl).
-- Frontend: MCP Settings card in settings page — enable toggle, masked key, rotate/clear/copy, sample config snippets.
-
-### Migration and session hardening
-
-- `backend/src/lib/migration.js`: migration now waits for the destination Mongoose connection before accessing `mongoose.connection.db`, preventing startup failures when MongoDB recovery is still in progress.
-- User migration preserves existing destination accounts by matching source users on `username`; missing users are inserted with `refreshTokens: []`, and audit user references are remapped to preserved local users when needed.
-- `backend/src/routes/user.js`: refresh-token failures for missing sessions now return `401` and clear both auth cookies using the correct cookie path, preventing stale refresh-token retry loops after migration or DB replacement.
-- `README.md`: includes exact PowerShell and Bash command sequences to migrate from an `old-mongo-data` folder through a temporary `mongo:5` source container and a temporary Compose override that sets `MIGRATE_FROM`.
-
-### Default admin auto-seed
-
-- `backend/src/lib/seed-admin.js`: at every backend start the users collection is checked. When empty, a default admin (`admin` / `Admin1admin2`) is created automatically so a fresh stack always exposes working credentials. Existing accounts are never overwritten.
-- `RESET_DEFAULT_ADMIN=true` env var on the `backend` service forces the admin user back to the default password and clears all refresh tokens — safe escape hatch when a migrated database leaves an unknown admin password and login keeps returning 401 / "Invalid refreshToken".
-- `backend/src/lib/reset-default-admin.js` + `npm run reset-admin`: standalone script that connects to the configured database and restores the admin to default credentials. Run from the backend container: `docker exec -it autopwndoc-backend npm run reset-admin`.
-- Regression test: `backend/tests/auth-default.test.js` — boots from an empty users collection, asserts the seed creates the admin, performs a full login + refresh-token round-trip with the documented credentials, asserts wrong passwords return 401, and verifies `resetDefaultAdmin()` recovers the account when its password drifts. Hooked into `tests/index.test.js` between the unauthenticated and user suites.
-
-### Agent workflow updates
-
-- Frontend changes under `frontend/src/**` or `frontend/quasar.config.js` require `docker compose -f docker-compose-dev.yml restart frontend-app` followed by `docker compose -f docker-compose-dev.yml logs --since 1m frontend-app`.
-- Backend tests now use the isolated `pwndoc-test` database, fail fast if pointed at the development `pwndoc` database, and await the initial cleanup before registering tests so stale test data cannot race the suite.
-- The frontend dev container runs `npm install` before `npm run dev` so package changes mounted over the persisted `node_modules` volume are installed after container restarts.
-
-### OpenWebUI provider support
-
-Use the existing **`openai-compatible`** provider — no new provider type needed.
-
-1. Provider: `OpenAI Compatible`
-2. API URL: `http://openwebui:3000` (no `/v1` — `ensureV1()` appends it)
-3. API Key: JWT session token or permanent API key from Open WebUI → Settings → Account → API Keys
-4. Model: exact model ID as shown in Open WebUI
-
-`ensureV1()` + LangChain produce `http://openwebui:3000/v1/chat/completions` with `Authorization: Bearer <token>` — exactly what Open WebUI expects. Embedding/vision work only if the chosen model supports those capabilities through Open WebUI.
-
-Frontend: blue info banner shown below each provider grid when `openai-compatible` is selected.
-
-### Dependency security upgrade
-
-- Backend dependencies and lockfile were updated to clear all npm audit findings, including LangChain/ChromaDB, Mongoose, Docxtemplater, OTPAuth, Yjs, body-parser, lodash, bcrypt, and targeted transitive security overrides. Jest now transforms dependencies so updated ESM packages used by LangChain can run in the existing backend test suite.
-- Frontend dependencies and lockfile were updated to clear all production and development npm audit findings, including Quasar, TipTap, Vue, Axios, PDF.js, DOMPurify, Electron tooling, and targeted transitive security overrides.
-- Frontend Quasar tooling moved to `@quasar/app-webpack` v4 / `@quasar/cli` v4. Required migrations: `frontend/quasar.conf.js` was renamed to `frontend/quasar.config.js` and converted to ESM, `frontend/src/index.template.html` moved to root `frontend/index.html` with the Quasar entry-point marker, and webpack-dev-server config was updated to v5 schema (`server` and array `proxy`).
-- Backend and frontend Docker images now use Node 22 so upgraded dependencies satisfy current engine requirements. `docker-compose-dev.yml` mounts `frontend/index.html` and `frontend/quasar.config.js` into the dev container.
-- Verification after the upgrade: backend production audit `0`, backend full audit `0`, backend tests `162/162`; frontend production audit `0`, frontend full audit `0`, frontend `npm test` passed, and frontend production build passed in the Node 22 container.
-
-### Auto-translate vulnerabilities
-
-Service implemented in `backend/src/lib/translate-service.js` (`translateVulnerability`, `translateVulnerabilityUpdate`) but **route-level wiring and settings UI are pending**. The service translates `details` fields (`title`, `vulnType`, `description`, `observation`, `remediation`) field-by-field via LLM, preserving HTML. Errors per-locale are logged and skipped. `aiSettings.translateLocales` (array of locale strings) drives target locales — this field is not yet in the settings schema.
-
----
-
-## TODO
-- [ ] Checklists feature (design TBD)
-- [ ] Wire auto-translate: add `translateLocales` to settings schema + frontend UI + call `translateVulnerability` / `translateVulnerabilityUpdate` from `vulnerability.js` route after create/update
+-> `frontend/src/components/ai-assistant.js`
+-> `frontend/src/services/ai.js`
+-> `POST /api/ai/generate`
+-> `backend/src/routes/ai.js`
+-> optional RAG via `embedding-service.js`
+-> `ai-service.js`
+-> provider chat completion
+-> `{ html }`
+-> editor review/apply flow.
+</generation_flow>
+
+<prompt_resolution>
+For editor actions in `ai-service.js`, resolve system prompts in this order:
+1. `ai.private.field_{fieldName}_{action}SystemPrompt`
+2. `ai.private.{action}SystemPrompt`
+3. hardcoded default for the action
+</prompt_resolution>
+
+<provider_contract>
+- `openai`: OpenAI chat completions.
+- `anthropic`: OpenAI-compatible chat-completions path against the configured Anthropic base URL.
+- `ollama`: OpenAI-compatible chat-completions path against Ollama.
+- `azure-openai`: AzureChatOpenAI with Azure endpoint/deployment settings.
+- `openai-compatible`: custom base URL; `ensureV1(url)` appends `/v1` when missing.
+- For OpenWebUI, use `openai-compatible` with base URL such as `http://openwebui:3000` and the exact model id shown by OpenWebUI.
+</provider_contract>
+</ai_system>
+
+<mcp_system>
+- Endpoint: `POST /api/mcp`.
+- Transport: Streamable HTTP JSON-RPC 2.0.
+- Auth: `X-API-Key` checked by `backend/src/lib/mcp-auth.js` against `settings.mcp.apiKey`; also requires `settings.mcp.enabled`.
+- Tool handlers call existing REST endpoints through internal HTTPS using a short-lived admin JWT.
+- Current tool surface includes audit listing/detail/update, audit network, finding CRUD, vulnerability listing/search, and applying vulnerabilities to findings.
+- MCP API keys must never be exposed by public settings.
+</mcp_system>
+
+<frontend_rules>
+- Use Quasar/Vue patterns already present in the touched page.
+- Do not add user-facing strings without all five locale entries.
+- Do not use `api` directly in pages; add or extend a service wrapper.
+- For settings saves, refresh public settings with `this.$settings.refresh()`.
+- Preserve loading, disabled, error, cancellation, and navigation guard behavior on AI or long-running actions.
+- For visual-only work, keep it on `new-ui` if branching is requested and avoid backend/API changes.
+</frontend_rules>
+
+<backend_rules>
+- Keep route handlers thin; put DB logic in model statics or domain libraries.
+- Keep authorization explicit per route.
+- Emit `io.to(auditId).emit('updateAudit')` after audit/finding mutations.
+- Keep AI side effects such as Chroma indexing fire-and-forget unless the route contract explicitly requires synchronous completion.
+- Use structured parsers/helpers when available instead of ad hoc string manipulation.
+- Preserve existing response shapes and status-code conventions.
+</backend_rules>
+
+<dependency_and_upgrade_rules>
+- For dependency upgrades, use the `update-dependencies` branch if branching is requested.
+- Verify package-lock changes belong to the touched package.
+- After upgrades, run focused tests plus relevant audit/build commands where feasible.
+- Do not add broad overrides or new packages unless they solve a concrete issue.
+</dependency_and_upgrade_rules>
+
+<security_rules>
+- Never expose server-only secrets through `GET /api/settings/public`.
+- Treat API keys, JWT secrets, refresh tokens, and MCP keys as sensitive.
+- Preserve permission checks when moving or reusing route logic.
+- Validate uploads, IDs, filenames, and user-controlled HTML consistently with existing helpers.
+- For AI output inserted into editors, preserve sanitization/review patterns.
+</security_rules>
+
+<final_response_contract>
+- Summarize changed files and behavior briefly.
+- Include verification commands/results and container-log checks.
+- Mention any blocked verification or residual risk.
+- For manual frontend testing, provide the URL and exact steps.
+- Do not dump long logs unless the user explicitly asks.
+</final_response_contract>
+
+<todo>
+- Checklists feature: design pending.
+- Auto-translate vulnerabilities: verify current wiring before work; service exists in `translate-service.js`, but settings schema/UI and route-level create/update integration may still need completion.
+</todo>

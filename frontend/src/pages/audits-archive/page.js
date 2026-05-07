@@ -1,11 +1,10 @@
 import { Dialog, Notify } from 'quasar'
-import * as pdfjsLib from 'pdfjs-dist/build/pdf'
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.entry'
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 
 import AuditArchiveService from '@/services/audit-archive'
 import { $t } from '@/boot/i18n'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url).toString()
 
 const MAX_PDF_SIZE = 200 * 1024 * 1024
 

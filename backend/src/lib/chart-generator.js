@@ -441,4 +441,95 @@ chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML,
     `;
 }
 
+function fontXml(size, color, bold) {
+    return `<c:txPr>
+        <a:bodyPr/>
+        <a:lstStyle/>
+        <a:p>
+            <a:pPr>
+                <a:defRPr sz="${encodeHTMLEntities(String(size * 100))}" b="${bold ? 1 : 0}">
+                    <a:solidFill><a:srgbClr val="${encodeHTMLEntities(color)}"/></a:solidFill>
+                </a:defRPr>
+            </a:pPr>
+        </a:p>
+    </c:txPr>`;
+}
+
+function shapeXml(theme) {
+    const fill = theme.plotAreaFill && theme.plotAreaFill !== 'none'
+        ? `<a:solidFill><a:srgbClr val="${encodeHTMLEntities(theme.plotAreaFill)}"/></a:solidFill>`
+        : '<a:noFill/>';
+    const line = theme.borderEnabled && theme.borderWidth > 0
+        ? `<a:ln w="${Math.round(theme.borderWidth * 12700)}"><a:solidFill><a:srgbClr val="${encodeHTMLEntities(theme.borderColor)}"/></a:solidFill></a:ln>`
+        : '<a:ln><a:noFill/></a:ln>';
+    return `<c:spPr>${fill}${line}<a:effectLst/></c:spPr>`;
+}
+
+function dataLabelFlags(mode) {
+    return {
+        showVal: mode === 'value' || mode === 'both' ? 1 : 0,
+        showPercent: mode === 'percent' || mode === 'both' ? 1 : 0,
+    };
+}
+
+// Returns XML corresponding to a native editable 3D pieChart.
+chartGenerator.generatePie3DChart = function({ title, severities, theme }) {
+    const labelsXml = severities.map((item, index) => `<c:pt idx="${index}"><c:v>${encodeHTMLEntities(item.label)}</c:v></c:pt>`).join('');
+    const valuesXml = severities.map((item, index) => `<c:pt idx="${index}"><c:v>${encodeHTMLEntities(String(item.value))}</c:v></c:pt>`).join('');
+    const colorsXml = severities.map((item, index) => `<c:dPt><c:idx val="${index}"/><c:spPr><a:solidFill><a:srgbClr val="${encodeHTMLEntities(item.color)}"/></a:solidFill></c:spPr></c:dPt>`).join('');
+    const labels = dataLabelFlags(theme.dataLabelMode);
+    const dataLabelsXml = theme.dataLabelMode === 'none' ? '' : `<c:dLbls>
+        <c:showLegendKey val="0"/>
+        <c:showVal val="${labels.showVal}"/>
+        <c:showCatName val="0"/>
+        <c:showSerName val="0"/>
+        <c:showPercent val="${labels.showPercent}"/>
+        <c:showBubbleSize val="0"/>
+        <c:showLeaderLines val="0"/>
+        ${fontXml(theme.dataLabelSize, theme.dataLabelColor, theme.dataLabelBold)}
+    </c:dLbls>`;
+
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <c:chart>
+        <c:title>
+            <c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr sz="${encodeHTMLEntities(String(theme.titleSize * 100))}" b="${theme.titleBold ? 1 : 0}"><a:solidFill><a:srgbClr val="${encodeHTMLEntities(theme.titleColor)}"/></a:solidFill></a:rPr><a:t>${encodeHTMLEntities(title)}</a:t></a:r></a:p></c:rich></c:tx>
+            <c:layout/>
+            <c:overlay val="0"/>
+        </c:title>
+        <c:view3D>
+            <c:rotX val="${encodeHTMLEntities(String(theme.view3DRotX))}"/>
+            <c:rotY val="${encodeHTMLEntities(String(theme.view3DRotY))}"/>
+            <c:rAngAx val="${theme.view3DRightAngleAxes ? 1 : 0}"/>
+            <c:perspective val="${encodeHTMLEntities(String(theme.view3DPerspective))}"/>
+        </c:view3D>
+        <c:plotArea>
+            <c:layout/>
+            <c:pie3DChart>
+                <c:varyColors val="0"/>
+                <c:ser>
+                    <c:idx val="0"/>
+                    <c:order val="0"/>
+                    <c:tx><c:strRef><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>${encodeHTMLEntities(title)}</c:v></c:pt></c:strCache></c:strRef></c:tx>
+                    <c:cat><c:strRef><c:strCache><c:ptCount val="${severities.length}"/>${labelsXml}</c:strCache></c:strRef></c:cat>
+                    <c:val><c:numRef><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="${severities.length}"/>${valuesXml}</c:numCache></c:numRef></c:val>
+                    ${colorsXml}
+                </c:ser>
+                ${dataLabelsXml}
+            </c:pie3DChart>
+            ${shapeXml(theme)}
+        </c:plotArea>
+        <c:legend>
+            <c:legendPos val="${encodeHTMLEntities(theme.legendPosition)}"/>
+            <c:overlay val="0"/>
+            ${fontXml(theme.legendSize, theme.legendColor, false)}
+        </c:legend>
+        <c:plotVisOnly val="1"/>
+        <c:dispBlanksAs val="gap"/>
+        <c:showDLblsOverMax val="0"/>
+    </c:chart>
+    ${shapeXml(theme)}
+</c:chartSpace>`;
+}
+
 module.exports = chartGenerator;

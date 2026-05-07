@@ -16,7 +16,7 @@ This repository is a fork of `pwndoc-ng`, a pentest report generation tool, serv
 - **Documentation**: Everything implemented must be documented in this file under the Changes Log section. No exceptions.
 - **Restart affected containers**: After each change, the agent **must** restart the affected containers and check logs before reporting success:
   - **Backend changes** (`backend/src/**`): `docker compose -f docker-compose-dev.yml restart backend`
-  - **Frontend changes** (`frontend/src/**`, `frontend/quasar.conf.js`): `docker compose -f docker-compose-dev.yml restart frontend-app`
+  - **Frontend changes** (`frontend/src/**`, `frontend/quasar.config.js`): `docker compose -f docker-compose-dev.yml restart frontend-app`
   - **Infra changes** (`docker-compose-dev.yml`, `Dockerfile.dev`): `docker compose -f docker-compose-dev.yml up -d`
 
 ## Branch Policy
@@ -50,7 +50,7 @@ This repository is a fork of `pwndoc-ng`, a pentest report generation tool, serv
 | Changed files | Command |
 |---|---|
 | `backend/src/**` | `docker compose -f docker-compose-dev.yml restart backend` |
-| `frontend/src/**`, `frontend/quasar.conf.js` | `docker compose -f docker-compose-dev.yml restart frontend-app` |
+| `frontend/src/**`, `frontend/quasar.config.js` | `docker compose -f docker-compose-dev.yml restart frontend-app` |
 | `docker-compose-dev.yml`, any `Dockerfile.dev` | `docker compose -f docker-compose-dev.yml up -d` |
 
 Always tail logs after restart for the affected service, for example: `docker compose -f docker-compose-dev.yml logs --since 1m backend` or `docker compose -f docker-compose-dev.yml logs --since 1m frontend-app`
@@ -177,7 +177,7 @@ Read only the file that matches the area being changed.
 
 ### Frontend boot plugins (`frontend/src/boot/`)
 
-Read only when changing startup behaviour. Listed in `quasar.conf.js` boot array — order matters.
+Read only when changing startup behaviour. Listed in `quasar.config.js` boot array — order matters.
 
 | File | Purpose |
 |---|---|
@@ -451,7 +451,7 @@ Exposed by `backend/src/lib/report-generator.js` for use in DOCX templates (docx
 - Triggered by `MIGRATE_FROM=<mongodb_uri>` env var on the `backend` service in `docker-compose-dev.yml`.
 - `migration.js` `runMigration()` is called at every backend startup — it is a no-op when `MIGRATE_FROM` is empty.
 - Applied steps tracked in `_migrations` collection of the destination DB.
-- **Steps are append-only.** Never modify an existing step. Current steps 1–8 cover: base collections, vulnerabilities, audits, `isRetest`, retest finding fields, CVSSv4 fields, and `executiveSummary`.
+- **Steps are append-only.** Never modify an existing step. Current steps 1–9 cover: base collections, vulnerabilities, audits, `isRetest`, retest finding fields, CVSSv4 fields, `executiveSummary`, and report chart theme defaults.
 - When adding a schema field: append a new step object `{ id, name, async run(srcDb, dstDb) }` to the `STEPS` array in `migration.js` and document it in the Migration steps table in this file.
 
 #### Migration steps
@@ -466,6 +466,7 @@ Exposed by `backend/src/lib/report-generator.js` for use in DOCX templates (docx
 | 6 | `add-cvssv4-to-vulnerabilities` | Sets `cvssv4: ''` on all vulnerability documents that lack the field |
 | 7 | `add-cvssv4-to-findings` | Sets `cvssv4: ''` on all finding subdocuments that lack the field |
 | 8 | `add-executive-summary-to-audits` | Sets `executiveSummary: { overallRisk: '', summary: '', criticalSummary: '', highSummary: '', mediumSummary: '', lowSummary: '', informativeSummary: '' }` on all audit documents that lack the field |
+| 9 | `add-chartTheme-to-settings` | Sets `report.public.chartTheme` defaults on settings documents that lack the field |
 
 ---
 
@@ -602,6 +603,14 @@ Comprehensive polish pass on every user-facing AI interaction point — unified 
 
 - `backend/src/lib/report-generator.js`: added `links` filter and `finding.references_links` report variable so finding references can render as one hyperlink paragraph per line in DOCX templates via `{@finding.references_links}`.
 
+### Severity 3D pie chart filter
+
+- `backend/src/lib/chart-generator.js` + `backend/src/lib/report-generator.js`: added native editable OOXML 3D pie charts via `{@findings | severityPie3D}` or `{@findings | severityPie3D: 'Custom title'}`. The filter buckets findings into Critical, High, Medium, Low, and Informational using CVSSv3 `baseSeverity`, falls back to CVSSv4 `baseSeverity`, and sends missing/unknown severities to Informational.
+- `backend/src/models/settings.js` + migration step 9: added `report.public.chartTheme` for report-wide 3D chart styling: title/legend/data-label colours and sizes, label mode, border, plot-area fill, and 3D rotation/perspective. Slice colours still come from existing `report.public.cvssColors`.
+- Frontend Settings → Report: added Chart theme controls and i18n labels across all five frontend locales.
+- Backend report translations: added `Informational` and `Vulnerabilities` keys for chart labels/titles in supported report locales.
+- Regression coverage: `backend/tests/lib.test.js` now checks that generated 3D pie chart XML contains `<c:pie3DChart>`, `<c:view3D>`, configured slice colours, and all five data points.
+
 ### Retest feature
 
 - `audit.js` model: `isRetest: Boolean` on `AuditSchema`; `retestEvidence: String`, `retestPassed: Boolean|null` on `Finding`.
@@ -663,7 +672,7 @@ Comprehensive polish pass on every user-facing AI interaction point — unified 
 
 ### Agent workflow updates
 
-- Frontend changes under `frontend/src/**` or `frontend/quasar.conf.js` require `docker compose -f docker-compose-dev.yml restart frontend-app` followed by `docker compose -f docker-compose-dev.yml logs --since 1m frontend-app`.
+- Frontend changes under `frontend/src/**` or `frontend/quasar.config.js` require `docker compose -f docker-compose-dev.yml restart frontend-app` followed by `docker compose -f docker-compose-dev.yml logs --since 1m frontend-app`.
 - Backend tests now use the isolated `pwndoc-test` database, fail fast if pointed at the development `pwndoc` database, and await the initial cleanup before registering tests so stale test data cannot race the suite.
 - The frontend dev container runs `npm install` before `npm run dev` so package changes mounted over the persisted `node_modules` volume are installed after container restarts.
 
@@ -679,6 +688,14 @@ Use the existing **`openai-compatible`** provider — no new provider type neede
 `ensureV1()` + LangChain produce `http://openwebui:3000/v1/chat/completions` with `Authorization: Bearer <token>` — exactly what Open WebUI expects. Embedding/vision work only if the chosen model supports those capabilities through Open WebUI.
 
 Frontend: blue info banner shown below each provider grid when `openai-compatible` is selected.
+
+### Dependency security upgrade
+
+- Backend dependencies and lockfile were updated to clear all npm audit findings, including LangChain/ChromaDB, Mongoose, Docxtemplater, OTPAuth, Yjs, body-parser, lodash, bcrypt, and targeted transitive security overrides. Jest now transforms dependencies so updated ESM packages used by LangChain can run in the existing backend test suite.
+- Frontend dependencies and lockfile were updated to clear all production and development npm audit findings, including Quasar, TipTap, Vue, Axios, PDF.js, DOMPurify, Electron tooling, and targeted transitive security overrides.
+- Frontend Quasar tooling moved to `@quasar/app-webpack` v4 / `@quasar/cli` v4. Required migrations: `frontend/quasar.conf.js` was renamed to `frontend/quasar.config.js` and converted to ESM, `frontend/src/index.template.html` moved to root `frontend/index.html` with the Quasar entry-point marker, and webpack-dev-server config was updated to v5 schema (`server` and array `proxy`).
+- Backend and frontend Docker images now use Node 22 so upgraded dependencies satisfy current engine requirements. `docker-compose-dev.yml` mounts `frontend/index.html` and `frontend/quasar.config.js` into the dev container.
+- Verification after the upgrade: backend production audit `0`, backend full audit `0`, backend tests `162/162`; frontend production audit `0`, frontend full audit `0`, frontend `npm test` passed, and frontend production build passed in the Node 22 container.
 
 ### Auto-translate vulnerabilities
 

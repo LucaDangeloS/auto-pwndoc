@@ -130,6 +130,27 @@ Do not include markdown, backticks, or code fences.
 Reply exclusively in {language}.`
 };
 
+const DEFAULT_CHART_THEME = {
+    titleColor: '#000000',
+    titleSize: 16,
+    titleBold: true,
+    legendColor: '#404040',
+    legendSize: 11,
+    legendPosition: 'r',
+    dataLabelColor: '#ffffff',
+    dataLabelSize: 11,
+    dataLabelBold: true,
+    dataLabelMode: 'value',
+    borderEnabled: false,
+    borderColor: '#d9e2f3',
+    borderWidth: 1,
+    plotAreaFill: 'none',
+    view3DRotX: 30,
+    view3DRotY: 30,
+    view3DPerspective: 30,
+    view3DRightAngleAxes: false,
+};
+
 export default {
     data: () => {
         return {
@@ -139,7 +160,8 @@ export default {
                 danger:{enabled:false,public:{nbdaydelete: 0}},
                 reviews:{enabled:false},
                 mcp:{enabled:false,apiKey:'',apiKeyCreatedAt:null,appUrl:''},
-                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:4096,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o'},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:'',visionAnonymizeLlm:false,visionAnonymizeRegex:false,generateSystemPrompt:'',generateUserPrompt:'',completeSystemPrompt:'',completeUserPrompt:'',rewriteSystemPrompt:'',rewriteUserPrompt:'',fillProofsSystemPrompt:'',executiveSummarySystemPrompt:'',severitySummarySystemPrompt:'',field_description_generateSystemPrompt:'',field_description_completeSystemPrompt:'',field_description_rewriteSystemPrompt:'',field_observation_generateSystemPrompt:'',field_observation_completeSystemPrompt:'',field_observation_rewriteSystemPrompt:'',field_remediation_generateSystemPrompt:'',field_remediation_completeSystemPrompt:'',field_remediation_rewriteSystemPrompt:'',field_poc_generateSystemPrompt:'',field_poc_completeSystemPrompt:'',field_poc_rewriteSystemPrompt:'',field_retestEvidence_generateSystemPrompt:'',field_retestEvidence_completeSystemPrompt:'',field_retestEvidence_rewriteSystemPrompt:''}}
+                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:4096,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o'},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:'',visionAnonymizeLlm:false,visionAnonymizeRegex:false,generateSystemPrompt:'',generateUserPrompt:'',completeSystemPrompt:'',completeUserPrompt:'',rewriteSystemPrompt:'',rewriteUserPrompt:'',fillProofsSystemPrompt:'',executiveSummarySystemPrompt:'',severitySummarySystemPrompt:'',field_description_generateSystemPrompt:'',field_description_completeSystemPrompt:'',field_description_rewriteSystemPrompt:'',field_observation_generateSystemPrompt:'',field_observation_completeSystemPrompt:'',field_observation_rewriteSystemPrompt:'',field_remediation_generateSystemPrompt:'',field_remediation_completeSystemPrompt:'',field_remediation_rewriteSystemPrompt:'',field_poc_generateSystemPrompt:'',field_poc_completeSystemPrompt:'',field_poc_rewriteSystemPrompt:'',field_retestEvidence_generateSystemPrompt:'',field_retestEvidence_completeSystemPrompt:'',field_retestEvidence_rewriteSystemPrompt:''}},
+                report:{enabled:true,public:{chartTheme:{...DEFAULT_CHART_THEME}}}
             },
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false},mcp:{enabled:false},ai:{enabled:false}},
             canEdit: false,
@@ -188,6 +210,19 @@ export default {
             cvssVersionOptions: [
                 { label: 'CVSS 3.1', value: '3.1' },
                 { label: 'CVSS 4.0', value: '4.0' }
+            ],
+            chartLegendPositionOptions: [
+                { label: $t('legendPositionRight'), value: 'r' },
+                { label: $t('legendPositionBottom'), value: 'b' },
+                { label: $t('legendPositionTop'), value: 't' },
+                { label: $t('legendPositionLeft'), value: 'l' },
+                { label: $t('legendPositionTopRight'), value: 'tr' }
+            ],
+            chartDataLabelModeOptions: [
+                { label: $t('dataLabelValue'), value: 'value' },
+                { label: $t('dataLabelPercent'), value: 'percent' },
+                { label: $t('dataLabelBoth'), value: 'both' },
+                { label: $t('dataLabelNone'), value: 'none' }
             ],
             aiProviderOptions: [
                 { label: 'OpenAI', value: 'openai' },
@@ -355,6 +390,7 @@ export default {
                 this.settings = this.$_.merge(
                     {
                       danger: { enabled: false, public:{nbdaydelete: 0}},
+                      report: { enabled: true, public: { chartTheme: { ...DEFAULT_CHART_THEME } } },
                       reviews: { enabled: false, public: { minReviewers: 1 } },
                       mcp: { enabled: false, apiKey: '', apiKeyCreatedAt: null, appUrl: '' },
                       ai: { enabled: false, embeddingEnabled: false, visionEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 4096, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8 }, visionPublic: { visionProvider: 'openai', visionModel: 'gpt-4o' }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionApiUrl: '', visionApiKey: '', visionAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionSystemPrompt: '', visionAnonymizeLlm: false, visionAnonymizeRegex: false, field_description_generateSystemPrompt: '', field_description_completeSystemPrompt: '', field_description_rewriteSystemPrompt: '', field_observation_generateSystemPrompt: '', field_observation_completeSystemPrompt: '', field_observation_rewriteSystemPrompt: '', field_remediation_generateSystemPrompt: '', field_remediation_completeSystemPrompt: '', field_remediation_rewriteSystemPrompt: '', field_poc_generateSystemPrompt: '', field_poc_completeSystemPrompt: '', field_poc_rewriteSystemPrompt: '', field_retestEvidence_generateSystemPrompt: '', field_retestEvidence_completeSystemPrompt: '', field_retestEvidence_rewriteSystemPrompt: '' } }

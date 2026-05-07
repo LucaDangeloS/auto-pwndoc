@@ -15,6 +15,8 @@
     "High": "Alto",
     "Medium": "Medio",
     "Informative": "Informativo",
+    "Informational": "Informativo",
+    "Vulnerabilities": "Vulnerabilidades",
     "None": "Ninguno",
     "Required": "Requerido",
     "Unchanged": "Sin cambiar",

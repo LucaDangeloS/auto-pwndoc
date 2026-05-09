@@ -110,20 +110,45 @@ const STEPS = [
                 'images',
             ];
 
+            // Natural unique key per collection (used when _id from source
+            // may differ from destination's _id for the same logical record).
+            const UNIQUE_KEY = {
+                languages:              doc => ({ language: doc.language }),
+                audittypes:             doc => ({ name: doc.name }),
+                vulnerabilitytypes:     doc => ({ name: doc.name }),
+                vulnerabilitycategories: doc => ({ name: doc.name }),
+                customsections:         doc => ({ field: doc.field }),
+                customfields:           doc => ({ label: doc.label, display: doc.display, displaySub: doc.displaySub }),
+            };
+
             for (const col of COLLECTIONS) {
                 const src = srcDb.collection(col);
                 const dst = dstDb.collection(col);
                 const docs = await src.find({}).toArray();
                 if (docs.length === 0) continue;
 
+                const filterFn = UNIQUE_KEY[col] || (doc => ({ _id: doc._id }));
                 const ops = docs.map(doc => ({
                     updateOne: {
-                        filter: { _id: doc._id },
+                        filter: filterFn(doc),
                         update: { $setOnInsert: doc },
                         upsert: true,
                     },
                 }));
-                const result = await dst.bulkWrite(ops, { ordered: false });
+
+                let result;
+                try {
+                    result = await dst.bulkWrite(ops, { ordered: false });
+                } catch (err) {
+                    // Duplicate key conflicts on non-_id unique indexes: treat as "already existed".
+                    const isDupOnly = err.code === 11000 ||
+                        (Array.isArray(err.writeErrors) && err.writeErrors.every(e => e.code === 11000));
+                    if (!isDupOnly) throw err;
+                    const partial = err.result || {};
+                    const dupCount = Array.isArray(err.writeErrors) ? err.writeErrors.length : 1;
+                    console.log(`[migration] ${col}: ${partial.upsertedCount || 0} inserted, ${(partial.matchedCount || 0) + dupCount} already existed`);
+                    continue;
+                }
                 console.log(`[migration] ${col}: ${result.upsertedCount} inserted, ${result.matchedCount} already existed`);
             }
         },

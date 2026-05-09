@@ -93,17 +93,22 @@ module.exports = function(request, app) {
         response = await request(app).delete('/api/data/audit-types/Internal')
         expect(response.status).toBe(401)
 
-        response = await request(app).get('/api/data/vulnerability-categories')
+        response = await request(app).get('/api/data/vulnerability-taxonomy')
         expect(response.status).toBe(401)
 
-        response = await request(app).post('/api/data/vulnerability-categories')
+        response = await request(app).post('/api/data/vulnerability-taxonomy')
         expect(response.status).toBe(401)
 
-        response = await request(app).put('/api/data/vulnerability-categories')
+        response = await request(app).put('/api/data/vulnerability-taxonomy')
         expect(response.status).toBe(401)
 
-        // delete /api/data/vulnerability-categories/{name(*)}
-        response = await request(app).delete('/api/data/vulnerability-categories/Web')
+        response = await request(app).delete('/api/data/vulnerability-taxonomy/64ffffffffffffffffffffff')
+        expect(response.status).toBe(401)
+
+        response = await request(app).post('/api/data/vulnerability-taxonomy/parse')
+        expect(response.status).toBe(401)
+
+        response = await request(app).post('/api/data/vulnerability-taxonomy/generate-checklist')
         expect(response.status).toBe(401)
 
         response = await request(app).get('/api/data/sections')

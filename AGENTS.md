@@ -136,6 +136,7 @@ Read only the subsection that matches the task. Do not scan the full repository 
 - `backend/src/models/user.js`: users, roles, refresh tokens, extra `permissions[]` grants merged into JWT `roles`.
 - `backend/src/models/audit-type.js`, `vulnerability-type.js`, `vulnerability-category.js`, `custom-field.js`, `custom-section.js`, `client.js`, `company.js`, `template.js`, `image.js`, `language.js`, `vulnerability-update.js`: lookup, dynamic form, document, image, locale, and pending vulnerability-update data.
 - `backend/src/models/vulnerability-taxonomy.js`: unified locale-agnostic taxonomy `{type, category?, subcategory?, code?}` with sort config on type-root rows. Replaces the orthogonal `vulnerability-type.js` (per-locale) and `vulnerability-category.js` (top-level). Loose semantics — vulnerabilities and audit findings store taxonomy values as plain strings in their `taxonomies[]` arrays, so renames here do not cascade. Mass-edit support via `parseLines()` and `replaceAll()` statics.
+- Custom field `fieldType: 'checklist'` stores `field.text[locale].value` as an array of `{label, code, taxonomy: {type, category, subcategory}, status, note}`. The audit/finding/section instance copies this array forward at create time; `Audit.applyChecklistAutoMark` is invoked from `createFinding` / `updateFinding` and flips a row's `status` from `untested` to `fail` when the finding's `taxonomies[]` (or legacy `category`/`vulnType`) match the row's taxonomy or `code`. Pass/fail/na set by a human are never overwritten. Generate-from-taxonomy uses `POST /api/data/vulnerability-taxonomy/generate-checklist`.
 </backend_models>
 
 <backend_routes>
@@ -375,7 +376,6 @@ For editor actions in `ai-service.js`, resolve system prompts in this order:
 </final_response_contract>
 
 <todo>
-- Checklists feature (Phase 2 of taxonomy refactor): new `fieldType: 'checklist'` custom field with mini editor, generate-from-taxonomy button, auto-mark on finding mutations. Builds on the `VulnerabilityTaxonomy` model added in Phase 1.
-- Vulnerability taxonomy Phase 2: drop legacy `vulnerability.category` and `details[i].vulnType`, drop `audit.findings[i].vulnType`/`category`, replace finding-edit form selectors with a hierarchical taxonomy picker, retire `vulnerability-type.js`/`vulnerability-category.js` models and their data routes.
+- Vulnerability taxonomy Phase 3 (cleanup, after Phase 2 has been used in real audits): drop legacy `vulnerability.category` and `details[i].vulnType`, drop `audit.findings[i].vulnType`/`category`, replace finding-edit form selectors with a hierarchical taxonomy picker, retire `vulnerability-type.js`/`vulnerability-category.js` models and their data routes, update report-generator to read from `taxonomies[]` directly.
 - Auto-translate vulnerabilities: verify current wiring before work; service exists in `translate-service.js`, but settings schema/UI and route-level create/update integration may still need completion.
 </todo>

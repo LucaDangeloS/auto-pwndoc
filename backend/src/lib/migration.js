@@ -74,6 +74,7 @@ const STEPS = [
     {
         id: 1,
         name: 'copy-base-collections',
+        requiresSource: true,
         async run(srcDb, dstDb) {
             USER_ID_MAP.clear();
 
@@ -161,6 +162,7 @@ const STEPS = [
     {
         id: 2,
         name: 'copy-vulnerabilities',
+        requiresSource: true,
         async run(srcDb, dstDb) {
             const src = srcDb.collection('vulnerabilities');
             const dst = dstDb.collection('vulnerabilities');
@@ -191,6 +193,7 @@ const STEPS = [
     {
         id: 3,
         name: 'copy-audits',
+        requiresSource: true,
         async run(srcDb, dstDb) {
             const src = srcDb.collection('audits');
             const dst = dstDb.collection('audits');
@@ -517,23 +520,34 @@ const STEPS = [
 
 async function runMigration() {
     const migrateFrom = process.env.MIGRATE_FROM;
-    if (!migrateFrom) return; // migration not requested
 
-    console.log(`[migration] MIGRATE_FROM is set — connecting to source: ${migrateFrom}`);
+    // Always run destination-only steps (schema migrations like the taxonomy
+    // backfill) on backend startup. Source-dependent steps (marked
+    // `requiresSource: true`) only run when MIGRATE_FROM is set; otherwise
+    // they're deferred until the next startup with MIGRATE_FROM populated.
 
-    let srcConn;
+    let dstDb;
     try {
-        srcConn = await mongoose.createConnection(migrateFrom, {
-            serverSelectionTimeoutMS: 8000,
-        }).asPromise();
+        dstDb = await waitForDestinationDb();
     } catch (err) {
-        console.error('[migration] Could not connect to source database:', err.message);
-        console.error('[migration] Migration aborted — destination database is untouched.');
+        console.error('[migration] Could not get destination database:', err.message);
         return;
     }
 
-    const srcDb = srcConn.db;
-    const dstDb = await waitForDestinationDb();
+    let srcConn = null;
+    let srcDb = null;
+    if (migrateFrom) {
+        console.log(`[migration] MIGRATE_FROM is set — connecting to source: ${migrateFrom}`);
+        try {
+            srcConn = await mongoose.createConnection(migrateFrom, {
+                serverSelectionTimeoutMS: 8000,
+            }).asPromise();
+            srcDb = srcConn.db;
+        } catch (err) {
+            console.error('[migration] Could not connect to source database:', err.message);
+            console.error('[migration] Source-dependent steps will be skipped.');
+        }
+    }
 
     // Ensure the tracking collection exists and has an index on step id.
     const migrationsCol = dstDb.collection('_migrations');
@@ -541,11 +555,18 @@ async function runMigration() {
 
     let appliedCount = 0;
     let skippedCount = 0;
+    let deferredCount = 0;
 
     for (const step of STEPS) {
         const already = await migrationsCol.findOne({ id: step.id });
         if (already) {
             skippedCount++;
+            continue;
+        }
+
+        if (step.requiresSource && !srcDb) {
+            // Need source but don't have it — defer; will retry next startup.
+            deferredCount++;
             continue;
         }
 
@@ -562,13 +583,17 @@ async function runMigration() {
         } catch (err) {
             console.error(`[migration] Step ${step.id} (${step.name}) FAILED:`, err);
             console.error('[migration] Stopping migration — fix the error and restart.');
-            await srcConn.close();
+            if (srcConn) await srcConn.close();
             return;
         }
     }
 
-    await srcConn.close();
-    console.log(`[migration] Done. ${appliedCount} steps applied, ${skippedCount} already up to date.`);
+    if (srcConn) await srcConn.close();
+
+    if (appliedCount > 0 || deferredCount > 0) {
+        const tail = deferredCount ? `, ${deferredCount} deferred (need MIGRATE_FROM)` : '';
+        console.log(`[migration] Done. ${appliedCount} steps applied, ${skippedCount} already up to date${tail}.`);
+    }
 }
 
 module.exports = { runMigration };

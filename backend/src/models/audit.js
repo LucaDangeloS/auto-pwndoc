@@ -798,10 +798,12 @@ AuditSchema.statics.updateSortFindings = (isAdmin, auditId, userId, update) => {
             var categoriesOrder = row.map(e => e.name)
             categoriesOrder.push("undefined") // Put uncategorized findings at the end
 
-            // Group findings by category
+            // Group findings by category. Phase 3 prefers the new
+            // taxonomies[0].type and falls back to the legacy `category`
+            // for findings that haven't been re-saved through the picker.
             var findingList = _
             .chain(audit.findings)
-            .groupBy("category")
+            .groupBy(f => (f.taxonomies && f.taxonomies[0] && f.taxonomies[0].type) || f.category || 'undefined')
             .toPairs()
             .sort((a,b) => categoriesOrder.indexOf(a[0]) - categoriesOrder.indexOf(b[0]))
             .fromPairs()

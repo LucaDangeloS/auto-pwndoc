@@ -16,9 +16,16 @@ const app = require(__dirname+"/../src/app");
 beforeAll(async () => {
     await cleanDatabase;
     // Mongoose 8 builds indexes asynchronously after connect — wait for every
-    // registered model's indexes to finish building so that subsequent tests
-    // (e.g. duplicate-title checks on Vulnerability.details.title) get the
-    // expected unique-constraint failures rather than racy 201 inserts.
+    // registered model to finish initialising (including its indexes) so
+    // tests get the expected unique-constraint failures rather than racy
+    // 201 inserts. Model.init() is the official way to await this.
+    await Promise.all(
+        Object.values(mongoose.models).map(m => m.init().catch(err => {
+            console.error('[test bootstrap] init failed for', m.modelName, err.message);
+        }))
+    );
+    // Belt-and-braces: also force a syncIndexes so any post-drop reattachment
+    // is honoured.
     await Promise.all(
         Object.values(mongoose.models).map(m => m.syncIndexes().catch(() => {}))
     );

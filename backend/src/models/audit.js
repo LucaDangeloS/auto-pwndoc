@@ -259,8 +259,21 @@ AuditSchema.statics.create = (audit, userId) => {
                 }
             })
 
-            var VulnerabilityCategory = mongoose.model('VulnerabilityCategory')
-            return VulnerabilityCategory.getAll()
+            // Phase 3: source the legacy "category" sort defaults from
+            // VulnerabilityTaxonomy type-root rows (where category and
+            // subcategory are both empty). Shape preserved as
+            // [{name, sortValue, sortOrder, sortAuto}] for the existing
+            // sort-options consumer below.
+            var VulnerabilityTaxonomy = mongoose.model('VulnerabilityTaxonomy')
+            return VulnerabilityTaxonomy.getAll()
+                .then(rows => rows
+                    .filter(r => !r.category && !r.subcategory)
+                    .map(r => ({
+                        name: r.type,
+                        sortValue: r.sortValue,
+                        sortOrder: r.sortOrder,
+                        sortAuto: r.sortAuto
+                    })))
         })
         .then((rows) => {
             // Add default sort options for each vulnerability category
@@ -787,10 +800,18 @@ AuditSchema.statics.updateSortFindings = (isAdmin, auditId, userId, update) => {
                 if (update) // if update is null then we only sort findings (no sort options saving)
                     audit.sortFindings = update.sortFindings // saving sort options to audit
 
-                var VulnerabilityCategory = mongoose.model('VulnerabilityCategory')
-                return VulnerabilityCategory.getAll()
-                
-            }            
+                // Phase 3: same source/shape swap as in Audit.create above.
+                var VulnerabilityTaxonomy = mongoose.model('VulnerabilityTaxonomy')
+                return VulnerabilityTaxonomy.getAll()
+                    .then(rows => rows
+                        .filter(r => !r.category && !r.subcategory)
+                        .map(r => ({
+                            name: r.type,
+                            sortValue: r.sortValue,
+                            sortOrder: r.sortOrder,
+                            sortAuto: r.sortAuto
+                        })))
+            }
         })
         .then(row => {
             var _ = require('lodash')

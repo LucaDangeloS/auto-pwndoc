@@ -640,9 +640,21 @@ export default defineComponent({
     },
 
     getAudit: function() {
-      DataService.getVulnerabilityCategories() // Vuln Categories must exist before getting audit data for handling default sort options
+      // Phase 3: source default sort options from type-root taxonomy rows
+      // (where category and subcategory are both empty). Shape preserved
+      // as [{name, sortValue, sortOrder, sortAuto}] for the sort lookup
+      // at this.vulnCategories.find(e => e.name === key).
+      DataService.getVulnerabilityTaxonomy()
       .then(data => {
-        this.vulnCategories = data.data.datas
+        var rows = data.data.datas || []
+        this.vulnCategories = rows
+          .filter(r => !r.category && !r.subcategory)
+          .map(r => ({
+            name: r.type,
+            sortValue: r.sortValue || 'cvssScore',
+            sortOrder: r.sortOrder || 'desc',
+            sortAuto: r.sortAuto !== undefined ? r.sortAuto : true
+          }))
         return AuditService.getAudit(this.auditId)
       })
       .then((data) => {

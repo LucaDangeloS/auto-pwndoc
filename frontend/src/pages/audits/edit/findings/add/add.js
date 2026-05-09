@@ -187,11 +187,15 @@ export default {
                     console.log(err);
                 });
         },
-        // Get available vulnerability categories
+        // Get available vulnerability "categories" — Phase 3: now sourced
+        // from VulnerabilityTaxonomy (unique type values), shaped as
+        // [{name}] so existing markup keeps working.
         getVulnerabilityCategories: function() {
-            DataService.getVulnerabilityCategories()
+            DataService.getVulnerabilityTaxonomy()
             .then((data) => {
-                this.vulnCategories = data.data.datas;
+                var rows = data.data.datas || [];
+                var unique = Array.from(new Set(rows.map(r => r.type))).filter(Boolean).sort();
+                this.vulnCategories = unique.map(t => ({ name: t }));
             })
             .catch((err) => {
                 console.log(err)

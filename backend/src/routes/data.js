@@ -438,6 +438,57 @@ module.exports = function(app) {
         .catch(err => Response.Internal(res, err))
     });
 
+    // Generate checklist rows from the taxonomy. Body:
+    //   { type: "WSTG", includeCategories: true, includeSubcategories: true }
+    // Returns rows ready to seed a `fieldType: 'checklist'` custom field:
+    //   [ { label, code, taxonomy: {type, category, subcategory}, status, note } ]
+    // Granularity rules (default both true):
+    //   - subcategory rows when includeSubcategories
+    //   - category rows when includeCategories and the type has at least one
+    //     category-only row (no subcategory)
+    //   - the type-root row itself only when both flags are false
+    app.post("/api/data/vulnerability-taxonomy/generate-checklist", acl.hasPermission('vulnerability-taxonomy:read'), function(req, res) {
+        // #swagger.tags = ['Data']
+
+        if (!req.body.type) {
+            Response.BadParameters(res, 'Missing required parameter: type');
+            return;
+        }
+        var type = String(req.body.type);
+        var includeCategories = req.body.includeCategories !== false;
+        var includeSubcategories = req.body.includeSubcategories !== false;
+
+        VulnerabilityTaxonomy.getAll()
+        .then(rows => {
+            var matches = rows.filter(r => r.type === type);
+            var picked = [];
+            matches.forEach(r => {
+                var hasCat = !!(r.category && r.category.length);
+                var hasSub = !!(r.subcategory && r.subcategory.length);
+                if (hasSub && includeSubcategories) picked.push(r);
+                else if (hasCat && !hasSub && includeCategories) picked.push(r);
+                else if (!hasCat && !hasSub && !includeCategories && !includeSubcategories) picked.push(r);
+            });
+
+            var seed = picked.map(r => {
+                var labelParts = [];
+                if (r.category) labelParts.push(r.category);
+                if (r.subcategory) labelParts.push(r.subcategory);
+                if (labelParts.length === 0) labelParts.push(r.type);
+                return {
+                    label: labelParts.join(' / '),
+                    code: r.code || '',
+                    taxonomy: { type: r.type, category: r.category || '', subcategory: r.subcategory || '' },
+                    status: 'untested',
+                    note: ''
+                };
+            });
+
+            Response.Ok(res, seed);
+        })
+        .catch(err => Response.Internal(res, err));
+    });
+
 /* ===== SECTIONS ===== */
 
     // Get sections list

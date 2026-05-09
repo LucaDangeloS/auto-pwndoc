@@ -427,11 +427,11 @@ AuditSchema.statics.updateNetwork = (isAdmin, auditId, userId, scope) => {
 
 // Create finding
 AuditSchema.statics.createFinding = (isAdmin, auditId, userId, finding) => {
-    return new Promise((resolve, reject) => { 
+    return new Promise((resolve, reject) => {
         Audit.getLastFindingIdentifier(auditId)
         .then(identifier => {
             finding.identifier = ++identifier
-            
+
             var query = Audit.findByIdAndUpdate(auditId, {$push: {findings: finding}})
             if (!isAdmin)
                 query.or([{creator: userId}, {collaborators: userId}])
@@ -444,8 +444,11 @@ AuditSchema.statics.createFinding = (isAdmin, auditId, userId, finding) => {
                 if ((sortOption && sortOption.sortAuto) || !sortOption) // if sort is set to automatic or undefined then we sort (default sort will be applied to undefined sortOption)
                     return Audit.updateSortFindings(isAdmin, auditId, userId, null)
                 else // if manual sorting then we do not sort
-                    resolve("Audit Finding created succesfully")
+                    return null
             }
+        })
+        .then(() => {
+            return Audit.applyChecklistAutoMark(auditId, finding)
         })
         .then(() => {
             resolve("Audit Finding created successfully")
@@ -526,20 +529,115 @@ AuditSchema.statics.updateFinding = (isAdmin, auditId, userId, findingId, newFin
                     finding[key] = newFinding[key]
                 })
                 return row.save({ validateBeforeSave: false }) // Disable schema validation since scope changed from Array to String
-            } 
+            }
         })
         .then(() => {
             if (sortAuto)
                 return Audit.updateSortFindings(isAdmin, auditId, userId, null)
             else
-                resolve("Audit Finding updated successfully")
+                return null
         })
         .then(() => {
-            resolve("Audit Finding updated successfully")        
+            // Use the merged finding shape so newly-set taxonomies trigger
+            // checklist marks even if the request body only sent a partial update.
+            const findingForMatch = Object.assign({}, newFinding, { _id: findingId })
+            return Audit.applyChecklistAutoMark(auditId, findingForMatch)
+        })
+        .then(() => {
+            resolve("Audit Finding updated successfully")
         })
         .catch((err) => {
             reject(err)
         })
+    })
+}
+
+// Checklist auto-mark
+// Walk every checklist customField on the audit (top-level audit.customFields
+// and audit.sections[i].customFields) and try to match each row's taxonomy
+// against the finding's taxonomies[]. On match, set status to "fail" — but
+// only if the row is currently "untested" so we never overwrite a status a
+// human has set.
+//
+// Match precedence per (finding-taxonomy × row):
+//   1. exact (type, category, subcategory) — including all empty strings
+//   2. (type, category) when row.subcategory is empty
+//   3. (type) when row.category and row.subcategory are both empty
+//   4. code match (most reliable for stable identifiers like WSTG-INFO-02)
+//
+// When the finding only carries the legacy `category` / `vulnType` fields
+// (Phase 1 backfill), we treat them as a single (type=category||vulnType)
+// taxonomy entry so existing audits keep working.
+function rowMatchesFindingTaxonomy(row, finding) {
+    const rowTax = (row && row.taxonomy) || {}
+    const rowType = (rowTax.type || '').trim()
+    const rowCat = (rowTax.category || '').trim()
+    const rowSub = (rowTax.subcategory || '').trim()
+    const rowCode = (row && row.code ? String(row.code).trim() : '')
+
+    const candidates = []
+    if (Array.isArray(finding.taxonomies) && finding.taxonomies.length > 0) {
+        finding.taxonomies.forEach(t => candidates.push(t || {}))
+    }
+    if (candidates.length === 0) {
+        // Legacy finding (no taxonomies[] yet) — fall back to category/vulnType
+        const legacyType = (finding.category || finding.vulnType || '').trim()
+        if (legacyType) candidates.push({ type: legacyType })
+    }
+
+    for (const c of candidates) {
+        const cType = (c.type || '').trim()
+        const cCat = (c.category || '').trim()
+        const cSub = (c.subcategory || '').trim()
+        const cCode = (c.code || '').trim()
+
+        if (rowCode && cCode && rowCode === cCode) return true
+        if (!rowType) continue
+        if (rowType !== cType) continue
+        if (!rowCat) return true                            // row at type granularity matches anything under that type
+        if (rowCat !== cCat) continue
+        if (!rowSub) return true                            // row at type+category granularity
+        if (rowSub === cSub) return true
+    }
+    return false
+}
+
+function applyMarksOnFieldList(customFields, finding) {
+    let touched = 0
+    if (!Array.isArray(customFields)) return touched
+    customFields.forEach(field => {
+        const def = field.customField || {}
+        if (def.fieldType !== 'checklist') return
+        if (!Array.isArray(field.text)) return
+        field.text.forEach(row => {
+            if (!row || row.status !== 'untested') return
+            if (rowMatchesFindingTaxonomy(row, finding)) {
+                row.status = 'fail'
+                touched++
+            }
+        })
+    })
+    return touched
+}
+
+AuditSchema.statics.applyChecklistAutoMark = (auditId, finding) => {
+    return new Promise((resolve, reject) => {
+        Audit.findById(auditId).exec()
+        .then(audit => {
+            if (!audit) return resolve(0)
+            let touched = 0
+            touched += applyMarksOnFieldList(audit.customFields, finding)
+            if (Array.isArray(audit.sections)) {
+                audit.sections.forEach(section => {
+                    touched += applyMarksOnFieldList(section.customFields, finding)
+                })
+            }
+            if (touched === 0) return resolve(0)
+            audit.markModified('customFields')
+            audit.markModified('sections')
+            return audit.save({ validateBeforeSave: false }).then(() => resolve(touched))
+        })
+        .catch((err) => reject(err))
     })
 }
 

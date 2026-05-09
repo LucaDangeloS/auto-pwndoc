@@ -208,6 +208,71 @@
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
                     </template>
                 </q-field>
+
+                <q-field
+                :ref="`field-${idx}-${idx2}`"
+                v-if="field.customField.fieldType === 'checklist'"
+                label-slot
+                stack-label
+                borderless
+                :hint="field.customField.description"
+                hide-bottom-space
+                >
+                    <template v-slot:label>
+                        {{ field.customField.label }} <span v-if="field.customField.required" class="text-red">*</span>
+                    </template>
+                    <template v-slot:control>
+                        <div class="full-width">
+                            <table class="checklist-table full-width">
+                                <thead>
+                                    <tr>
+                                        <th class="text-left">{{ $t('item') }}</th>
+                                        <th class="text-left" style="width: 90px">{{ $t('code') }}</th>
+                                        <th class="text-center" style="width: 240px">{{ $t('status') }}</th>
+                                        <th class="text-left">{{ $t('note') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(row, rIdx) in (Array.isArray(field.text) ? field.text : [])" :key="rIdx">
+                                        <td>
+                                            <div class="text-body2">{{ row.label }}</div>
+                                            <div v-if="row.taxonomy && (row.taxonomy.type || row.taxonomy.category || row.taxonomy.subcategory)" class="text-caption text-grey-6">
+                                                {{ [row.taxonomy.type, row.taxonomy.category, row.taxonomy.subcategory].filter(Boolean).join(' › ') }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span v-if="row.code" class="text-caption text-mono">{{ row.code }}</span>
+                                            <span v-else class="text-grey-5">—</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <q-btn-toggle
+                                                v-model="row.status"
+                                                @update:model-value="eventPropagation"
+                                                :disable="readonly"
+                                                :options="checklistStatusOptions"
+                                                size="sm"
+                                                spread no-caps
+                                                toggle-color="primary"
+                                            />
+                                        </td>
+                                        <td>
+                                            <q-input
+                                                v-model="row.note"
+                                                @update:model-value="eventPropagation"
+                                                :readonly="readonly"
+                                                dense outlined
+                                                :placeholder="$t('addNote')"
+                                            />
+                                        </td>
+                                    </tr>
+                                    <tr v-if="!Array.isArray(field.text) || field.text.length === 0">
+                                        <td colspan="4" class="text-grey-6 text-italic q-pa-sm">{{ $t('msg.checklistEmpty') }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
+                </q-field>
             </div>
         </div>
     </component>
@@ -257,7 +322,12 @@ export default defineComponent({
 
   data: function() {
       return {
-          
+          checklistStatusOptions: [
+              { label: this.$t('untested'), value: 'untested' },
+              { label: this.$t('pass'),     value: 'pass',  color: 'positive' },
+              { label: this.$t('fail'),     value: 'fail',  color: 'negative' },
+              { label: this.$t('na'),       value: 'na',    color: 'grey-7' }
+          ]
       }
   },
 
@@ -327,4 +397,23 @@ export default defineComponent({
 </script>
 
 <style>
+.checklist-table {
+    border-collapse: collapse;
+}
+.checklist-table th,
+.checklist-table td {
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    padding: 6px 8px;
+    vertical-align: middle;
+}
+.checklist-table thead th {
+    font-weight: 500;
+    font-size: 12px;
+    color: rgba(0,0,0,0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.text-mono {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
 </style>

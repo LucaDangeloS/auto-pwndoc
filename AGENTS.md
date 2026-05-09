@@ -134,8 +134,8 @@ Read only the subsection that matches the task. Do not scan the full repository 
 - `backend/src/models/audit-archive.js`: uploaded historical audit PDF metadata; bytes live under `backend/audit-archives/`.
 - `backend/src/models/vulnerability.js`: vulnerability library with per-locale details and merge/update helpers.
 - `backend/src/models/user.js`: users, roles, refresh tokens, extra `permissions[]` grants merged into JWT `roles`.
-- `backend/src/models/audit-type.js`, `vulnerability-type.js`, `vulnerability-category.js`, `custom-field.js`, `custom-section.js`, `client.js`, `company.js`, `template.js`, `image.js`, `language.js`, `vulnerability-update.js`: lookup, dynamic form, document, image, locale, and pending vulnerability-update data.
-- `backend/src/models/vulnerability-taxonomy.js`: unified locale-agnostic taxonomy `{type, category?, subcategory?, code?}` with sort config on type-root rows. Replaces the orthogonal `vulnerability-type.js` (per-locale) and `vulnerability-category.js` (top-level). Loose semantics — vulnerabilities and audit findings store taxonomy values as plain strings in their `taxonomies[]` arrays, so renames here do not cascade. Mass-edit support via `parseLines()` and `replaceAll()` statics.
+- `backend/src/models/audit-type.js`, `custom-field.js`, `custom-section.js`, `client.js`, `company.js`, `template.js`, `image.js`, `language.js`, `vulnerability-update.js`: lookup, dynamic form, document, image, locale, and pending vulnerability-update data.
+- `backend/src/models/vulnerability-taxonomy.js`: unified locale-agnostic taxonomy `{type, category?, subcategory?, code?}` with sort config on type-root rows. Loose semantics — vulnerabilities and audit findings store taxonomy values as plain strings in their `taxonomies[]` arrays, so renames here do not cascade. Mass-edit support via `parseLines()` and `replaceAll()` statics. The legacy `vulnerability-type.js` and `vulnerability-category.js` models were retired in Phase 3.
 - Custom field `fieldType: 'checklist'` stores `field.text[locale].value` as an array of `{label, code, taxonomy: {type, category, subcategory}, status, note}`. The audit/finding/section instance copies this array forward at create time; `Audit.applyChecklistAutoMark` is invoked from `createFinding` / `updateFinding` and flips a row's `status` from `untested` to `fail` when the finding's `taxonomies[]` (or legacy `category`/`vulnType`) match the row's taxonomy or `code`. Pass/fail/na set by a human are never overwritten. Generate-from-taxonomy uses `POST /api/data/vulnerability-taxonomy/generate-checklist`.
 </backend_models>
 
@@ -259,8 +259,6 @@ The response payload key is `datas`.
 `templates:read/create/update/delete`
 `languages:read/create/update/delete`
 `audit-types:read/create/update/delete`
-`vulnerability-types:read/create/update/delete`
-`vulnerability-categories:read/create/update/delete`
 `vulnerability-taxonomy:read/create/update/delete`
 `custom-fields:read/create/update/delete`
 `sections:read/create/update/delete`

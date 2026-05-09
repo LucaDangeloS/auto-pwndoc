@@ -58,10 +58,6 @@ var builtInRoles = {
             'languages:read',
             // Audit Types
             'audit-types:read',
-            // Vulnerability Types (legacy — kept for backward compat during taxonomy refactor)
-            'vulnerability-types:read',
-            // Vulnerability Categories (legacy — kept for backward compat during taxonomy refactor)
-            'vulnerability-categories:read',
             // Vulnerability Taxonomy (unified type -> category -> subcategory)
             'vulnerability-taxonomy:read',
             // Sections Data

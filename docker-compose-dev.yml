@@ -10,7 +10,7 @@ services:
     networks:
       - autopwndoc-net
     volumes:
-      - ./backend/new-mongo-data:/data/db
+      - ./backend/mongo-data:/data/db
     ports:
       - 127.0.0.1:27017:27017
     restart: always

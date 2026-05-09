@@ -14,11 +14,21 @@ var customField = {
     text:       Schema.Types.Mixed
 }
 
+// One step in the type -> category -> subcategory taxonomy. A finding may
+// reference more than one (e.g. the same weakness as both WSTG and OSSTMM).
+var TaxonomyRef = {
+    _id:         false,
+    type:        String,
+    category:    {type: String, default: ''},
+    subcategory: {type: String, default: ''},
+    code:        {type: String, default: ''}
+}
+
 var Finding = {
     id:                     Schema.Types.ObjectId,
     identifier:             Number, //incremental ID to be shown in the report
     title:                  String,
-    vulnType:               String,
+    vulnType:               String, // legacy; kept until Phase 2 — see taxonomies[]
     description:            String,
     observation:            String,
     remediation:            String,
@@ -33,7 +43,8 @@ var Finding = {
     retestPassed:           {type: Boolean, default: null},
     scope:                  String,
     status:                 {type: Number, enum: [0,1], default: 1}, // 0: done, 1: redacting
-    category:               String,
+    category:               String, // legacy; kept until Phase 2 — see taxonomies[]
+    taxonomies:             [TaxonomyRef],
     customFields:           [customField]
 }
 

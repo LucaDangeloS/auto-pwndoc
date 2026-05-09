@@ -58,6 +58,7 @@ require('./models/language');
 require('./models/audit-type');
 require('./models/vulnerability-type');
 require('./models/vulnerability-category');
+require('./models/vulnerability-taxonomy');
 require('./models/custom-section');
 require('./models/custom-field');
 require('./models/image');

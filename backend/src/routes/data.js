@@ -9,6 +9,7 @@ module.exports = function(app) {
     var AuditType = require('mongoose').model('AuditType');
     var VulnerabilityType = require('mongoose').model('VulnerabilityType');
     var VulnerabilityCategory = require('mongoose').model('VulnerabilityCategory');
+    var VulnerabilityTaxonomy = require('mongoose').model('VulnerabilityTaxonomy');
     var CustomSection = require('mongoose').model('CustomSection');
     var CustomField = require('mongoose').model('CustomField');
 
@@ -323,6 +324,117 @@ module.exports = function(app) {
         .then(msg => {
             Response.Ok(res, 'Vulnerability category deleted successfully')
         })
+        .catch(err => Response.Internal(res, err))
+    });
+
+/* ===== VULNERABILITY TAXONOMY ===== */
+// Unified type -> category -> subcategory taxonomy. See
+// backend/src/models/vulnerability-taxonomy.js. Loose semantics: vulnerabilities
+// store taxonomy values as plain strings, so renames here do not cascade.
+
+    // List all taxonomy entries
+    app.get("/api/data/vulnerability-taxonomy", acl.hasPermission('vulnerability-taxonomy:read'), function(req, res) {
+        // #swagger.tags = ['Data']
+
+        VulnerabilityTaxonomy.getAll()
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
+
+    // Create one taxonomy entry
+    app.post("/api/data/vulnerability-taxonomy", acl.hasPermission('vulnerability-taxonomy:create'), function(req, res) {
+        // #swagger.tags = ['Data']
+
+        if (!req.body.type) {
+            Response.BadParameters(res, 'Missing required parameter: type');
+            return;
+        }
+
+        var entry = {
+            type: req.body.type,
+            category: req.body.category || '',
+            subcategory: req.body.subcategory || '',
+            code: req.body.code || ''
+        };
+        if (!_.isNil(req.body.sortValue)) entry.sortValue = req.body.sortValue;
+        if (!_.isNil(req.body.sortOrder)) entry.sortOrder = req.body.sortOrder;
+        if (!_.isNil(req.body.sortAuto))  entry.sortAuto  = req.body.sortAuto;
+
+        VulnerabilityTaxonomy.create(entry)
+        .then(msg => Response.Created(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
+
+    // Update one taxonomy entry by id
+    app.put("/api/data/vulnerability-taxonomy/:id", acl.hasPermission('vulnerability-taxonomy:update'), function(req, res) {
+        // #swagger.tags = ['Data']
+
+        if (!req.body.type) {
+            Response.BadParameters(res, 'Missing required parameter: type');
+            return;
+        }
+
+        var entry = {
+            type: req.body.type,
+            category: req.body.category || '',
+            subcategory: req.body.subcategory || '',
+            code: req.body.code || ''
+        };
+        if (!_.isNil(req.body.sortValue)) entry.sortValue = req.body.sortValue;
+        if (!_.isNil(req.body.sortOrder)) entry.sortOrder = req.body.sortOrder;
+        if (!_.isNil(req.body.sortAuto))  entry.sortAuto  = req.body.sortAuto;
+
+        VulnerabilityTaxonomy.update(req.params.id, entry)
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
+
+    // Delete one taxonomy entry by id
+    app.delete("/api/data/vulnerability-taxonomy/:id", acl.hasPermission('vulnerability-taxonomy:delete'), function(req, res) {
+        // #swagger.tags = ['Data']
+
+        VulnerabilityTaxonomy.delete(req.params.id)
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
+
+    // Preview a bulk-edit text payload. Returns parsed rows + errors WITHOUT
+    // mutating the database. Frontend uses this to render a confirmation
+    // diff (additions / removals / kept) before the user commits.
+    app.post("/api/data/vulnerability-taxonomy/parse", acl.hasPermission('vulnerability-taxonomy:read'), function(req, res) {
+        // #swagger.tags = ['Data']
+
+        if (typeof req.body.text !== 'string') {
+            Response.BadParameters(res, 'Missing required parameter: text (string)');
+            return;
+        }
+
+        try {
+            var parsed = VulnerabilityTaxonomy.parseLines(req.body.text);
+            Response.Ok(res, parsed);
+        } catch (err) {
+            Response.Internal(res, err);
+        }
+    });
+
+    // Bulk replace the entire taxonomy collection. Body: {rows: [{type, category, subcategory, code}, ...]}
+    // Sort config on type-root rows is preserved for types that appear in both old and new sets.
+    app.put("/api/data/vulnerability-taxonomy", acl.hasPermission('vulnerability-taxonomy:update'), function(req, res) {
+        // #swagger.tags = ['Data']
+
+        if (!Array.isArray(req.body.rows)) {
+            Response.BadParameters(res, 'Missing required parameter: rows (array)');
+            return;
+        }
+        for (var i = 0; i < req.body.rows.length; i++) {
+            if (!req.body.rows[i] || !req.body.rows[i].type) {
+                Response.BadParameters(res, 'Row ' + (i + 1) + ': type is required');
+                return;
+            }
+        }
+
+        VulnerabilityTaxonomy.replaceAll(req.body.rows)
+        .then(msg => Response.Created(res, msg))
         .catch(err => Response.Internal(res, err))
     });
 

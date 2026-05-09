@@ -357,6 +357,160 @@ const STEPS = [
         },
     },
 
+    // ── Step 10: Build VulnerabilityTaxonomy from legacy collections ──────────
+    // Folds the orthogonal pwndoc-ng `vulnerabilitytypes` (per-locale strings)
+    // and `vulnerabilitycategories` (top-level grouping with sort config) into
+    // the new unified taxonomy collection.
+    //
+    // Mapping rationale: pwndoc-ng's `category` was the closest analog to the
+    // new top-level `type`, so legacy categories become type-root rows and
+    // carry their sort config forward. Legacy `vulnerabilitytypes` are
+    // de-duplicated by name (locale is dropped — taxonomy is English-only)
+    // and inserted as type-root rows only when no row already exists.
+    {
+        id: 10,
+        name: 'build-vulnerability-taxonomy',
+        async run(_srcDb, dstDb) {
+            const taxCol = dstDb.collection('vulnerabilitytaxonomies');
+            const catCol = dstDb.collection('vulnerabilitycategories');
+            const typeCol = dstDb.collection('vulnerabilitytypes');
+
+            // Ensure unique index exists before bulk upserts.
+            try {
+                await taxCol.createIndex(
+                    { type: 1, category: 1, subcategory: 1 },
+                    { name: 'unique_taxonomy_path', unique: true }
+                );
+            } catch (_) { /* index may already exist */ }
+
+            let fromCategories = 0;
+            const cats = await catCol.find({}).toArray();
+            for (const c of cats) {
+                if (!c.name) continue;
+                const r = await taxCol.updateOne(
+                    { type: c.name, category: '', subcategory: '' },
+                    {
+                        $setOnInsert: {
+                            type: c.name,
+                            category: '',
+                            subcategory: '',
+                            code: '',
+                            sortValue: c.sortValue || 'cvssScore',
+                            sortOrder: c.sortOrder || 'desc',
+                            sortAuto: c.sortAuto !== undefined ? c.sortAuto : true,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                        },
+                    },
+                    { upsert: true }
+                );
+                if (r.upsertedCount) fromCategories++;
+            }
+
+            let fromTypes = 0;
+            const seenTypeNames = new Set();
+            const types = await typeCol.find({}).toArray();
+            for (const t of types) {
+                if (!t.name) continue;
+                if (seenTypeNames.has(t.name)) continue;
+                seenTypeNames.add(t.name);
+                const r = await taxCol.updateOne(
+                    { type: t.name, category: '', subcategory: '' },
+                    {
+                        $setOnInsert: {
+                            type: t.name,
+                            category: '',
+                            subcategory: '',
+                            code: '',
+                            sortValue: 'cvssScore',
+                            sortOrder: 'desc',
+                            sortAuto: true,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                        },
+                    },
+                    { upsert: true }
+                );
+                if (r.upsertedCount) fromTypes++;
+            }
+
+            console.log(`[migration] build-taxonomy: ${fromCategories} from categories, ${fromTypes} from types (deduped)`);
+        },
+    },
+
+    // ── Step 11: Backfill vulnerability.taxonomies from legacy fields ─────────
+    // Copies each vulnerability's legacy `category` (and falls back to
+    // details[].vulnType if category is empty) into the new `taxonomies[]`
+    // array as a single type-root entry. Legacy fields are left in place
+    // (kept until Phase 2) so existing report templates and finding-edit UI
+    // continue to work.
+    {
+        id: 11,
+        name: 'backfill-vulnerability-taxonomies',
+        async run(_srcDb, dstDb) {
+            const col = dstDb.collection('vulnerabilities');
+            const cursor = col.find({
+                $or: [
+                    { taxonomies: { $exists: false } },
+                    { taxonomies: { $size: 0 } },
+                ],
+            });
+            let updated = 0;
+            while (await cursor.hasNext()) {
+                const v = await cursor.next();
+                let typeName = v.category || '';
+                if (!typeName && Array.isArray(v.details)) {
+                    const d = v.details.find(x => x && x.vulnType);
+                    if (d) typeName = d.vulnType;
+                }
+                const tax = typeName
+                    ? [{ type: typeName, category: '', subcategory: '', code: '' }]
+                    : [];
+                await col.updateOne({ _id: v._id }, { $set: { taxonomies: tax } });
+                updated++;
+            }
+            console.log(`[migration] backfill-vulnerability-taxonomies: ${updated} vulnerabilities updated`);
+        },
+    },
+
+    // ── Step 12: Backfill audit.findings[i].taxonomies from legacy fields ─────
+    // Each finding embeds its taxonomy at the moment of creation. Apply the
+    // same precedence as step 11: prefer `category`, fall back to `vulnType`.
+    {
+        id: 12,
+        name: 'backfill-finding-taxonomies',
+        async run(_srcDb, dstDb) {
+            const col = dstDb.collection('audits');
+            const cursor = col.find({
+                'findings.0': { $exists: true },
+            });
+            let auditsTouched = 0;
+            let findingsTouched = 0;
+            while (await cursor.hasNext()) {
+                const a = await cursor.next();
+                let dirty = false;
+                const findings = (a.findings || []).map((f) => {
+                    if (Array.isArray(f.taxonomies) && f.taxonomies.length > 0) return f;
+                    const typeName = f.category || f.vulnType || '';
+                    const tax = typeName
+                        ? [{ type: typeName, category: '', subcategory: '', code: '' }]
+                        : [];
+                    if (!Array.isArray(f.taxonomies) || f.taxonomies.length !== tax.length) {
+                        dirty = true;
+                        findingsTouched++;
+                        return { ...f, taxonomies: tax };
+                    }
+                    return f;
+                });
+                if (dirty) {
+                    await col.updateOne({ _id: a._id }, { $set: { findings } });
+                    auditsTouched++;
+                }
+            }
+            console.log(`[migration] backfill-finding-taxonomies: ${findingsTouched} findings updated across ${auditsTouched} audits`);
+        },
+    },
+
 ];
 
 // ─── Runner ───────────────────────────────────────────────────────────────────

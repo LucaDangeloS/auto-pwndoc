@@ -99,6 +99,9 @@ async function indexVulnerability(vuln, aiSettings) {
 
         if (!doc.trim()) continue;
 
+        // Phase 3: derive category/vulnType from taxonomies[0] (locale-agnostic),
+        // falling back to legacy fields for vulns that haven't been re-saved.
+        const t0 = (Array.isArray(vuln.taxonomies) && vuln.taxonomies[0]) || {};
         ids.push(id);
         documents.push(doc);
         texts.push(doc);
@@ -106,8 +109,9 @@ async function indexVulnerability(vuln, aiSettings) {
             vulnId: vuln._id.toString(),
             locale: detail.locale || 'en',
             title: detail.title || '',
-            category: vuln.category || '',
-            vulnType: detail.vulnType || ''
+            category: t0.type || vuln.category || '',
+            vulnType: t0.category || detail.vulnType || '',
+            taxonomyCode: t0.code || ''
         });
     }
 

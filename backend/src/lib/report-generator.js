@@ -1656,9 +1656,15 @@ async function prepAuditData(data, settings) {
         } else {
             tmpCVSS = CVSS31.calculateCVSSFromVector(finding.cvssv3);
         }
+        // Phase 3: derive `vulnType` and `category` template variables from
+        // taxonomies[0] (locale-agnostic). Falls back to legacy fields for
+        // documents that were never re-saved through the new picker.
+        const t0 = (Array.isArray(finding.taxonomies) && finding.taxonomies[0]) || {};
+        const derivedCategory = t0.type || finding.category || "";
+        const derivedVulnType = t0.category || finding.vulnType || "";
         var tmpFinding = {
             title: finding.title || "",
-            vulnType: $t(finding.vulnType) || "",
+            vulnType: $t(derivedVulnType) || "",
             description: await splitHTMLParagraphs(finding.description),
             observation: await splitHTMLParagraphs(finding.observation),
             remediation: await splitHTMLParagraphs(finding.remediation),
@@ -1672,7 +1678,15 @@ async function prepAuditData(data, settings) {
             affected: finding.scope || "",
             //affected: stripParagraphTags(finding.scope) || [],
             status: finding.status || "",
-            category: $t(finding.category) || $t("No Category"),
+            category: $t(derivedCategory) || $t("No Category"),
+            // New taxonomy variables (preferred over the legacy `category`/`vulnType`).
+            taxonomy: {
+                type: t0.type || "",
+                category: t0.category || "",
+                subcategory: t0.subcategory || "",
+                code: t0.code || ""
+            },
+            taxonomies: Array.isArray(finding.taxonomies) ? finding.taxonomies : [],
             identifier: "IDX-" + utils.lPad(finding.identifier),
             unique_id: finding._id.toString()
         }

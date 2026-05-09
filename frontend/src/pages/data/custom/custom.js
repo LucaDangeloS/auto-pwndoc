@@ -81,6 +81,7 @@ export default {
             ],
             cfComponentOptions: [
                 {label: $t('checkbox'), value: 'checkbox', icon: 'check_box'},
+                {label: $t('checklist'), value: 'checklist', icon: 'checklist'},
                 {label: $t('date'), value: 'date', icon: 'event'},
                 {label: $t('editor'), value: 'text', icon: 'mdi-format-pilcrow'},
                 {label: $t('input'), value: 'input', icon: 'title'},
@@ -99,6 +100,10 @@ export default {
             errors: {locale: '', language: '', auditType: '', vulnType: '', vulnCat: '', vulnCatField: '', sectionField: '', sectionName: '', fieldLabel: '', fieldType: ''},
 
             selectedTab: "languages",
+
+            // Checklist generate-from-taxonomy dialog
+            checklistDialog: { open: false, target: null, type: '', includeCategories: true, includeSubcategories: true },
+            taxonomyTypes: []
         }
     },
 
@@ -540,6 +545,127 @@ getFieldValue(field) {
   // Options pour les checkbox/radio/select
   getOptionsGroup(options) {
     return options.filter((e) => e.locale === this.cfLocale).map((e) => ({ label: e.value, value: e.value }));
+  },
+
+/* ===== CHECKLIST SEED HELPERS =====
+ * The checklist field type stores its rows in field.text[locale].value as
+ * an array of {label, code, taxonomy, status, note}. The admin edits the
+ * seed as text — one row per line — using either:
+ *   Label
+ *   Label | Type > Category > Subcategory [CODE]
+ *   Type > Category > Subcategory [CODE]   (label derived from path)
+ * Lines beginning with # are comments.
+ */
+  parseChecklistText(text) {
+    var lines = String(text || '').split(/\r?\n/);
+    var rows = [];
+    lines.forEach((raw) => {
+      var line = raw.trim();
+      if (!line || line.startsWith('#')) return;
+
+      // Optional trailing [CODE]
+      var code = '';
+      var codeMatch = line.match(/\s*\[([^\]]+)\]\s*$/);
+      if (codeMatch) {
+        code = codeMatch[1].trim();
+        line = line.slice(0, codeMatch.index).trim();
+      }
+
+      var label = '';
+      var taxonomy = { type: '', category: '', subcategory: '' };
+      var pipeIdx = line.indexOf('|');
+      if (pipeIdx >= 0) {
+        label = line.slice(0, pipeIdx).trim();
+        var taxStr = line.slice(pipeIdx + 1).trim();
+        var parts = taxStr.split('>').map((p) => p.trim());
+        taxonomy.type = parts[0] || '';
+        taxonomy.category = parts[1] || '';
+        taxonomy.subcategory = parts[2] || '';
+      } else if (line.indexOf('>') >= 0) {
+        var parts2 = line.split('>').map((p) => p.trim());
+        taxonomy.type = parts2[0] || '';
+        taxonomy.category = parts2[1] || '';
+        taxonomy.subcategory = parts2[2] || '';
+        label = parts2.filter(Boolean).slice(1).join(' / ') || taxonomy.type;
+      } else {
+        label = line;
+      }
+
+      if (!label) return;
+      rows.push({ label, code, taxonomy, status: 'untested', note: '' });
+    });
+    return rows;
+  },
+
+  serializeChecklistRows(rows) {
+    if (!Array.isArray(rows)) return '';
+    return rows.map((r) => {
+      var line = r.label || '';
+      var t = r.taxonomy || {};
+      var taxParts = [t.type, t.category, t.subcategory].filter(Boolean);
+      if (taxParts.length > 0) line += ' | ' + taxParts.join(' > ');
+      if (r.code) line += ' [' + r.code + ']';
+      return line;
+    }).join('\n');
+  },
+
+  getChecklistText(field) {
+    var entry = field.text && field.text.find((e) => e.locale === this.cfLocale);
+    if (!entry) {
+      var fresh = { locale: this.cfLocale, value: [] };
+      field.text = field.text || [];
+      field.text.push(fresh);
+      return '';
+    }
+    return this.serializeChecklistRows(entry.value);
+  },
+
+  setChecklistText(field, text) {
+    var rows = this.parseChecklistText(text);
+    var entry = field.text && field.text.find((e) => e.locale === this.cfLocale);
+    if (entry) entry.value = rows;
+    else {
+      field.text = field.text || [];
+      field.text.push({ locale: this.cfLocale, value: rows });
+    }
+  },
+
+  openGenerateChecklistDialog(field) {
+    DataService.getVulnerabilityTaxonomy()
+      .then((res) => {
+        var rows = res.data.datas || [];
+        this.taxonomyTypes = Array.from(new Set(rows.map((r) => r.type))).filter(Boolean).sort();
+        this.checklistDialog = {
+          open: true,
+          target: field,
+          type: this.taxonomyTypes[0] || '',
+          includeCategories: true,
+          includeSubcategories: true
+        };
+      })
+      .catch((err) => Notify.create({ message: err?.response?.data?.datas || err?.message || 'Failed to load taxonomy', color: 'negative', textColor: 'white', position: 'top-right' }));
+  },
+
+  applyGenerateChecklist() {
+    var d = this.checklistDialog;
+    if (!d.type || !d.target) return;
+    DataService.generateChecklistFromTaxonomy({
+      type: d.type,
+      includeCategories: d.includeCategories,
+      includeSubcategories: d.includeSubcategories
+    })
+      .then((res) => {
+        var rows = res.data.datas || [];
+        var entry = d.target.text && d.target.text.find((e) => e.locale === this.cfLocale);
+        if (entry) entry.value = rows;
+        else {
+          d.target.text = d.target.text || [];
+          d.target.text.push({ locale: this.cfLocale, value: rows });
+        }
+        this.checklistDialog.open = false;
+        Notify.create({ message: $t('msg.checklistGenerated', { count: rows.length }), color: 'positive', textColor: 'white', position: 'top-right' });
+      })
+      .catch((err) => Notify.create({ message: err?.response?.data?.datas || err?.message || 'Generation failed', color: 'negative', textColor: 'white', position: 'top-right' }));
   },
         // Get available custom fields
         getCustomFields: function() {

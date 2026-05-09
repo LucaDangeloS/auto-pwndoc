@@ -92,6 +92,10 @@ export default {
         return api.put(`data/vulnerability-taxonomy`, { rows })
     },
 
+    generateChecklistFromTaxonomy: function(payload) {
+        return api.post(`data/vulnerability-taxonomy/generate-checklist`, payload)
+    },
+
     getCustomFields: function() {
         return  api.get(`data/custom-fields`)
     },

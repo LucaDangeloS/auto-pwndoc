@@ -899,14 +899,14 @@
                             <q-item-section v-if="['select', 'select-multiple', 'checkbox', 'radio'].includes(newCustomField.fieldType)" class="col-md-4" top>
                                 <q-item>
                                     <q-item-section>
-                                        <q-select 
+                                        <q-select
                                         v-model="cfLocale"
                                         :label="$t('optionsLanguage')"
-                                        :options="languages" 
+                                        :options="languages"
                                         option-value="locale"
                                         option-label="language"
                                         emit-value
-                                        map-options 
+                                        map-options
                                         options-sanitize
                                         outlined dense
                                         />
@@ -928,7 +928,7 @@
                                 </q-item>
                                 <q-item>
                                     <q-item-section>
-                                        <q-input 
+                                        <q-input
                                         :label="$t('addOption')"
                                         v-model="newCustomOption"
                                         outlined dense
@@ -937,6 +937,31 @@
                                     </q-item-section>
                                     <q-item-section side>
                                         <q-btn color="secondary" unelevated label="+" size="md" @click="addCustomFieldOption(newCustomField.options)" />
+                                    </q-item-section>
+                                </q-item>
+                            </q-item-section>
+
+                            <!-- Checklist seed editor -->
+                            <q-item-section v-if="newCustomField.fieldType === 'checklist'" class="col-md-6" top>
+                                <q-item>
+                                    <q-item-section>
+                                        <q-select v-model="cfLocale" :label="$t('optionsLanguage')" :options="languages" option-value="locale" option-label="language" emit-value map-options options-sanitize outlined dense />
+                                    </q-item-section>
+                                    <q-item-section side>
+                                        <q-btn color="primary" outline no-caps icon="auto_awesome" :label="$t('btn.generateFromTaxonomy')" @click="openGenerateChecklistDialog(newCustomField)" />
+                                    </q-item-section>
+                                </q-item>
+                                <q-item>
+                                    <q-item-section>
+                                        <div class="text-caption text-grey-7 q-mb-xs">{{ $t('msg.checklistSeedHelp') }}</div>
+                                        <q-input
+                                            type="textarea"
+                                            outlined dense
+                                            :rows="10"
+                                            :model-value="getChecklistText(newCustomField)"
+                                            @update:model-value="setChecklistText(newCustomField, $event)"
+                                            :label="$t('checklistSeed')"
+                                        />
                                     </q-item-section>
                                 </q-item>
                             </q-item-section>
@@ -1125,6 +1150,33 @@
                                 type="checkbox"
                               />
                       
+                              <!-- Checklist seed -->
+                              <q-field
+                                v-else-if="field.fieldType === 'checklist'"
+                                class="full-width"
+                                label-slot
+                                stack-label
+                                borderless
+                                :hint="field.description"
+                                hide-bottom-space
+                              >
+                                <template v-slot:label>
+                                  {{ field.label }}
+                                  <q-btn flat dense no-caps icon="auto_awesome" :label="$t('btn.generateFromTaxonomy')" class="q-ml-sm" @click="openGenerateChecklistDialog(field)" />
+                                </template>
+                                <template v-slot:control>
+                                  <q-input
+                                    type="textarea"
+                                    outlined dense
+                                    :rows="6"
+                                    class="full-width"
+                                    :model-value="getChecklistText(field)"
+                                    @update:model-value="setChecklistText(field, $event)"
+                                    :placeholder="$t('msg.checklistSeedHelp')"
+                                  />
+                                </template>
+                              </q-field>
+
                               <!-- Radio group -->
                               <q-option-group
                                 v-else-if="field.fieldType === 'radio'"
@@ -1313,6 +1365,31 @@
                 </q-card>
             </q-tab-panel>
         </q-tab-panels>
-    </div>    
+    </div>
+
+    <!-- Generate-from-taxonomy dialog (checklist seeding) -->
+    <q-dialog v-model="checklistDialog.open">
+      <q-card style="min-width: 360px">
+        <q-card-section>
+          <div class="text-h6">{{ $t('btn.generateFromTaxonomy') }}</div>
+          <div class="text-caption text-grey-7">{{ $t('msg.generateChecklistHelp') }}</div>
+        </q-card-section>
+        <q-card-section class="q-pt-none">
+          <q-select
+            v-model="checklistDialog.type"
+            :options="taxonomyTypes"
+            :label="$t('type')"
+            outlined dense
+            class="q-mb-sm"
+          />
+          <q-checkbox v-model="checklistDialog.includeCategories" :label="$t('includeCategories')" />
+          <q-checkbox v-model="checklistDialog.includeSubcategories" :label="$t('includeSubcategories')" />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat :label="$t('btn.cancel')" v-close-popup />
+          <q-btn unelevated color="primary" :label="$t('btn.generate')" @click="applyGenerateChecklist" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
 </div>
         

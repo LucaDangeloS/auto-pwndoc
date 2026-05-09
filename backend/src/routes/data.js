@@ -7,8 +7,6 @@ module.exports = function(app) {
     var utils = require('../lib/utils')
     var Language = require('mongoose').model('Language');
     var AuditType = require('mongoose').model('AuditType');
-    var VulnerabilityType = require('mongoose').model('VulnerabilityType');
-    var VulnerabilityCategory = require('mongoose').model('VulnerabilityCategory');
     var VulnerabilityTaxonomy = require('mongoose').model('VulnerabilityTaxonomy');
     var CustomSection = require('mongoose').model('CustomSection');
     var CustomField = require('mongoose').model('CustomField');
@@ -175,157 +173,9 @@ module.exports = function(app) {
         .catch(err => Response.Internal(res, err))
     });
 
-/* ===== VULNERABILITY TYPES ===== */
-
-     // Get vulnerability types list
-     app.get("/api/data/vulnerability-types", acl.hasPermission('vulnerability-types:read'), function(req, res) {
-         // #swagger.tags = ['Data']
-
-         VulnerabilityType.getAll()
-        .then(msg => Response.Ok(res, msg))
-        .catch(err => Response.Internal(res, err))
-    });
-
-    // Create vulnerability type
-    app.post("/api/data/vulnerability-types", acl.hasPermission('vulnerability-types:create'), function(req, res) {
-        // #swagger.tags = ['Data']
-
-        if (!req.body.name || !req.body.locale) {
-            Response.BadParameters(res, 'Missing required parameters: name, locale');
-            return;
-        }
-        if (!utils.validFilename(req.body.name) || !utils.validFilename(req.body.locale)) {
-            Response.BadParameters(res, 'name and locale value must match /^[\p{Letter}\p{Mark}0-9 \[\]\'()_-]+$/iu')
-            return
-        }
-
-        var vulnType = {};
-        vulnType.name = req.body.name;
-        vulnType.locale = req.body.locale;
-        VulnerabilityType.create(vulnType)
-        .then(msg => Response.Created(res, msg))
-        .catch(err => Response.Internal(res, err))
-    });
-    
-    // Delete vulnerability type
-    app.delete("/api/data/vulnerability-types/:name", acl.hasPermission('vulnerability-types:delete'), function(req, res) {
-        // #swagger.tags = ['Data']
-
-        VulnerabilityType.delete(req.params.name)
-        .then(msg => {
-            Response.Ok(res, 'Vulnerability type deleted successfully')
-        })
-        .catch(err => Response.Internal(res, err))
-    });
-
-    // Update Vulnerability Types
-    app.put("/api/data/vulnerability-types", acl.hasPermission('vulnerability-types:update'), function(req, res) {
-        // #swagger.tags = ['Data']
-
-        for (var i=0; i<req.body.length; i++) {
-            var vulnType = req.body[i]
-            if (!vulnType.name || !vulnType.locale) {
-                Response.BadParameters(res, 'Missing required parameters: name, locale')
-                return
-            }
-            if (!utils.validFilename(vulnType.name) || !utils.validFilename(vulnType.locale)) {
-                Response.BadParameters(res, 'name and locale value must match /^[\p{Letter}\p{Mark}0-9 \[\]\'()_-]+$/iu')
-                return
-            }
-        }
-
-        var vulnTypes = []
-        req.body.forEach(e => {
-            vulnTypes.push({name: e.name, locale: e.locale})
-        })
-
-        VulnerabilityType.updateAll(vulnTypes)
-        .then(msg => Response.Created(res, msg))
-        .catch(err => Response.Internal(res, err))
-    });
-
-/* ===== VULNERABILITY CATEGORY ===== */
-
-     // Get vulnerability category list
-     app.get("/api/data/vulnerability-categories", acl.hasPermission('vulnerability-categories:read'), function(req, res) {
-         // #swagger.tags = ['Data']
-
-         VulnerabilityCategory.getAll()
-        .then(msg => Response.Ok(res, msg))
-        .catch(err => Response.Internal(res, err))
-    });
-
-    // Create vulnerability category
-    app.post("/api/data/vulnerability-categories", acl.hasPermission('vulnerability-categories:create'), function(req, res) {
-        // #swagger.tags = ['Data']
-
-        if (!req.body.name) {
-            Response.BadParameters(res, 'Missing required parameters: name');
-            return;
-        }
-        if (!utils.validFilename(req.body.name)) {
-            Response.BadParameters(res, 'name value must match /^[\p{Letter}\p{Mark}0-9 \[\]\'()_-]+$/iu')
-            return
-        }
-
-        var vulnCat = {};
-        // Required parameters
-        vulnCat.name = req.body.name;
-
-        // Optional parameters
-        if (!_.isNil(req.body.sortValue)) vulnCat.sortValue = req.body.sortValue
-        if (!_.isNil(req.body.sortOrder)) vulnCat.sortOrder = req.body.sortOrder
-        if (!_.isNil(req.body.sortAuto)) vulnCat.sortAuto = req.body.sortAuto
-
-        VulnerabilityCategory.create(vulnCat)
-        .then(msg => Response.Created(res, msg))
-        .catch(err => Response.Internal(res, err))
-    });
-
-    // Update Vulnerability Category
-    app.put("/api/data/vulnerability-categories", acl.hasPermission('vulnerability-categories:update'), function(req, res) {
-        // #swagger.tags = ['Data']
-
-        for (var i=0; i<req.body.length; i++) {
-            var vulnCat = req.body[i]
-            if (!vulnCat.name) {
-                Response.BadParameters(res, 'Missing required parameters: name')
-                return
-            }
-            if (!utils.validFilename(vulnCat.name)) {
-                Response.BadParameters(res, 'name value must match /^[\p{Letter}\p{Mark}0-9 \[\]\'()_-]+$/iu')
-                return
-            }
-        }
-
-        var vulnCategories = []
-        req.body.forEach(e => {
-            // Required parameters
-            var tmpCat = {name: e.name}
-
-            // Optional parameters
-            if (!_.isNil(e.sortValue)) tmpCat.sortValue = e.sortValue
-            if (!_.isNil(e.sortOrder)) tmpCat.sortOrder = e.sortOrder
-            if (!_.isNil(e.sortAuto)) tmpCat.sortAuto = e.sortAuto
-
-            vulnCategories.push(tmpCat)
-        })
-
-        VulnerabilityCategory.updateAll(vulnCategories)
-        .then(msg => Response.Created(res, msg))
-        .catch(err => Response.Internal(res, err))
-    });
-    
-    // Delete vulnerability category
-    app.delete("/api/data/vulnerability-categories/:name", acl.hasPermission('vulnerability-categories:delete'), function(req, res) {
-        // #swagger.tags = ['Data']
-
-        VulnerabilityCategory.delete(req.params.name)
-        .then(msg => {
-            Response.Ok(res, 'Vulnerability category deleted successfully')
-        })
-        .catch(err => Response.Internal(res, err))
-    });
+// Legacy /api/data/vulnerability-types and /api/data/vulnerability-categories
+// routes were removed in Phase 3 of the taxonomy refactor. Consumers now
+// derive their data from /api/data/vulnerability-taxonomy.
 
 /* ===== VULNERABILITY TAXONOMY ===== */
 // Unified type -> category -> subcategory taxonomy. See

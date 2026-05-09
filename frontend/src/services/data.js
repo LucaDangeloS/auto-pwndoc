@@ -36,38 +36,6 @@ export default {
         return  api.put(`data/audit-types`, auditTypes)
     },
 
-    getVulnerabilityTypes: function() {
-        return  api.get(`data/vulnerability-types`)
-    },
-
-    createVulnerabilityType: function(vulnerabilityType) {
-        return  api.post(`data/vulnerability-types`, vulnerabilityType)
-    },
-
-    deleteVulnerabilityType: function(name) {
-        return  api.delete(`data/vulnerability-types/${name}`)
-    },
-
-    updateVulnTypes: function(vulnTypes) {
-        return  api.put(`data/vulnerability-types`, vulnTypes)
-    },
-
-    getVulnerabilityCategories: function() {
-        return  api.get(`data/vulnerability-categories`)
-    },
-
-    createVulnerabilityCategory: function(vulnerabilityCategory) {
-        return  api.post(`data/vulnerability-categories`, vulnerabilityCategory)
-    },
-
-    updateVulnerabilityCategories: function(vulnCategories) {
-        return  api.put(`data/vulnerability-categories/`, vulnCategories)
-    },
-
-    deleteVulnerabilityCategory: function(name) {
-        return  api.delete(`data/vulnerability-categories/${name}`)
-    },
-
     getVulnerabilityTaxonomy: function() {
         return api.get(`data/vulnerability-taxonomy`)
     },

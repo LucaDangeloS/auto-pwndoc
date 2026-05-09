@@ -38,27 +38,6 @@ export default {
             editAuditTypes: [],
             editAuditType: false,
 
-            vulnTypes: [],
-            newVulnType: {name: "", locale: ""},
-            editVulnTypes: [],
-            editVulnType: false,
-
-            vulnCategories: [],
-            newVulnCat: {name: "", sortValue: "cvssScore", sortOrder: "desc", sortAuto: true},
-            editCategories: [],
-            editCategory: false,
-            sortValueOptions: [
-                {label: $t('cvssScore'), value: 'cvssScore'},
-                {label: $t('cvssTemporalScore'), value: 'cvssTemporalScore'},
-                {label: $t('cvssEnvironmentalScore'), value: 'cvssEnvironmentalScore'},
-                {label: $t('priority'), value: 'priority'},
-                {label: $t('remediationDifficulty'), value: 'remediationComplexity'}
-            ],
-            sortOrderOptions: [
-                {label: $t('ascending'), value: 'asc'},
-                {label: $t('descending'), value: 'desc'}
-            ],
-
             customFields: [ ],
             newCustomField: {
                 label: "", 
@@ -122,20 +101,12 @@ export default {
         this.getTemplates()
         this.getLanguages()
         this.getAuditTypes()
-        this.getVulnerabilityTypes()
-        this.getVulnerabilityCategories()
+        this.getTaxonomyTypes()
         this.getSections()
         this.getCustomFields()
     },
 
     computed: {
-
-      
-        vulnTypesFiltered() {
-            console.log('Calcul vulnTypesFiltered', this.newVulnType.locale);
-            return this.vulnTypes.filter(vuln => vuln.locale === this.newVulnType.locale);
-          },
-
         newCustomFieldLangOptions() {
             return this.newCustomField.options.filter(e => e.locale === this.cfLocale)
         }
@@ -339,184 +310,20 @@ export default {
             return result
         },
 
-/* ===== VULNERABILITY TYPES ===== */
+/* ===== TAXONOMY TYPES (used to scope custom fields by display=finding/vulnerability) ===== */
 
-
-        // Get available vulnerability types
-        getVulnerabilityTypes: function() {
-            DataService.getVulnerabilityTypes()
+        // Loads unique `type` values from the new VulnerabilityTaxonomy collection.
+        // Used by the custom-field create form when display='finding' or
+        // display='vulnerability' to scope the field to a particular taxonomy type.
+        getTaxonomyTypes: function() {
+            DataService.getVulnerabilityTaxonomy()
             .then((data) => {
-                this.vulnTypes = data.data.datas;
+                var rows = data.data.datas || [];
+                this.taxonomyTypes = Array.from(new Set(rows.map(r => r.type))).filter(Boolean).sort();
             })
             .catch((err) => {
                 console.log(err)
             })
-        },
-        startEditingVulnTypes() {
-            this.editVulnTypes = this.vulnTypesFiltered.map(v => ({ ...v })); // Independent copy
-            this.editVulnType = true;
-          },
-        // Create vulnerability type
-        createVulnerabilityType: function() {
-            this.cleanErrors();
-            if (!this.newVulnType.name)
-                this.errors.vulnType = "Name required";
-            
-            if (this.errors.vulnType)
-                return;
-
-            DataService.createVulnerabilityType(this.newVulnType)
-            .then((data) => {
-                this.newVulnType.name = "";
-                this.getVulnerabilityTypes();
-                Notify.create({
-                    message: 'Vulnerability type created successfully',
-                    color: 'positive',
-                    textColor:'white',
-                    position: 'top-right'
-                })
-            })
-            .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                })
-            })
-        },
-
-        // Update Audit Types
-        updateVulnTypes: function() {
-            var dataAll = [...this.vulnTypes.filter(x => x.locale !== this.newVulnType.locale),...this.editVulnTypes]
-            DataService.updateVulnTypes(dataAll)
-            .then((data) => {
-                this.getVulnerabilityTypes()
-                this.editVulnType = false
-                Notify.create({
-                    message: 'Vulnerability Types updated successfully',
-                    color: 'positive',
-                    textColor:'white',
-                    position: 'top-right'
-                })
-            })
-            .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                })
-            })
-        },
-
-        // Remove vulnerability type
-        removeVulnType: function(vulnType) {
-            this.editVulnTypes = this.editVulnTypes.filter(e => e.name !== vulnType.name || e.locale !== vulnType.locale)
-        },
-
-/* ===== CATEGORIES ===== */
-
-        // Get available vulnerability categories
-        getVulnerabilityCategories: function() {
-            DataService.getVulnerabilityCategories()
-            .then((data) => {
-                this.vulnCategories = data.data.datas;
-            })
-            .catch((err) => {
-                console.log(err)
-            })
-        },
-
-        // Create vulnerability category
-        createVulnerabilityCategory: function() {
-            this.cleanErrors();
-            if (!this.newVulnCat.name)
-                this.errors.vulnCat = "Name required";
-            
-            if (this.errors.vulnCat)
-                return;
-
-            DataService.createVulnerabilityCategory(this.newVulnCat)
-            .then((data) => {
-                this.newVulnCat = {name: "", sortValue: "cvssScore", sortOrder: "desc", sortAuto: true}
-                this.getVulnerabilityCategories();
-                Notify.create({
-                    message: 'Vulnerability category created successfully',
-                    color: 'positive',
-                    textColor:'white',
-                    position: 'top-right'
-                })
-            })
-            .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                })
-            })
-        },
-
-         // Update Vulnerability Categories
-         updateVulnCategories: function() {
-            const cleanedCategories = this.editCategories.map(cat => {
-                const { _uniqueId, ...rest } = cat;
-                return rest;
-            });
-            DataService.updateVulnerabilityCategories(cleanedCategories)
-            .then((data) => {
-                this.getVulnerabilityCategories()
-                this.editCategory = false
-                Notify.create({
-                    message: 'Vulnerability Categories updated successfully',
-                    color: 'positive',
-                    textColor:'white',
-                    position: 'top-right'
-                })
-            })
-            .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                })
-            })
-        },
-        
-        startEditingCategories() {
-            this.editCategories = this.$_.cloneDeep(this.vulnCategories).map(cat => ({
-                ...cat,
-                _uniqueId: uid()
-            }));
-            this.editCategory = true;
-        },
-
-        // Remove Category
-        removeCategory: function(vulnCat) {
-            this.editCategories = this.editCategories.filter(e => e.name !== vulnCat.name)
-        },
-
-        getSortOptions: function(category) {
-            var options = [
-                {label: $t('cvssScore'), value: 'cvssScore'},
-                {label: $t('cvssTemporalScore'), value: 'cvssTemporalScore'},
-                {label: $t('cvssEnvironmentalScore'), value: 'cvssEnvironmentalScore'},
-                {label: $t('priority'), value: 'priority'},
-                {label: $t('remediationComplexity'), value: 'remediationComplexity'}
-            ]
-            var allowedFieldTypes = ['date', 'input', 'radio', 'select']
-            this.customFields.forEach(e => {
-                if (
-                    (e.display === 'finding' || e.display === 'vulnerability') && 
-                    (!e.displaySub || e.displaySub === category) && 
-                    allowedFieldTypes.includes(e.fieldType)
-                ) {
-                    options.push({label: e.label, value: e.label})
-                }
-            })
-            return options
         },
 
 /* ===== CUSTOM FIELDS ===== */

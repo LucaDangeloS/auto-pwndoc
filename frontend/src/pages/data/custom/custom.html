@@ -942,13 +942,15 @@
                             </q-item-section>
 
                             <!-- Checklist seed editor -->
-                            <q-item-section v-if="newCustomField.fieldType === 'checklist'" class="col-md-6" top>
+                            <q-item-section v-if="newCustomField.fieldType === 'checklist'" class="col-md-4" top>
                                 <q-item>
                                     <q-item-section>
                                         <q-select v-model="cfLocale" :label="$t('optionsLanguage')" :options="languages" option-value="locale" option-label="language" emit-value map-options options-sanitize outlined dense />
                                     </q-item-section>
-                                    <q-item-section side>
-                                        <q-btn color="primary" outline no-caps icon="auto_awesome" :label="$t('btn.generateFromTaxonomy')" @click="openGenerateChecklistDialog(newCustomField)" />
+                                </q-item>
+                                <q-item>
+                                    <q-item-section>
+                                        <q-btn color="primary" outline no-caps icon="auto_awesome" :label="$t('btn.generateFromTaxonomy')" @click="openGenerateChecklistDialog(newCustomField)" class="full-width" />
                                     </q-item-section>
                                 </q-item>
                                 <q-item>

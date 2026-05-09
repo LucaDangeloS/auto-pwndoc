@@ -24,6 +24,7 @@ export default [
       {path: 'clients', component: () => import('pages/data/clients')},
       {path: 'templates', component: () => import('pages/data/templates')},
       {path: 'vulnerabilities-data', component: () => import('pages/data/vulnerabilities-data')},
+      {path: 'vulnerability-taxonomy', component: () => import('pages/data/vulnerability-taxonomy')},
       {path: 'audits-data', component: () => import('pages/data/audits-data')},
       {path: 'custom', component: () => import('pages/data/custom')},
       {path: 'dump', component: () => import('pages/data/dump')}

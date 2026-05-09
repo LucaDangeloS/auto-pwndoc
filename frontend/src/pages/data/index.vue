@@ -40,6 +40,12 @@
                 </q-item-section>
                 <q-item-section>{{$t('vulnerabilityData')}}</q-item-section>
             </q-item>
+            <q-item to='/data/vulnerability-taxonomy'>
+                <q-item-section avatar>
+                    <q-icon name="fa fa-sitemap" />
+                </q-item-section>
+                <q-item-section>{{$t('vulnerabilityTaxonomy')}}</q-item-section>
+            </q-item>
 
             <q-separator spaced />
 

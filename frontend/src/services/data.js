@@ -68,6 +68,30 @@ export default {
         return  api.delete(`data/vulnerability-categories/${name}`)
     },
 
+    getVulnerabilityTaxonomy: function() {
+        return api.get(`data/vulnerability-taxonomy`)
+    },
+
+    createVulnerabilityTaxonomy: function(entry) {
+        return api.post(`data/vulnerability-taxonomy`, entry)
+    },
+
+    updateVulnerabilityTaxonomyEntry: function(id, entry) {
+        return api.put(`data/vulnerability-taxonomy/${id}`, entry)
+    },
+
+    deleteVulnerabilityTaxonomy: function(id) {
+        return api.delete(`data/vulnerability-taxonomy/${id}`)
+    },
+
+    parseVulnerabilityTaxonomyText: function(text) {
+        return api.post(`data/vulnerability-taxonomy/parse`, { text })
+    },
+
+    replaceVulnerabilityTaxonomy: function(rows) {
+        return api.put(`data/vulnerability-taxonomy`, { rows })
+    },
+
     getCustomFields: function() {
         return  api.get(`data/custom-fields`)
     },

@@ -183,26 +183,13 @@
                 <q-input
                 :label="$t('title')+' *'"
                 stack-label
-                class="col-md-8"
+                class="col-md-10"
                 autofocus
                 :error="!!errors.title"
                 :error-message="errors.title"
                 hide-bottom-space
                 @keyup.enter="createVulnerability()"
                 v-model="currentVulnerability.details[currentDetailsIndex].title"
-                outlined
-                />
-                <q-select 
-                class="col-md-2"
-                :label="$t('type')"
-                v-model="currentVulnerability.details[currentDetailsIndex].vulnType"
-                :key="currentDetailsIndex" 
-                :options="vulnTypesLang" 
-                option-value="name" 
-                option-label="name" 
-                emit-value 
-                map-options
-                options-sanitize
                 outlined
                 />
                 <q-select
@@ -218,6 +205,9 @@
                 options-sanitize
                 outlined
                 />
+            </div>
+            <div class="q-mt-md">
+                <taxonomy-picker v-model="currentVulnerability.taxonomies" />
             </div>
         </q-card-section>
         <q-card-section>
@@ -361,28 +351,13 @@
                 <q-input
                 :label="$t('title')+' *'"
                 stack-label
-                class="col-md-8"
+                class="col-md-10"
                 autofocus
                 :error="!!errors.title"
                 :error-message="errors.title"
                 hide-bottom-space
                 @keyup.enter="updateVulnerability()"
                 v-model="currentVulnerability.details[currentDetailsIndex].title"
-                outlined
-                />
-                <q-select 
-                class="col-md-2"
-                :label="$t('type')"
-                v-model="currentVulnerability.details[currentDetailsIndex].vulnType"
-                :key="currentDetailsIndex"
-                 v-bind="lenCurrentTitle === 0 ? { disabled: true } : {}"
-                :readonly="lenCurrentTitle == 0" 
-                :options="vulnTypesLang" 
-                option-value="name" 
-                option-label="name" 
-                emit-value 
-                map-options
-                options-sanitize
                 outlined
                 />
                 <q-select
@@ -398,6 +373,9 @@
                 options-sanitize
                 outlined
                 />
+            </div>
+            <div class="q-mt-md">
+                <taxonomy-picker v-model="currentVulnerability.taxonomies" />
             </div>
         </q-card-section>
         <q-card-section>

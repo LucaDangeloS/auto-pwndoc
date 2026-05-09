@@ -5,6 +5,7 @@ import Breadcrumb from 'components/breadcrumb'
 import CvssCalculatorUnified from 'components/cvss-calculator-unified'
 import TextareaArray from 'components/textarea-array'
 import CustomFields from 'components/custom-fields'
+import TaxonomyPicker from 'components/taxonomy-picker'
 
 import VulnerabilityService from '@/services/vulnerability'
 import DataService from '@/services/data'
@@ -57,7 +58,8 @@ export default {
                 cvssv4: '',
                 priority: '',
                 remediationComplexity: '',
-                details: [] 
+                taxonomies: [],
+                details: []
             },
             currentLanguage: "",
             displayFilters: {valid: true, new: true, updates: true},
@@ -86,7 +88,8 @@ export default {
         Breadcrumb,
         CvssCalculatorUnified,
         TextareaArray,
-        CustomFields
+        CustomFields,
+        TaxonomyPicker
     },
 
     mounted: function() {
@@ -415,10 +418,21 @@ export default {
             this.currentVulnerability.remediationComplexity = '';
             this.currentVulnerability.details = [];
             this.currentLanguage = this.dtLanguage;
-            if (this.currentCategory && this.currentCategory.name) 
-                this.currentVulnerability.category = this.currentCategory.name
-            else
-                this.currentVulnerability.category = null
+            // Phase 3: seed `taxonomies[]` from the legacy "Add to <category>"
+            // dropdown so existing UX still primes the picker. Backend's
+            // syncVulnTaxonomy keeps both sides consistent on save.
+            if (this.currentCategory && this.currentCategory.name) {
+                this.currentVulnerability.category = this.currentCategory.name;
+                this.currentVulnerability.taxonomies = [{
+                    type: this.currentCategory.name,
+                    category: '',
+                    subcategory: '',
+                    code: ''
+                }];
+            } else {
+                this.currentVulnerability.category = null;
+                this.currentVulnerability.taxonomies = [];
+            }
 
             this.setCurrentDetails();
         },

@@ -108,7 +108,9 @@ export default {
             return this.currentVulnerability.details[this.currentDetailsIndex].title.length
         },
         vulnTypesLang: function() {
-            return this.vulnTypes.filter(type => type.locale === this.currentLanguage);
+            // Taxonomy is locale-agnostic in the new model; the filter is
+            // a no-op kept for callsite compatibility.
+            return this.vulnTypes;
         },
         vulnAiContext: function() {
             const detail = this.currentVulnerability.details[this.currentDetailsIndex] || {};
@@ -144,7 +146,8 @@ export default {
         },
 
         vulnTypeOptions: function() {
-            var result = this.vulnTypes.filter(type => type.locale === this.dtLanguage).map(type => {return type.name})
+            // Locale-agnostic in the new taxonomy model.
+            var result = this.vulnTypes.map(type => type.name)
             result.unshift('Undefined')
             return result
         }
@@ -177,22 +180,33 @@ export default {
             })
         },
 
-        // Get Vulnerabilities types
+        // Get Vulnerabilities types — Phase 3: source from VulnerabilityTaxonomy
+        // (locale-agnostic). The shape `[{name, locale}]` is preserved so the
+        // existing vulnTypesLang filter and select bindings keep working;
+        // locale is set to the audit's current language so the no-op filter
+        // matches every entry.
         getVulnTypes: function() {
-            DataService.getVulnerabilityTypes()
+            DataService.getVulnerabilityTaxonomy()
             .then((data) => {
-                this.vulnTypes = data.data.datas;
+                var rows = data.data.datas || [];
+                var unique = Array.from(new Set(rows.map(r => r.type))).filter(Boolean).sort();
+                var locale = this.currentLanguage || this.dtLanguage || '';
+                this.vulnTypes = unique.map(t => ({ name: t, locale }));
             })
             .catch((err) => {
                 console.log(err)
             })
         },
 
-        // Get available vulnerability categories
+        // Get available vulnerability "categories" — Phase 3: same source
+        // (taxonomy types). Shape preserved as [{name}] so existing markup
+        // (`category.name`, `vulnCategoriesOptions`) keeps working.
         getVulnerabilityCategories: function() {
-            DataService.getVulnerabilityCategories()
+            DataService.getVulnerabilityTaxonomy()
             .then((data) => {
-                this.vulnCategories = data.data.datas;
+                var rows = data.data.datas || [];
+                var unique = Array.from(new Set(rows.map(r => r.type))).filter(Boolean).sort();
+                this.vulnCategories = unique.map(t => ({ name: t }));
             })
             .catch((err) => {
                 console.log(err)

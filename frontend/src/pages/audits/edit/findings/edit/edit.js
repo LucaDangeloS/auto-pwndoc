@@ -198,9 +198,10 @@ export default {
 
   computed: {
     vulnTypesLang() {
-      return this.vulnTypes.filter(
-        (type) => type.locale === this.localAudit.language
-      );
+      // Taxonomy is locale-agnostic — return the full list. (The old
+      // VulnerabilityType collection was per-locale; this filter is now
+      // a no-op kept for callsite compatibility.)
+      return this.vulnTypes;
     },
     aiSimilarReady() {
       return isEmbeddingEnabled(this.$settings);
@@ -288,9 +289,13 @@ export default {
     },
 
     getVulnTypes() {
-      DataService.getVulnerabilityTypes()
+      // Phase 3: source from VulnerabilityTaxonomy (locale-agnostic)
+      // and shape as [{name}] so existing markup keeps working.
+      DataService.getVulnerabilityTaxonomy()
         .then((data) => {
-          this.vulnTypes = data.data.datas;
+          var rows = data.data.datas || [];
+          var unique = Array.from(new Set(rows.map(r => r.type))).filter(Boolean).sort();
+          this.vulnTypes = unique.map(t => ({ name: t }));
           this.filteredVulnTypes = this.vulnTypesLang;
         })
         .catch((err) => {

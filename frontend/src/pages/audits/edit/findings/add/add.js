@@ -153,6 +153,24 @@ export default {
     },
 
     methods: {
+        // Phase 3 helpers — pull taxonomy display values from the new
+        // taxonomies[] array, falling back to legacy fields so vulnerabilities
+        // saved before the dual-write helper landed still render. The row
+        // shape from getAllByLanguage flattens cvssv3/category to top-level
+        // and a single locale-filtered detail under .detail.
+        taxonomyType: function(row) {
+            const t = row && Array.isArray(row.taxonomies) && row.taxonomies[0];
+            return (t && t.type) || row.category || '';
+        },
+        taxonomyCategory: function(row) {
+            const t = row && Array.isArray(row.taxonomies) && row.taxonomies[0];
+            return (t && t.category) || (row.detail && row.detail.vulnType) || '';
+        },
+        taxonomySubcategory: function(row) {
+            const t = row && Array.isArray(row.taxonomies) && row.taxonomies[0];
+            return (t && t.subcategory) || '';
+        },
+
         // Get available languages
         getLanguages: function() {
             DataService.getLanguages()

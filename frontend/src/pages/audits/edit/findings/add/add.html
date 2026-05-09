@@ -117,10 +117,11 @@
                 />
               </q-td>
               <q-td key="category" :props="props">
-                {{ props.row.category || $t('noCategory') }}
+                {{ taxonomyType(props.row) || $t('noCategory') }}
               </q-td>
               <q-td key="vulnType" :props="props">
-                {{ props.row.detail.vulnType || $t('undefined') }}
+                {{ taxonomyCategory(props.row) || $t('undefined') }}
+                <span v-if="taxonomySubcategory(props.row)" class="text-grey-6"> › {{ taxonomySubcategory(props.row) }}</span>
               </q-td>
               <!-- ICI ON AJOUTE LE BOUTON ACTION MANUELLEMENT -->
               <q-td key="action" :props="props">

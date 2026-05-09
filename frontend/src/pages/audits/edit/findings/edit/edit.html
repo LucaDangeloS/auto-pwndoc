@@ -102,7 +102,7 @@
               </q-inner-loading>
               <q-card-section class="row q-col-gutter-md">
                 <q-input
-                  class="col-md-8 col-12"
+                  class="col-md-12 col-12"
                   :label="$t('title') + ' *'"
                   stack-label
                   v-model="finding.title"
@@ -111,24 +111,13 @@
                 >
                   <template #append><template-hint template-var="finding.title" /></template>
                 </q-input>
-                <q-select
-                  class="col-md-4 col-12"
-                  :label="$t('type')"
-                  v-model="finding.vulnType"
-                  :options="filteredVulnTypes"
-                  option-value="name"
-                  option-label="name"
-                  use-input
-                  input-debounce="0"
-                  @filter="filterType"
-                  emit-value
-                  map-options
-                  options-sanitize
-                  outlined
-                  :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                >
-                  <template #append><template-hint template-var="finding.vulnType" /></template>
-                </q-select>
+
+                <div class="col-md-12 col-12 q-mt-sm">
+                  <taxonomy-picker
+                    v-model="finding.taxonomies"
+                    :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                  />
+                </div>
 
                 <div class="col-md-12 row items-center q-mt-sm">
                   <span class="row items-center text-subtitle2 text-grey-7">

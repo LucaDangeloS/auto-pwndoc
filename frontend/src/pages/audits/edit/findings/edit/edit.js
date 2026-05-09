@@ -9,6 +9,7 @@ import CustomFields from 'components/custom-fields';
 import SimilarVulnModal from 'components/similar-vuln-modal';
 import TemplateHint from 'components/template-hint';
 import AiActionBtn from 'components/ai-action-btn';
+import TaxonomyPicker from 'components/taxonomy-picker';
 
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
@@ -39,6 +40,7 @@ export default {
       finding: {
         title: '',
         vulnType: '',
+        taxonomies: [],
         description: '',
         observation: '',
         references: [],
@@ -61,8 +63,6 @@ export default {
       proofsTabVisited: false,
       retestTabVisited: false,
       detailsTabVisited: false,
-      vulnTypes: [],
-      filteredVulnTypes: [],
       // loading: true while either fetch (customFields or finding) is in flight
       loading: true,
       // readyToSave: true once editors have connected and initialised
@@ -99,6 +99,7 @@ export default {
     SimilarVulnModal,
     TemplateHint,
     AiActionBtn,
+    TaxonomyPicker,
   },
 
   watch: {
@@ -123,7 +124,6 @@ export default {
     this._fetchFindingData();
 
     this.getAudit();
-    this.getVulnTypes();
 
     this.$socket.emit('menu', {
       menu: 'editFinding',
@@ -197,12 +197,6 @@ export default {
   },
 
   computed: {
-    vulnTypesLang() {
-      // Taxonomy is locale-agnostic — return the full list. (The old
-      // VulnerabilityType collection was per-locale; this filter is now
-      // a no-op kept for callsite compatibility.)
-      return this.vulnTypes;
-    },
     aiSimilarReady() {
       return isEmbeddingEnabled(this.$settings);
     },
@@ -288,36 +282,6 @@ export default {
         });
     },
 
-    getVulnTypes() {
-      // Phase 3: source from VulnerabilityTaxonomy (locale-agnostic)
-      // and shape as [{name}] so existing markup keeps working.
-      DataService.getVulnerabilityTaxonomy()
-        .then((data) => {
-          var rows = data.data.datas || [];
-          var unique = Array.from(new Set(rows.map(r => r.type))).filter(Boolean).sort();
-          this.vulnTypes = unique.map(t => ({ name: t }));
-          this.filteredVulnTypes = this.vulnTypesLang;
-        })
-        .catch((err) => {
-          console.log(err);
-        });
-    },
-
-    filterType(val, update) {
-      if (val === '') {
-        update(() => {
-          this.filteredVulnTypes = this.vulnTypesLang || [];
-        });
-        return;
-      }
-
-      update(() => {
-        const needle = val.toLowerCase();
-        this.filteredVulnTypes = (this.vulnTypesLang || []).filter((v) =>
-          v.name.toLowerCase().includes(needle)
-        );
-      });
-    },
 
     initCustomFieldsForFinding() {
       const categoryForFilter = this.finding.category || 'default';

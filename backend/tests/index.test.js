@@ -15,6 +15,13 @@ const app = require(__dirname+"/../src/app");
 
 beforeAll(async () => {
     await cleanDatabase;
+    // Mongoose 8 builds indexes asynchronously after connect — wait for every
+    // registered model's indexes to finish building so that subsequent tests
+    // (e.g. duplicate-title checks on Vulnerability.details.title) get the
+    // expected unique-constraint failures rather than racy 201 inserts.
+    await Promise.all(
+        Object.values(mongoose.models).map(m => m.syncIndexes().catch(() => {}))
+    );
 });
 
 // Import tests

@@ -377,3 +377,5 @@ For editor actions in `ai-service.js`, resolve system prompts in this order:
 - Vulnerability taxonomy Phase 3 (cleanup, after Phase 2 has been used in real audits): drop legacy `vulnerability.category` and `details[i].vulnType`, drop `audit.findings[i].vulnType`/`category`, replace finding-edit form selectors with a hierarchical taxonomy picker, retire `vulnerability-type.js`/`vulnerability-category.js` models and their data routes, update report-generator to read from `taxonomies[]` directly.
 - Auto-translate vulnerabilities: verify current wiring before work; service exists in `translate-service.js`, but settings schema/UI and route-level create/update integration may still need completion.
 </todo>
+
+@RTK.md

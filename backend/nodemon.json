@@ -1,3 +1,8 @@
 {
-    "ignore": ["src/config/config.json"]
+    "watch": ["src/"],
+    "ignore": [
+        "src/config/config.json",
+        "audit-archives/",
+        "report-templates/"
+    ]
 }

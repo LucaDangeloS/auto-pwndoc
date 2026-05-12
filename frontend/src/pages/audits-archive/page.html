@@ -115,12 +115,20 @@
                     <q-spinner size="48px" color="primary" />
                     <span class="q-ml-md">{{ $t('archiveLoadingPdf') }}</span>
                   </div>
-                  <canvas
+                  <div
                     v-for="page in pages"
                     :key="page"
-                    :ref="el => setPageCanvas(el, page)"
-                    class="archive-page-canvas"
-                  />
+                    class="archive-page-wrapper"
+                  >
+                    <canvas
+                      :ref="el => setPageCanvas(el, page)"
+                      class="archive-page-canvas"
+                    />
+                    <div
+                      :ref="el => setPageTextLayer(el, page)"
+                      class="archive-page-text-layer"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

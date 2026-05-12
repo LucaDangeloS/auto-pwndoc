@@ -1,10 +1,11 @@
 import { Dialog, Notify } from 'quasar'
+import { markRaw } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 
 import AuditArchiveService from '@/services/audit-archive'
 import { $t } from '@/boot/i18n'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url).toString()
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
 const MAX_PDF_SIZE = 200 * 1024 * 1024
 
@@ -20,6 +21,7 @@ export default {
       pdfLoading: false,
       pages: [],
       pageCanvases: {},
+      pageTextLayers: {},
       outline: [],
       outlineDrawer: false,
       pdfSearch: '',
@@ -116,6 +118,7 @@ export default {
       this.pages = []
       this.outline = []
       this.pageCanvases = {}
+      this.pageTextLayers = {}
       this.pdfSearch = ''
       this.searchIndex = []
       this.searchIndexLoading = false
@@ -124,7 +127,7 @@ export default {
         .then(async response => {
           this.pdfBytes = response.data
           const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(response.data) })
-          this.pdfDoc = await loadingTask.promise
+          this.pdfDoc = markRaw(await loadingTask.promise)
           if (token !== this.renderToken) return
           this.pages = Array.from({ length: this.pdfDoc.numPages }, (_v, i) => i + 1)
           await this.loadOutline()
@@ -168,6 +171,10 @@ export default {
       if (el) this.pageCanvases[pageNumber] = el
     },
 
+    setPageTextLayer(el, pageNumber) {
+      if (el) this.pageTextLayers[pageNumber] = el
+    },
+
     async renderPages() {
       const token = this.renderToken
       for (const pageNumber of this.pages) {
@@ -183,6 +190,19 @@ export default {
         canvas.width = scaledViewport.width
         canvas.height = scaledViewport.height
         await page.render({ canvasContext: context, viewport: scaledViewport }).promise
+        if (token !== this.renderToken) return
+        const textLayerEl = this.pageTextLayers[pageNumber]
+        if (textLayerEl) {
+          textLayerEl.innerHTML = ''
+          textLayerEl.style.width = `${scaledViewport.width}px`
+          textLayerEl.style.height = `${scaledViewport.height}px`
+          const textLayer = new pdfjsLib.TextLayer({
+            textContentSource: page.streamTextContent(),
+            container: textLayerEl,
+            viewport: scaledViewport,
+          })
+          await textLayer.render()
+        }
       }
     },
 

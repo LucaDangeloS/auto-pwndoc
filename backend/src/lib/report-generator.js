@@ -1597,16 +1597,6 @@ async function prepAuditData(data, settings) {
         result.company.city = data.company.city || ""
     }
 
-    result.client = {}
-    if (data.client) {
-        result.client.email = data.client.email || "undefined"
-        result.client.firstname = data.client.firstname || "undefined"
-        result.client.lastname = data.client.lastname || "undefined"
-        result.client.phone = data.client.phone || "undefined"
-        result.client.cell = data.client.cell || "undefined"
-        result.client.title = data.client.title || "undefined"
-    }
-
     result.collaborators = []
     data.collaborators.forEach(collab => {
         result.collaborators.push({

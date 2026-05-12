@@ -99,7 +99,6 @@ const STEPS = [
             console.log(`[migration] users: ${usersInserted} inserted, ${usersPreserved} existing preserved (sessions cleared for inserted users)`);
 
             const COLLECTIONS = [
-                'clients',
                 'companies',
                 'templates',
                 'languages',
@@ -511,6 +510,28 @@ const STEPS = [
                 }
             }
             console.log(`[migration] backfill-finding-taxonomies: ${findingsTouched} findings updated across ${auditsTouched} audits`);
+        },
+    },
+
+    // ── Step 13: Drop clients collection ─────────────────────────────────────
+    // The Client concept has been removed from autopwndoc. Drop the collection
+    // from the destination DB and unset the client field on all audits.
+    {
+        id: 13,
+        name: 'drop-clients',
+        async run(_srcDb, dstDb) {
+            const collections = await dstDb.listCollections({ name: 'clients' }).toArray();
+            if (collections.length > 0) {
+                await dstDb.collection('clients').drop();
+                console.log('[migration] drop-clients: clients collection dropped');
+            } else {
+                console.log('[migration] drop-clients: clients collection did not exist, nothing to drop');
+            }
+            const result = await dstDb.collection('audits').updateMany(
+                { client: { $exists: true } },
+                { $unset: { client: '' } }
+            );
+            console.log(`[migration] drop-clients: client field unset on ${result.modifiedCount} audits`);
         },
     },
 

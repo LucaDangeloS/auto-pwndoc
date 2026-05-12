@@ -10,7 +10,6 @@ import YAML from 'js-yaml'
 
 import VulnerabilityService from '@/services/vulnerability'
 import CompanyService from '@/services/company'
-import ClientService from '@/services/client'
 import UserService from '@/services/user'
 import CollabService from '@/services/collaborator';
 import TemplateService from '@/services/template'
@@ -21,6 +20,7 @@ export default {
     data: () => {
         return {
             UserService: UserService,
+            Utils: Utils,
             vulnerabilities: [],
             selectedTab: "vulnerabilities",
             user: null
@@ -414,147 +414,6 @@ export default {
                 .then(() => {
                     Notify.create({
                         message: $t('msg.allCompaniesDeleteOk'),
-                        color: 'positive',
-                        textColor:'white',
-                        position: 'top-right'
-                    })
-                })
-                .catch((err) => {
-                    Notify.create({
-                        message: err.response.data.datas,
-                        color: 'negative',
-                        textColor: 'white',
-                        position: 'top-right'
-                    })
-                })
-            })
-        },
-
-        // Clients
-
-        getClients: function() {
-            this.clients = [];
-            ClientService.exportClients()
-            .then((data) => {
-                this.clients = data.data.datas;
-                this.downloadClients();
-            })
-            .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor:'white',
-                    position: 'top-right'
-                })
-            })
-        },
-
-        createClients: function() {
-            ClientService.createClients(this.clients)
-            .then((data) => {
-                var message = "";
-                var color = "positive";
-                if (data.data.datas.duplicates === 0) {
-                    message = $t('importClientsOk',[data.data.datas.created]);
-                }
-                else if (data.data.datas.created === 0 && data.data.datas.duplicates > 0) {
-                    message = $t('importClientsAllExists',[data.data.datas.duplicates.length]);
-                    color = "negative";
-                }
-                else {
-                    message = $t('importClientsPartial',[data.data.datas.created,data.data.datas.duplicates.length]);
-                    color = "orange";
-                }
-                Notify.create({
-                    message: message,
-                    html: true,
-                    closeBtn: 'x',
-                    color: color,
-                    textColor:'white',
-                    position: 'top-right'
-                })
-            })
-            .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                })
-            })
-        },
-
-        importClients: function(files) {
-            this.clients = [];
-            var pending = 0;
-            for (var i=0; i<files.length; i++) {
-                ((file) => {
-                    var fileReader = new FileReader();
-                    fileReader.onloadend = (e) => {
-                        var cltsFile;
-                        var ext = file.name.split('.').pop();
-                        if (ext === "yml") {
-                            try {
-                                cltsFile = YAML.safeLoad(fileReader.result);
-                                if (typeof cltsFile === 'object') {
-                                    if (Array.isArray(cltsFile)) {
-                                        this.clients = cltsFile;
-                                    }
-                                    else
-                                        this.clients.push(cltsFile);
-                                }
-                                else
-                                    throw new Error ($t('invalidYamlFormat'))
-                            }
-                            catch(err) {
-                                console.log(err);
-                                var errMsg = err;
-                                if (err.mark) errMsg = $t('err.parsingError2',[err.mark.line,err.mark.column]);                              
-                                Notify.create({
-                                    message: errMsg,
-                                    color: 'negative',
-                                    textColor: 'white',
-                                    position: 'top-right'
-                                })
-                                return;
-                            }
-                        }
-                        else
-                            console.log('Bad Extension')
-                        pending--;
-                        if (pending === 0) this.createClients();
-                    }
-                    pending++;
-                    fileReader.readAsText(file);
-                })(files[i])
-            }
-        },
-
-        downloadClients: function() {
-            var data = YAML.safeDump(this.clients);
-            var blob = new Blob([data], {type: 'application/yaml'});
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = "clients.yml";
-            document.body.appendChild(a);
-            a.click();
-            URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        },
-
-        deleteAllClients: function() {
-            Dialog.create({
-                title: $t('msg.confirmSuppression'),
-                message: $t('msg.allClientsDeleteNotice'),
-                ok: {label: $t('btn.confirm'), color: 'negative'},
-                cancel: {label: $t('btn.cancel'), color: 'white'}
-            })
-            .onOk(() => {
-                ClientService.deleteAllClients()
-                .then(() => {
-                    Notify.create({
-                        message: $t('msg.allClientsDeleteOk'),
                         color: 'positive',
                         textColor:'white',
                         position: 'top-right'

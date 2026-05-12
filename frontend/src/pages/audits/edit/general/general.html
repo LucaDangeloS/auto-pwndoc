@@ -80,7 +80,6 @@
                         option-label="name"
                         input-debounce="0"
                         @new-value="createSelectCompany"
-                        @input="filterClients()"
                         @clear="clearCompany"
                         @filter="filterSelectCompany"
                         clearable
@@ -90,27 +89,6 @@
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
                         <template #append><template-hint template-var="audit.company.name" /></template>
-                    </q-select>
-                    <q-select
-                        ref="select_client"
-                        class="col-md-6 col-12"
-                        :label="$t('client')"
-                        stack-label
-                        v-model="audit.client"
-                        :options="selectClients"
-                        option-value="email"
-                        option-label="email"
-                        input-debounce="0"
-                        @clear="clearClient"
-                        @input="setCompanyFromClient"
-                        @filter="filterSelectClient"
-                        clearable
-                        options-sanitize
-                        use-input
-                        outlined
-                        :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                    >
-                        <template #append><template-hint template-var="audit.client.email" /></template>
                     </q-select>
                     <q-select
                         v-if="$settings.reviews.enabled"

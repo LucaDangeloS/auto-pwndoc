@@ -49,7 +49,6 @@ mongoose.connect(`mongodb://${config.database.server}:${config.database.port}/${
 require('./models/user');
 require('./models/audit');
 require('./models/audit-archive');
-require('./models/client');
 require('./models/company');
 require('./models/template');
 require('./models/vulnerability');
@@ -128,7 +127,6 @@ app.use(cookieParser())
 require('./routes/user')(app);
 require('./routes/audit')(app, io);
 require('./routes/audit-archive')(app);
-require('./routes/client')(app);
 require('./routes/company')(app);
 require('./routes/vulnerability')(app);
 require('./routes/template')(app);

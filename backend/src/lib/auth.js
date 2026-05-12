@@ -44,11 +44,6 @@ var builtInRoles = {
             // Images
             'images:create',
             'images:read',
-            // Clients
-            'clients:create',
-            'clients:read',
-            'clients:update',
-            'clients:delete',
             // Companies
             'companies:create',
             'companies:read',

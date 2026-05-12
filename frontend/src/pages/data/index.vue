@@ -18,12 +18,6 @@
                 </q-item-section>
                 <q-item-section>{{$t('companies')}}</q-item-section>
             </q-item>
-            <q-item to='/data/clients'>
-                <q-item-section avatar>
-                    <q-icon name="fa fa-user-tie" />
-                </q-item-section>
-                <q-item-section>{{$t('clients')}}</q-item-section>
-            </q-item>
             <q-item to='/data/templates'>
                 <q-item-section avatar>
                     <q-icon name="fa fa-file-word" />

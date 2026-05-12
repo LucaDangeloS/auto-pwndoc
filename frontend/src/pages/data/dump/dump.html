@@ -121,62 +121,6 @@
                         </div>
                     </q-card-section>
                 </q-card>
-                <q-card class="mt-4">
-                    <q-card-section>
-                        <div class="text-grey-8">{{$t('clients')}}</div>
-                    </q-card-section>
-                    <q-card-section class="row">
-                        <div class="col-md-6 col-12" >
-                            <div class="text-bold">{{$t('importClients')}}</div>
-                            <div class="text-grey-8" v-html="$t('importClientsInfo')"></div>
-                            <q-item>
-                                <input
-                                ref="importClients"
-                                value=""
-                                type="file"
-                                multiple
-                                accept=".yml, .json"
-                                class="hidden"
-                                @change="importClients($event.target.files)"
-                                />
-                                <q-btn 
-                                :label="$t('import')"
-                                color="secondary"
-                                flat
-                                class="bg-secondary text-white"
-                                @click="$refs.importClients.click()"
-                                />
-                            </q-item>
-                        </div>
-                        <div class="col-md-6 col-12" >
-                            <div class="text-bold">{{$t('exportClients')}}</div>
-                            <div class="text-grey-8" v-html="$t('exportClientsInfo')"></div>
-                            <q-item>
-                                <q-btn 
-                                :label="$t('export')"
-                                color="secondary"
-                                flat
-                                class="bg-secondary text-white"
-                                @click="getClients"
-                                />
-                            </q-item>
-                        </div>
-                    </q-card-section>
-                    <q-card-section class="row" v-if="isAdmin">
-                        <div class="col-md-6 col-12" >
-                            <div class="text-bold">{{$t('deleteAllClients')}}</div>
-                            <div class="text-grey-8" v-html="$t('deleteAllClientsInfo')"></div>
-                            <q-item>
-                                <q-btn 
-                                :label="$t('btn.deleteAll')"
-                                flat
-                                class="bg-negative text-white"
-                                @click="deleteAllClients"
-                                />
-                            </q-item>
-                        </div>
-                    </q-card-section>
-                </q-card>
             </q-tab-panel>
             <q-tab-panel name="collaborators">
                 <q-card>

@@ -79,7 +79,6 @@ var AuditSchema = new Schema({
     date_end:           String,
     summary:            String,
     company:            {type: Schema.Types.ObjectId, ref: 'Company'},
-    client:             {type: Schema.Types.ObjectId, ref: 'Client'},
     collaborators:      [{type: Schema.Types.ObjectId, ref: 'User'}],
     reviewers:          [{type: Schema.Types.ObjectId, ref: 'User'}],
     language:           {type: String, required: true},
@@ -162,7 +161,6 @@ AuditSchema.statics.getAudit = (isAdmin, auditId, userId) => {
         query.populate('template')
         query.populate('creator', 'username firstname lastname email phone role')
         query.populate('company')
-        query.populate('client')
         query.populate('collaborators', 'username firstname lastname email phone role')
         query.populate('reviewers', 'username firstname lastname role')
         query.populate('approvals', 'username firstname lastname role')
@@ -342,18 +340,11 @@ AuditSchema.statics.getGeneral = (isAdmin, auditId, userId) => {
         var query = Audit.findById(auditId);
         if (!isAdmin)
             query.or([{creator: userId}, {collaborators: userId}, {reviewers: userId}])
-        query.populate({
-            path: 'client', 
-            select: 'email firstname lastname', 
-            populate: {
-                path: 'company', 
-                select: 'name'}
-            });
         query.populate('creator', 'username firstname lastname')
         query.populate('collaborators', 'username firstname lastname')
         query.populate('reviewers', 'username firstname lastname')
         query.populate('company')
-        query.select('name auditType date date_start date_end client collaborators language scope.name template customFields isRetest executiveSummary')
+        query.select('name auditType date date_start date_end collaborators language scope.name template customFields isRetest executiveSummary')
         query.lean().exec()
         .then((row) => {
             if (!row)
@@ -972,7 +963,6 @@ AuditSchema.statics.clone = (auditId, newName, userId) => {
     return new Promise((resolve, reject) => {
         Audit.findById(auditId)
         .populate('company')
-        .populate('client')
         .populate('collaborators')
         .populate('reviewers')
         .populate('template')
@@ -987,7 +977,6 @@ AuditSchema.statics.clone = (auditId, newName, userId) => {
                 auditType: sourceAudit.auditType,
                 language: sourceAudit.language,
                 company: sourceAudit.company,
-                client: sourceAudit.client,
                 collaborators: sourceAudit.collaborators,
                 reviewers: sourceAudit.reviewers,
                 template: sourceAudit.template,

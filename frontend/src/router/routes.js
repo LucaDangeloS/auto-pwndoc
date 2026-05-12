@@ -21,7 +21,6 @@ export default [
       {path: '', redirect: 'collaborators'},
       {path: 'collaborators', component: () => import('pages/data/collaborators')},
       {path: 'companies', component: () => import('pages/data/companies')},
-      {path: 'clients', component: () => import('pages/data/clients')},
       {path: 'templates', component: () => import('pages/data/templates')},
       {path: 'vulnerabilities-data', component: () => import('pages/data/vulnerabilities-data')},
       {path: 'vulnerability-taxonomy', component: () => import('pages/data/vulnerability-taxonomy')},

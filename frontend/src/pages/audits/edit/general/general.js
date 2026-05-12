@@ -7,7 +7,6 @@ import CustomFields from 'components/custom-fields'
 import TemplateHint from 'components/template-hint'
 
 import AuditService from '@/services/audit';
-import ClientService from '@/services/client';
 import CompanyService from '@/services/company';
 import CollabService from '@/services/collaborator';
 import ReviewerService from '@/services/reviewer';
@@ -33,7 +32,6 @@ export default {
                 creator: {},
                 name: "",
                 auditType: "",
-                client: {},
                 company: {},
                 collaborators: [],
                 reviewers: [],
@@ -48,12 +46,6 @@ export default {
                 isRetest: false
             },
             auditOrig: {},
-            // List of existing clients
-            clients: [],
-            // List of filtered clients when searching in select
-            selectClients: [],
-            // List of filtered clients when company is selected
-            selectClientsFromCompany: [],
             // List of existing Collaborators
             collaborators: [],
             // List of existing reviewers
@@ -113,15 +105,6 @@ export default {
             .onOk(() => next())
         }
     },
-    watch: {
-        'audit.company': {
-          handler(newCompany, oldCompany) {
-            this.filterClients();
-          },
-          deep: true, // in case the object is modified deeply
-        },
-      },
-      
     methods: {
         _listener: function(e) {
             if ((window.navigator.platform.match("Mac") ? e.metaKey : e.ctrlKey) && e.keyCode == 83) {
@@ -145,7 +128,7 @@ export default {
                 this.auditOrig = this.$_.cloneDeep(this.audit);
                 this.getCollaborators();
                 this.getReviewers();
-                this.getClients();
+                this.getCompanies();
             })
             .catch((err) => {              
                 console.log(err.response)
@@ -188,24 +171,11 @@ export default {
             })
         },
 
-        // Get Clients list
-        getClients: function() {
-            ClientService.getClients()
-            .then((data) => {
-                this.clients = data.data.datas;
-                this.getCompanies();
-            })
-            .catch((err) => {
-                console.log(err)
-            })
-        },
-
         // Get Companies list
         getCompanies: function() {
             CompanyService.getCompanies()
             .then((data) => {
                 this.companies = data.data.datas;
-                this.filterClients('init')
             })
             .catch((err) => {
                 console.log(err)
@@ -273,54 +243,12 @@ export default {
             })
         },
 
-        // Filter client options when selecting company
-        filterClients: function(step) {
- 
-            //if (step !== 'init') this.audit.client = null // only reset client when company is updated
-            
-            if (this.audit.company && this.audit.company.name) {
-                this.selectClientsFromCompany = [];
-                this.clients.map(client => {
-                    if (client.company && client.company.name === this.audit.company.name) this.selectClientsFromCompany.push(client)
-                })
-            }
-            else
-                this.selectClientsFromCompany = this.$_.clone(this.clients);
-        },
-
-        // Set Company when selecting client 
-        setCompanyFromClient: function(value) {
-            console.log(value)
-            if (value && value.company) {
-                for (var i=0; i<this.companies.length; i++) {
-                    if (this.companies[i].name === value.company.name) {
-                        this.audit.company = this.$_.clone(this.companies[i]);
-                        break;
-                    }
-                }
-            }
-        },
-
         createSelectCompany: function(val, done) {
             var index = this.companies.findIndex(e => Utils.normalizeString(e.name) === Utils.normalizeString(val))
             if (index > -1)
                 done(this.companies[index], 'add-unique')
             else
                 done(val, 'add-unique')
-        },
-        filterSelectClient (val, update) {
-            if (val === '') {
-                update(() => this.selectClients = this.selectClientsFromCompany)
-                return
-              }
-            update(() => {
-                const needle = Utils.normalizeString(val)
-                this.selectClients = this.$_.clone(this.selectClientsFromCompany.filter(v => Utils.normalizeString(v.email).indexOf(needle) > -1))
-            })
-        },
-        clearClient() {
-            this.audit = this.$_.clone({...this.audit, client: null})
-            this.$refs.select_client.reset();
         },
         clearCompany() {
             this.audit = this.$_.clone({...this.audit, company: null})

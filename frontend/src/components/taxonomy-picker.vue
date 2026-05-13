@@ -43,12 +43,17 @@
     />
   </div>
   <div class="col-md-3 col-12">
-    <q-input
+    <q-select
       outlined dense
       :label="$t('code')"
-      :model-value="current.code"
+      :model-value="current.code || null"
       @update:model-value="onCodeChange"
-      :readonly="readonly"
+      :options="codeOptions"
+      use-input input-debounce="0"
+      new-value-mode="add-unique"
+      clearable
+      options-sanitize
+      :disable="readonly || !current.type"
     />
   </div>
 </div>
@@ -101,6 +106,19 @@ export default defineComponent({
           .filter(r => r.type === this.current.type && r.category === this.current.category && r.subcategory)
           .map(r => r.subcategory)
       )).sort();
+    },
+    codeOptions() {
+      if (!this.current.type) return [];
+      return Array.from(new Set(
+        this.taxonomy
+          .filter(r =>
+            r.type === this.current.type &&
+            (r.category || '') === this.current.category &&
+            (r.subcategory || '') === this.current.subcategory &&
+            r.code
+          )
+          .map(r => r.code)
+      )).sort();
     }
   },
 
@@ -129,32 +147,60 @@ export default defineComponent({
       }
     },
 
+    // Persist a new (type, category, subcategory) path to the taxonomy
+    // collection if it doesn't already exist there.
+    maybeCreateTaxonomyEntry(next) {
+      if (!next.type) return;
+      const exists = this.taxonomy.some(r =>
+        r.type === next.type &&
+        (r.category || '') === (next.category || '') &&
+        (r.subcategory || '') === (next.subcategory || '')
+      );
+      if (exists) return;
+      DataService.createVulnerabilityTaxonomy({
+        type: next.type,
+        category: next.category || '',
+        subcategory: next.subcategory || '',
+        code: next.code || ''
+      })
+      .then(res => {
+        const created = res.data && res.data.datas;
+        if (created) this.taxonomy.push(created);
+      })
+      .catch(err => {
+        if (!err.response || err.response.status !== 409) {
+          console.error('taxonomy create failed', err);
+        }
+      });
+    },
+
     onTypeChange(val) {
-      // Clearing type also clears its descendants.
       const next = { type: val || '', category: '', subcategory: '', code: this.current.code };
       this.emitNext(next);
       this.tryAutofillCode(next);
+      if (val) this.maybeCreateTaxonomyEntry(next);
     },
 
     onCategoryChange(val) {
       const next = { type: this.current.type, category: val || '', subcategory: '', code: this.current.code };
       this.emitNext(next);
       this.tryAutofillCode(next);
+      if (val) this.maybeCreateTaxonomyEntry(next);
     },
 
     onSubcategoryChange(val) {
       const next = { type: this.current.type, category: this.current.category, subcategory: val || '', code: this.current.code };
       this.emitNext(next);
       this.tryAutofillCode(next);
+      if (val) this.maybeCreateTaxonomyEntry(next);
     },
 
     onCodeChange(val) {
-      this.emitNext({ ...this.current, code: val || '' });
+      const next = { ...this.current, code: val || '' };
+      this.emitNext(next);
+      if (val) this.maybeCreateTaxonomyEntry(next);
     },
 
-    // When the user picks a triple that resolves to a single taxonomy row
-    // and that row carries a `code`, fill it in automatically — but only
-    // if the user hasn't typed a code themselves.
     tryAutofillCode(picked) {
       if (this.current.code) return;
       const match = this.taxonomy.find(r =>

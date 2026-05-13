@@ -456,7 +456,17 @@
                     :disable="!canEdit || !settings.ai.enabled"
                     @update:model-value="applyDefaultUrlIfEmpty('generation')"
                 />
+                <q-input
+                    v-if="settings.ai.public.provider === 'openai-compatible'"
+                    class="col-12 col-md-4"
+                    :label="$t('aiModel')"
+                    v-model="settings.ai.public.model"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled"
+                    :hint="$t('aiModelHint')"
+                />
                 <q-select
+                    v-else
                     class="col-12 col-md-4"
                     :label="$t('aiModel')"
                     v-model="settings.ai.public.model"
@@ -577,7 +587,17 @@
                     :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
                     @update:model-value="applyDefaultUrlIfEmpty('embedding')"
                 />
+                <q-input
+                    v-if="settings.ai.public.embeddingProvider === 'openai-compatible'"
+                    class="col-12 col-md-4"
+                    :label="$t('aiEmbeddingModel')"
+                    v-model="settings.ai.public.embeddingModel"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
+                    :hint="$t('aiEmbeddingModelHint')"
+                />
                 <q-select
+                    v-else
                     class="col-12 col-md-4"
                     :label="$t('aiEmbeddingModel')"
                     v-model="settings.ai.public.embeddingModel"
@@ -737,7 +757,17 @@
                     :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
                     @update:model-value="applyDefaultUrlIfEmpty('vision')"
                 />
+                <q-input
+                    v-if="settings.ai.visionPublic.visionProvider === 'openai-compatible'"
+                    class="col-12 col-md-4"
+                    :label="$t('aiVisionModel')"
+                    v-model="settings.ai.visionPublic.visionModel"
+                    outlined
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                    :hint="$t('aiVisionModelHint')"
+                />
                 <q-select
+                    v-else
                     class="col-12 col-md-4"
                     :label="$t('aiVisionModel')"
                     v-model="settings.ai.visionPublic.visionModel"

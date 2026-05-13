@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 <div :class="$q.dark.isActive ? '' : 'login-background'" style="height:100vh;display:flex">
     <div v-if="loaded === true" style="margin:auto">
         <q-card align="center" style="width:350px">
@@ -263,10 +263,7 @@ export default defineComponent({
                   })
               }
               else {
-                  let errmsg = $t('err.invalidCredentials');
-                  if (err.response.data.datas)
-                      errmsg = err.response.data.datas;
-                  this.errors.alert = errmsg;
+                  this.errors.alert = $t('err.invalidCredentials');
               }
           })
           .finally(() => {

@@ -362,36 +362,35 @@ module.exports = function(app) {
             Response.BadParameters(res, 'name and field value must match /^[\p{Letter}\p{Mark}0-9 \[\]\'()_-]+$/iu ')
             return
         }
-        
-        var section = {};
-        section.field = req.body.field;
-        section.name = req.body.name;
-        section.locale = req.body.locale;
-        // Optional parameters
-        if (req.body.text) section.text = req.body.text
+
+        var section = {
+            field: req.body.field,
+            name:  req.body.name,
+            type:  ['text', 'checklist'].includes(req.body.type) ? req.body.type : 'text',
+        }
         if (req.body.icon) section.icon = req.body.icon
+        if (section.type === 'checklist' && Array.isArray(req.body.rows))
+            section.rows = req.body.rows.filter(r => r && r.label).map(r => ({label: r.label}))
 
         CustomSection.create(section)
         .then(msg => Response.Created(res, msg))
         .catch(err => Response.Internal(res, err))
     });
-    
+
     // Delete section
-    app.delete("/api/data/sections/:field/:locale", acl.hasPermission('sections:delete'), function(req, res) {
+    app.delete("/api/data/sections/:field", acl.hasPermission('sections:delete'), function(req, res) {
         // #swagger.tags = ['Data']
 
-        CustomSection.delete(req.params.field, req.params.locale)
-        .then(msg => {
-            Response.Ok(res, 'Section deleted successfully')
-        })
+        CustomSection.delete(req.params.field)
+        .then(msg => Response.Ok(res, 'Section deleted successfully'))
         .catch(err => Response.Internal(res, err))
     });
 
-     // Update sections
-     app.put("/api/data/sections", acl.hasPermission('sections:update'), function(req, res) {
-         // #swagger.tags = ['Data']
+    // Update sections
+    app.put("/api/data/sections", acl.hasPermission('sections:update'), function(req, res) {
+        // #swagger.tags = ['Data']
 
-         for (var i=0; i<req.body.length; i++) {
+        for (var i = 0; i < req.body.length; i++) {
             var section = req.body[i]
             if (!section.name || !section.field) {
                 Response.BadParameters(res, 'Missing required parameters: name, field')
@@ -403,9 +402,17 @@ module.exports = function(app) {
             }
         }
 
-        var sections = []
-        req.body.forEach(e => {
-            sections.push({name: e.name, field: e.field, icon: e.icon || ""})
+        var sections = req.body.map(e => {
+            var s = {
+                name:  e.name,
+                field: e.field,
+                icon:  e.icon || '',
+                type:  ['text', 'checklist'].includes(e.type) ? e.type : 'text',
+                rows:  [],
+            }
+            if (s.type === 'checklist' && Array.isArray(e.rows))
+                s.rows = e.rows.filter(r => r && r.label).map(r => ({label: r.label}))
+            return s
         })
 
         CustomSection.updateAll(sections)

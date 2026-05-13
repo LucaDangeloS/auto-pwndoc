@@ -172,23 +172,6 @@
                 </div>
               </q-card-section>
 
-              <q-expansion-item
-                :label="$t('customFields')"
-                v-if="finding.customFields !== undefined"
-                default-opened
-                header-class="bg-blue-grey-5 text-white"
-                expand-icon-class="text-white"
-              >
-                <custom-fields
-                  ref="customfields"
-                  v-model="finding.customFields"
-                  :category="finding.category || ''"
-                  :idUnique="finding._id"
-                  custom-element="QCardSection"
-                  :locale="audit?.language || 'en'"
-                  :readonly="loading"
-                />
-              </q-expansion-item>
             </q-card>
           </q-tab-panel>
 

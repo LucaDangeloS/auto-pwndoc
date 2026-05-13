@@ -5,7 +5,6 @@ import BasicEditor from 'components/editor';
 import Breadcrumb from 'components/breadcrumb';
 import CvssCalculatorUnified from 'components/cvss-calculator-unified';
 import TextareaArray from 'components/textarea-array';
-import CustomFields from 'components/custom-fields';
 import SimilarVulnModal from 'components/similar-vuln-modal';
 import TemplateHint from 'components/template-hint';
 import AiActionBtn from 'components/ai-action-btn';
@@ -45,8 +44,7 @@ export default {
         observation: '',
         references: [],
         status: 1,
-        customFields: [],
-        poc: '',
+          poc: '',
         retestEvidence: '',
         retestPassed: null,
         scope: '',
@@ -63,7 +61,7 @@ export default {
       proofsTabVisited: false,
       retestTabVisited: false,
       detailsTabVisited: false,
-      // loading: true while either fetch (customFields or finding) is in flight
+      // loading: true while the finding fetch is in flight
       loading: true,
       // readyToSave: true once editors have connected and initialised
       readyToSave: false,
@@ -95,7 +93,6 @@ export default {
     Breadcrumb,
     CvssCalculatorUnified,
     TextareaArray,
-    CustomFields,
     SimilarVulnModal,
     TemplateHint,
     AiActionBtn,
@@ -119,7 +116,6 @@ export default {
     this.auditId = this.$route.params.auditId;
     this.findingId = this.$route.params.findingId;
 
-    // Fetch customFields and finding in parallel — no sequential dependency.
     // initCustomFieldsForFinding() runs only when both have resolved.
     this._fetchFindingData();
 
@@ -227,42 +223,20 @@ export default {
       }
     },
 
-    // Fetch customFields and finding data in parallel.
-    // Both results are needed before initCustomFieldsForFinding() can run.
     _fetchFindingData() {
       this.loading = true;
       this.findingOrig = null;
       this.needSave = false;
 
-      const customFieldsPromise = DataService.getCustomFields()
-        .then((data) => {
-          this.customFields = this.$_.cloneDeep(data.data.datas);
-        });
-
-      const findingPromise = AuditService.getFinding(this.auditId, this.findingId)
+      AuditService.getFinding(this.auditId, this.findingId)
         .then((data) => {
           this.finding = data.data.datas || {};
-
-          if (typeof this.finding.customFields === 'undefined') {
-            this.finding.customFields = [];
-          }
-
           // Normalise text fields so empty ones are '' not undefined/null
           ['description', 'observation', 'poc', 'retestEvidence', 'scope', 'remediation'].forEach(field => {
             this.finding[field] = this.finding[field] || '';
           });
           if (this.finding.retestPassed === undefined) this.finding.retestPassed = null;
           this.finding.references = this.finding.references || [];
-        });
-
-      Promise.all([customFieldsPromise, findingPromise])
-        .then(() => {
-          this._baselining = true;
-          this.initCustomFieldsForFinding();
-          this._baselining = false;
-          // Signal that fetch is complete. The findingOrig snapshot is taken in
-          // onEditorReady(), AFTER TipTap has connected and normalised the HTML,
-          // so the baseline always matches what the editor actually contains.
           this._fetchDone = true;
           this.loading = false;
         })
@@ -283,48 +257,9 @@ export default {
     },
 
 
-    initCustomFieldsForFinding() {
-      const categoryForFilter = this.finding.category || 'default';
-      const languageForFilter = (this.audit && this.audit.language) || 'en';
-
-      if (!this.finding.customFields || this.finding.customFields.length === 0) {
-        const findingCustomField = this.$_.cloneDeep(
-          Utils.filterCustomFields('finding', categoryForFilter, this.customFields, [], languageForFilter)
-        );
-        const existingKeys = new Set(findingCustomField.map(field => field.key));
-        const vulnerabilityCustomField = this.$_.cloneDeep(
-          Utils.filterCustomFields('vulnerability', categoryForFilter, this.customFields, [], languageForFilter)
-            .filter(field => !existingKeys.has(field.key))
-        );
-        this.finding.customFields = [...findingCustomField, ...vulnerabilityCustomField];
-      } else {
-        const existingKeys = new Set(this.finding.customFields.map(field => field.key));
-        const newFindingFields = this.$_.cloneDeep(
-          Utils.filterCustomFields('finding', categoryForFilter, this.customFields, this.finding.customFields, languageForFilter)
-        );
-        const newVulnerabilityFields = this.$_.cloneDeep(
-          Utils.filterCustomFields('vulnerability', categoryForFilter, this.customFields, this.finding.customFields, languageForFilter)
-        ).filter(field => !existingKeys.has(field.key));
-        this.finding.customFields = [...newFindingFields, ...newVulnerabilityFields];
-      }
-    },
-
     updateFinding() {
       Utils.syncEditors(this.$refs);
       nextTick(() => {
-        if (
-          this.$refs.customfields &&
-          this.$refs.customfields.requiredFieldsEmpty()
-        ) {
-          Notify.create({
-            message: $t('msg.fieldRequired'),
-            color: 'negative',
-            textColor: 'white',
-            position: 'top-right',
-          });
-          return;
-        }
-
         AuditService.updateFinding(this.auditId, this.findingId, this.finding)
           .then(() => {
             // Update the baseline snapshot so dirty check resets to false

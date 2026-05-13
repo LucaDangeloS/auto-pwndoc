@@ -137,6 +137,7 @@ Read only the subsection that matches the task. Do not scan the full repository 
 - `backend/src/models/audit-type.js`, `custom-field.js`, `custom-section.js`, `client.js`, `company.js`, `template.js`, `image.js`, `language.js`, `vulnerability-update.js`: lookup, dynamic form, document, image, locale, and pending vulnerability-update data.
 - `backend/src/models/vulnerability-taxonomy.js`: unified locale-agnostic taxonomy `{type, category?, subcategory?, code?}` with sort config on type-root rows. Loose semantics — vulnerabilities and audit findings store taxonomy values as plain strings in their `taxonomies[]` arrays, so renames here do not cascade. Mass-edit support via `parseLines()` and `replaceAll()` statics. The legacy `vulnerability-type.js` and `vulnerability-category.js` models were retired in Phase 3.
 - Custom field `fieldType: 'checklist'` stores `field.text[locale].value` as an array of `{label, code, taxonomy: {type, category, subcategory}, status, note}`. The audit/finding/section instance copies this array forward at create time; `Audit.applyChecklistAutoMark` is invoked from `createFinding` / `updateFinding` and flips a row's `status` from `untested` to `fail` when the finding's `taxonomies[]` (or legacy `category`/`vulnType`) match the row's taxonomy or `code`. Pass/fail/na set by a human are never overwritten. Generate-from-taxonomy uses `POST /api/data/vulnerability-taxonomy/generate-checklist`.
+- **Custom sections revamp (migration step 13)**: `CustomSection` model fields are now `{field, name, icon, type: 'text'|'checklist', rows: [{label}]}`. The `type` and `rows` fields are new. `Audit.sections[]` sub-schema is `{field, name, type, text, rows: [{label, status, note}]}` — the former `customFields: [customField]` array was removed from sections entirely (sections are self-contained, no longer coupled to the generic `CustomField` system). Migration step 13 backfills `type='text'` and `rows=[]` on existing `customsections` documents and strips `customFields` from embedded `audits.sections[]` entries. The `DELETE /api/data/sections/:field` route now uses only `field` (locale parameter removed). `Audit.applyChecklistAutoMark` no longer walks section customFields. Report templates expose `{section_field.type}`, `{section_field.text | convertHTML}` (text type), and `{#section_field.rows}…{/}` with `.label`, `.status`, `.note` per row (checklist type).
 </backend_models>
 
 <backend_routes>
@@ -320,6 +321,7 @@ For editor actions in `ai-service.js`, resolve system prompts in this order:
 - `azure-openai`: AzureChatOpenAI with Azure endpoint/deployment settings.
 - `openai-compatible`: custom base URL; `ensureV1(url)` appends `/v1` when missing.
 - For OpenWebUI, use `openai-compatible` with base URL such as `http://openwebui:3000` and the exact model id shown by OpenWebUI.
+- Frontend model fields for `openai-compatible` must remain free-text inputs because compatible endpoints can expose arbitrary model IDs.
 </provider_contract>
 </ai_system>
 

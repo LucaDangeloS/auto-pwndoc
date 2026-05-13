@@ -34,3 +34,7 @@ docker-compose.override.yml
 
 # plugins
 opencode-gemini-auth/
+
+# Claude Code artifacts
+.claude/
+.playwright-mcp/

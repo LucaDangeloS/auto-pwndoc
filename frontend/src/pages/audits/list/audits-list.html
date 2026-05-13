@@ -1,15 +1,19 @@
 <template>
     <div>
       <div class="row">
-        <div v-if="languages.length === 0" class="col-md-4 offset-md-4 q-mt-md">
+        <div v-if="setupLoading" class="col-12 q-mt-xl flex flex-center">
+          <q-spinner-gears size="64px" color="primary" />
+        </div>
+
+        <div v-else-if="languages.length === 0" class="col-md-4 offset-md-4 q-mt-md">
           <p>{{ $t('noLanguage') }}<a href="/data/custom">{{ $t('nav.data') }} -> {{ $t('customData') }} -> {{ $t('language') }}</a></p>
         </div>
   
-        <div v-if="auditTypes.length === 0" class="col-md-4 offset-md-4 q-mt-md">
+        <div v-if="!setupLoading && auditTypes.length === 0" class="col-md-4 offset-md-4 q-mt-md">
           <p>{{ $t('noAudit') }}<a href="/data/custom">{{ $t('nav.data') }} -> {{ $t('customData') }} -> {{ $t('auditTypes') }}</a></p>
         </div>
   
-        <div v-if="languages.length > 0 && auditTypes.length > 0" class="col-md-8 col-12 offset-md-2 q-mt-md">
+        <div v-if="!setupLoading && languages.length > 0 && auditTypes.length > 0" class="col-md-8 col-12 offset-md-2 q-mt-md">
           <q-table
             class="sticky-header-table"
             :columns="dtHeaders"

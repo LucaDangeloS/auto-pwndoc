@@ -230,7 +230,6 @@ module.exports = function(app, io) {
         if (req.body.date) update.date = req.body.date;
         if (req.body.date_start) update.date_start = req.body.date_start;
         if (req.body.date_end) update.date_end = req.body.date_end;
-        if (req.body.client !== undefined) update.client = req.body.client
         if (req.body.company !== undefined) {
             update.company = {};
             if (req.body.company && req.body.company._id)
@@ -431,16 +430,9 @@ module.exports = function(app, io) {
             Response.Forbidden(res, "The audit is not in the EDIT state and therefore cannot be edited.");
             return;
         }
-        if (typeof req.body.customFields === 'undefined') {
-            Response.BadParameters(res, 'Missing some required parameters: customFields');
-            return;
-        }
         var section = {};
-        // Mandatory parameters
-        section.customFields = req.body.customFields;
-
-        // For retrocompatibility with old section.text usage
-        if (req.body.text) section.text = req.body.text; 
+        if (req.body.text !== undefined) section.text = req.body.text;
+        if (Array.isArray(req.body.rows)) section.rows = req.body.rows;
 
         if (settings.reviews.enabled && settings.reviews.private.removeApprovalsUponUpdate) {
             Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, { approvals: [] });

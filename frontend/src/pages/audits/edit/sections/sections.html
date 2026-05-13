@@ -15,23 +15,51 @@
       />
     </template>
   </breadcrumb>
-  
 
 <div class="row q-col-gutter-md q-pa-md">
     <div class="col-md-8 offset-md-2">
         <q-card>
-            <!-- For retrocompatibility, test if section.text exists -->
-            <q-card-section v-if="section.text"> 
+            <!-- Plain text section -->
+            <q-card-section v-if="!section.type || section.type === 'text'">
                 <basic-editor ref="basiceditor_section" noSync v-model="section.text" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT" />
             </q-card-section>
-            <custom-fields v-else 
-            ref="customfields" 
-            v-model="section.customFields" 
-            custom-element="QCardSection" 
-            no-sync-editor
-            :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-            :locale="audit.language"
-            />
+
+            <!-- Checklist section -->
+            <q-card-section v-else-if="section.type === 'checklist'">
+                <q-table
+                    :rows="section.rows"
+                    :columns="checklistColumns"
+                    row-key="label"
+                    flat
+                    bordered
+                    hide-pagination
+                    :rows-per-page-options="[0]"
+                >
+                    <template #body-cell-status="props">
+                        <q-td :props="props">
+                            <q-btn-toggle
+                                v-model="props.row.status"
+                                :options="statusOptions"
+                                :disable="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                                no-caps
+                                dense
+                                unelevated
+                                toggle-color="primary"
+                            />
+                        </q-td>
+                    </template>
+                    <template #body-cell-note="props">
+                        <q-td :props="props">
+                            <q-input
+                                v-model="props.row.note"
+                                :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                                dense
+                                borderless
+                            />
+                        </q-td>
+                    </template>
+                </q-table>
+            </q-card-section>
         </q-card>
     </div>
 </div>

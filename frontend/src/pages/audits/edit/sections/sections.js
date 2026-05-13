@@ -3,10 +3,8 @@ import { Notify, Dialog } from 'quasar';
 
 import BasicEditor from 'components/editor';
 import Breadcrumb from 'components/breadcrumb';
-import CustomFields from 'components/custom-fields';
 
 import AuditService from '@/services/audit';
-import DataService from '@/services/data';
 import Utils from '@/services/utils';
 
 import { $t } from '@/boot/i18n'
@@ -24,24 +22,34 @@ export default {
     },
     data: () => {
         return {
-            // Set audit ID
             auditId: null,
+            sectionId: null,
             section: {
                 field: "",
                 name: "",
-                customFields: []
+                type: "text",
+                text: "",
+                rows: []
             },
             sectionOrig: {},
-            // List of CustomFields
-            customFields: [],
-            AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
+            AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
+            checklistColumns: [
+                {name: 'label',  label: '#',      field: 'label',  align: 'left',   style: 'width: 50%'},
+                {name: 'status', label: $t('checklistStatus'), field: 'status', align: 'center'},
+                {name: 'note',   label: $t('checklistNote'),   field: 'note',   align: 'left',   style: 'width: 30%'}
+            ],
+            statusOptions: [
+                {label: $t('checklistStatusUntested'), value: 'untested', color: 'grey'},
+                {label: $t('checklistStatusPass'),     value: 'pass',     color: 'positive'},
+                {label: $t('checklistStatusFail'),     value: 'fail',     color: 'negative'},
+                {label: $t('checklistStatusNa'),       value: 'na',       color: 'warning'}
+            ]
         }
     },
 
     components: {
         BasicEditor,
-        Breadcrumb,
-        CustomFields
+        Breadcrumb
     },
 
     mounted: function() {
@@ -51,7 +59,6 @@ export default {
 
         this.$socket.emit('menu', {menu: 'editSection', section: this.sectionId, room: this.auditId});
 
-        // save on ctrl+s
         document.addEventListener('keydown', this._listener, false)
     },
 
@@ -93,24 +100,18 @@ export default {
         _listener: function(e) {
             if ((window.navigator.platform.match("Mac") ? e.metaKey : e.ctrlKey) && e.keyCode == 83) {
                 e.preventDefault();
-                // Only trigger save if we're in the section edit context AND this is the active section
-                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT && 
+                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT &&
                     this.$route.name === 'editSection' &&
                     this.$route.params.sectionId === this.sectionId)
                     this.updateSection();
             }
         },
 
-        // Get Section
         getSection: function() {
-            DataService.getCustomFields()
-            .then((data) => {
-                this.customFields = data.data.datas
-                return AuditService.getSection(this.auditId, this.sectionId)
-            })
+            AuditService.getSection(this.auditId, this.sectionId)
             .then((data) => {
                 this.section = data.data.datas;
-            this.sectionOrig = this.$_.cloneDeep(this.section);
+                this.sectionOrig = this.$_.cloneDeep(this.section);
                 nextTick(() => {
                     Utils.syncEditors(this.$refs)
                 })
@@ -120,20 +121,9 @@ export default {
             })
         },
 
-
-        // Update Section
         updateSection: function() {
             Utils.syncEditors(this.$refs)
             nextTick(() => {
-                if (this.$refs.customfields && this.$refs.customfields.requiredFieldsEmpty()) {
-                    Notify.create({
-                        message: $t('msg.fieldRequired'),
-                        color: 'negative',
-                        textColor:'white',
-                        position: 'top-right'
-                    })
-                    return
-                }
                 AuditService.updateSection(this.auditId, this.sectionId, this.section)
                 .then(() => {
                     this.sectionOrig = this.$_.cloneDeep(this.section);
@@ -157,10 +147,9 @@ export default {
             })
         },
 
-        unsavedChanges: function() {  
-            if (!this.$_.isEqual(this.section.customFields, this.sectionOrig.customFields))
-                return true
-
+        unsavedChanges: function() {
+            if (!this.$_.isEqual(this.section.text, this.sectionOrig.text)) return true
+            if (!this.$_.isEqual(this.section.rows, this.sectionOrig.rows)) return true
             return false
         }
     }

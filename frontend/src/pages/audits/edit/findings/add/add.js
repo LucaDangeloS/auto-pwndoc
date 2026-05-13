@@ -81,7 +81,6 @@ export default {
                 creator: {},
                 name: "",
                 auditType: "",
-                client: {},
                 company: {},
                 collaborators: [],
                 reviewers: [],

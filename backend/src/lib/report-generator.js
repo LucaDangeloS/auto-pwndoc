@@ -1845,21 +1845,17 @@ async function prepAuditData(data, settings) {
 
     for (section of data.sections) {
         var formatSection = {
-            name: $t(section.name)
+            name: $t(section.name),
+            type: section.type || 'text'
         }
-        if (section.text) // keep text for retrocompatibility
+        if (section.text)
             formatSection.text = await splitHTMLParagraphs(section.text)
-        // If only because section has "any" inside its text attribute and then skip the section.customFields
-        if (section.customFields) {
-            for (field of section.customFields) {
-                var fieldType = field.customField.fieldType
-                var label = field.customField.label
-                if (fieldType === 'text')
-                    formatSection[_.deburr(label.toLowerCase()).replace(/\s/g, '').replace(/[^\w]/g, '_')] = await splitHTMLParagraphs(field.text)
-                else if (fieldType !== 'space')
-                    formatSection[_.deburr(label.toLowerCase()).replace(/\s/g, '').replace(/[^\w]/g, '_')] = field.text
-            }
-        }
+        if (section.type === 'checklist' && Array.isArray(section.rows))
+            formatSection.rows = section.rows.map(r => ({
+                label:  r.label  || '',
+                status: r.status || 'untested',
+                note:   r.note   || ''
+            }))
         result[section.field] = formatSection
     }
     replaceSubTemplating(result)

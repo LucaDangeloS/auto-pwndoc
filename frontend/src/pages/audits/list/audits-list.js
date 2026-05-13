@@ -18,6 +18,8 @@ export default {
             audits: [],
             // Loading state
             loading: true,
+            languagesLoading: true,
+            auditTypesLoading: true,
             // AuditTypes list
             auditTypes: [],
             // Companies list
@@ -84,6 +86,12 @@ export default {
         Breadcrumb
     },
 
+    computed: {
+        setupLoading: function() {
+            return this.languagesLoading || this.auditTypesLoading;
+        }
+    },
+
     mounted: function() {
         this.search.finding = this.$route.params.finding;
 
@@ -108,6 +116,9 @@ export default {
             .catch((err) => {
                 console.log(err)
             })
+            .finally(() => {
+                this.languagesLoading = false;
+            })
         },
 
         getAuditTypes: function() {
@@ -117,6 +128,9 @@ export default {
             })
             .catch((err) => {
                 console.log(err)
+            })
+            .finally(() => {
+                this.auditTypesLoading = false;
             })
         },
 

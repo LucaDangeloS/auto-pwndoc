@@ -23,6 +23,7 @@ export default {
             currentDetailsIndex:0,
             // Loading state
             loading: true,
+            languagesLoading: true,
             rows:[],
             // Datatable headers
             dtHeaders: [
@@ -169,6 +170,9 @@ export default {
             })
             .catch((err) => {
                 console.log(err)
+            })
+            .finally(() => {
+                this.languagesLoading = false;
             })
         },
 

@@ -1,6 +1,9 @@
 <div>
 <div class="row">
-    <div v-if="languages.length === 0" class="col-md-4 offset-md-4 q-mt-md">
+    <div v-if="languagesLoading" class="col-12 q-mt-xl flex flex-center">
+        <q-spinner-gears size="64px" color="primary" />
+    </div>
+    <div v-else-if="languages.length === 0" class="col-md-4 offset-md-4 q-mt-md">
         <p>{{$t('noLanguage')}} <a href="/data/custom">{{$t('nav.data')}} -> {{$t('customData')}} -> {{$t('languages')}}</a></p>
     </div>
     <div v-else class="col-md-8 col-12 offset-md-2 q-mt-md">
@@ -30,9 +33,9 @@
                 options-sanitize
                 outlined
                 />
-                <q-toggle :label="$t('btn.valid')" v-model="search.valid" :true-value=0 />
-                <q-toggle :label="$t('btn.new')" color="light-blue" v-model="search.new" :true-value=1 />
-                <q-toggle :label="$t('btn.updates')" color="orange" v-model="search.updates" :true-value=2 />
+                <q-toggle :label="$t('btn.valid')" v-model="search.valid" :true-value=0 :false-value="null" />
+                <q-toggle :label="$t('btn.new')" color="light-blue" v-model="search.new" :true-value=1 :false-value="null" />
+                <q-toggle :label="$t('btn.updates')" color="orange" v-model="search.updates" :true-value=2 :false-value="null" />
                 <q-btn 
                 v-if="UserService.isAllowed('vulnerabilities:update')"
                 class="q-ml-md"

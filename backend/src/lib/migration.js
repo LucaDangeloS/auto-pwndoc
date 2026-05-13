@@ -478,6 +478,9 @@ const STEPS = [
     // Step 12: Backfill audit.findings[i].taxonomies from legacy fields
     // Each finding embeds its taxonomy at the moment of creation. Apply the
     // same precedence as step 11: prefer `category`, fall back to `vulnType`.
+    //
+    // DB impact: updates `findings` array on all audit documents that have at
+    // least one finding without a taxonomies[] entry.
     {
         id: 12,
         name: 'backfill-finding-taxonomies',
@@ -532,6 +535,54 @@ const STEPS = [
                 { $unset: { client: '' } }
             );
             console.log(`[migration] drop-clients: client field unset on ${result.modifiedCount} audits`);
+        },
+    },
+
+    // Step 14: Migrate custom sections to the new type-aware schema
+    // CustomSection model gained `type` ('text'|'checklist') and `rows[]` in
+    // the custom-sections revamp. Existing docs pre-date this field.
+    //
+    // DB impact (customsections collection):
+    //   Sets type='text' and rows=[] on every document that lacks `type`.
+    //
+    // DB impact (audits collection):
+    //   For every audit section subdocument:
+    //     - Sets `type` to 'text' if missing (all pre-revamp sections were text).
+    //     - Initialises `rows` to [] if missing.
+    //     - Drops the legacy `customFields` subdocument array from sections
+    //       (sections are now self-contained; the generic CustomField system
+    //       was never correctly wired for sections and the data is unusable).
+    {
+        id: 14,
+        name: 'custom-sections-type-revamp',
+        async run(_srcDb, dstDb) {
+            // 1. CustomSection template documents
+            const sectionCol = dstDb.collection('customsections');
+            const r1 = await sectionCol.updateMany(
+                { type: { $exists: false } },
+                { $set: { type: 'text', rows: [] } }
+            );
+            console.log(`[migration] custom-sections-type-revamp: ${r1.modifiedCount} customsections backfilled`);
+
+            // 2. Embedded audit sections
+            const auditCol = dstDb.collection('audits');
+            const cursor = auditCol.find({ 'sections.0': { $exists: true } });
+            let auditsTouched = 0;
+            while (await cursor.hasNext()) {
+                const a = await cursor.next();
+                const sections = (a.sections || []).map(s => {
+                    // eslint-disable-next-line no-unused-vars
+                    const { customFields, ...rest } = s;
+                    return {
+                        ...rest,
+                        type: rest.type || 'text',
+                        rows: rest.rows || [],
+                    };
+                });
+                await auditCol.updateOne({ _id: a._id }, { $set: { sections } });
+                auditsTouched++;
+            }
+            console.log(`[migration] custom-sections-type-revamp: ${auditsTouched} audit section arrays updated`);
         },
     },
 

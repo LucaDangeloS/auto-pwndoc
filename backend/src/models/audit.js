@@ -16,13 +16,12 @@ var customField = {
 
 // One step in the type -> category -> subcategory taxonomy. A finding may
 // reference more than one (e.g. the same weakness as both WSTG and OSSTMM).
-var TaxonomyRef = {
-    _id:         false,
+var TaxonomyRef = new Schema({
     type:        String,
     category:    {type: String, default: ''},
     subcategory: {type: String, default: ''},
     code:        {type: String, default: ''}
-}
+}, {_id: false})
 
 var Finding = {
     id:                     Schema.Types.ObjectId,
@@ -86,7 +85,13 @@ var AuditSchema = new Schema({
     findings:           [Finding],
     template:           {type: Schema.Types.ObjectId, ref: 'Template'},
     creator:            {type: Schema.Types.ObjectId, ref: 'User'},
-    sections:           [{field: String, name: String, text: String, customFields: [customField]}], // keep text for retrocompatibility
+    sections:           [{
+        field:  String,
+        name:   String,
+        type:   {type: String, default: 'text'},
+        text:   String,
+        rows:   [{_id: false, label: String, status: {type: String, default: 'untested'}, note: {type: String, default: ''}}]
+    }],
     customFields:       [customField],
     sortFindings:       [SortOption],
     isRetest:           {type: Boolean, default: false},
@@ -219,27 +224,15 @@ AuditSchema.statics.create = (audit, userId) => {
             customSections = resolved[0]
             customFields = resolved[1]
 
-            customSections.forEach(section => { // Add sections with customFields (and default text) to audit
-                var tmpSection = {}
+            customSections.forEach(section => {
                 if (auditTypeSections.includes(section.field)) {
-                    tmpSection.field = section.field
-                    tmpSection.name = section.name
-                    tmpSection.customFields = []
-
-                    customFields.forEach(field => {
-                        field = field.toObject()
-                        if (field.display === 'section' && field.displaySub === tmpSection.name) {
-                            var fieldText = field.text.find(e => e.locale === audit.language)
-                            if (fieldText)
-                                fieldText = fieldText.value
-                            else
-                                fieldText = ""
-                            
-                            delete field.text
-                            tmpSection.customFields.push({customField: field, text: fieldText})
-                        }
+                    audit.sections.push({
+                        field: section.field,
+                        name:  section.name,
+                        type:  section.type || 'text',
+                        text:  '',
+                        rows:  (section.rows || []).map(r => ({label: r.label, status: 'untested', note: ''}))
                     })
-                    audit.sections.push(tmpSection)
                 }
             })
 
@@ -452,9 +445,6 @@ AuditSchema.statics.createFinding = (isAdmin, auditId, userId, finding) => {
             }
         })
         .then(() => {
-            return Audit.applyChecklistAutoMark(auditId, finding)
-        })
-        .then(() => {
             resolve("Audit Finding created successfully")
         })
         .catch((err) => {
@@ -542,106 +532,11 @@ AuditSchema.statics.updateFinding = (isAdmin, auditId, userId, findingId, newFin
                 return null
         })
         .then(() => {
-            // Use the merged finding shape so newly-set taxonomies trigger
-            // checklist marks even if the request body only sent a partial update.
-            const findingForMatch = Object.assign({}, newFinding, { _id: findingId })
-            return Audit.applyChecklistAutoMark(auditId, findingForMatch)
-        })
-        .then(() => {
             resolve("Audit Finding updated successfully")
         })
         .catch((err) => {
             reject(err)
         })
-    })
-}
-
-// Checklist auto-mark
-// Walk every checklist customField on the audit (top-level audit.customFields
-// and audit.sections[i].customFields) and try to match each row's taxonomy
-// against the finding's taxonomies[]. On match, set status to "fail" — but
-// only if the row is currently "untested" so we never overwrite a status a
-// human has set.
-//
-// Match precedence per (finding-taxonomy × row):
-//   1. exact (type, category, subcategory) — including all empty strings
-//   2. (type, category) when row.subcategory is empty
-//   3. (type) when row.category and row.subcategory are both empty
-//   4. code match (most reliable for stable identifiers like WSTG-INFO-02)
-//
-// When the finding only carries the legacy `category` / `vulnType` fields
-// (Phase 1 backfill), we treat them as a single (type=category||vulnType)
-// taxonomy entry so existing audits keep working.
-function rowMatchesFindingTaxonomy(row, finding) {
-    const rowTax = (row && row.taxonomy) || {}
-    const rowType = (rowTax.type || '').trim()
-    const rowCat = (rowTax.category || '').trim()
-    const rowSub = (rowTax.subcategory || '').trim()
-    const rowCode = (row && row.code ? String(row.code).trim() : '')
-
-    const candidates = []
-    if (Array.isArray(finding.taxonomies) && finding.taxonomies.length > 0) {
-        finding.taxonomies.forEach(t => candidates.push(t || {}))
-    }
-    if (candidates.length === 0) {
-        // Legacy finding (no taxonomies[] yet) — fall back to category/vulnType
-        const legacyType = (finding.category || finding.vulnType || '').trim()
-        if (legacyType) candidates.push({ type: legacyType })
-    }
-
-    for (const c of candidates) {
-        const cType = (c.type || '').trim()
-        const cCat = (c.category || '').trim()
-        const cSub = (c.subcategory || '').trim()
-        const cCode = (c.code || '').trim()
-
-        if (rowCode && cCode && rowCode === cCode) return true
-        if (!rowType) continue
-        if (rowType !== cType) continue
-        if (!rowCat) return true                            // row at type granularity matches anything under that type
-        if (rowCat !== cCat) continue
-        if (!rowSub) return true                            // row at type+category granularity
-        if (rowSub === cSub) return true
-    }
-    return false
-}
-
-function applyMarksOnFieldList(customFields, finding) {
-    let touched = 0
-    if (!Array.isArray(customFields)) return touched
-    customFields.forEach(field => {
-        const def = field.customField || {}
-        if (def.fieldType !== 'checklist') return
-        if (!Array.isArray(field.text)) return
-        field.text.forEach(row => {
-            if (!row || row.status !== 'untested') return
-            if (rowMatchesFindingTaxonomy(row, finding)) {
-                row.status = 'fail'
-                touched++
-            }
-        })
-    })
-    return touched
-}
-
-AuditSchema.statics.applyChecklistAutoMark = (auditId, finding) => {
-    return new Promise((resolve, reject) => {
-        Audit.findById(auditId).exec()
-        .then(audit => {
-            if (!audit) return resolve(0)
-            let touched = 0
-            touched += applyMarksOnFieldList(audit.customFields, finding)
-            if (Array.isArray(audit.sections)) {
-                audit.sections.forEach(section => {
-                    touched += applyMarksOnFieldList(section.customFields, finding)
-                })
-            }
-            if (touched === 0) return resolve(0)
-            audit.markModified('customFields')
-            audit.markModified('sections')
-            return audit.save({ validateBeforeSave: false }).then(() => resolve(touched))
-        })
-        .catch((err) => reject(err))
     })
 }
 

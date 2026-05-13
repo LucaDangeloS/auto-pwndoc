@@ -1,9 +1,8 @@
-<div>
+﻿<div>
 
     <q-tabs v-model="selectedTab" no-caps align="left" indicator-color="primary" active-bg-color="grey-3" class="bg-white full-width">
         <q-tab v-if="section === 'vulnerabilities'" name="languages" :label="$t('languages')" />
         <q-tab v-if="section === 'audits'" name="audit-types" :label="$t('auditTypes')" />
-        <q-tab v-if="section === 'custom'" name="custom-fields" :label="$t('customFields')" />
         <q-tab v-if="section === 'custom'" name="custom-sections" :label="$t('customSections')" />
     </q-tabs>
 
@@ -453,492 +452,46 @@
                 </q-card>
             </q-tab-panel>
 
-            <!-- CUSTOM FIELDS -->
-            <q-tab-panel name="custom-fields">
-                <q-card>
-                    <q-card-section>
-                        <div class="text-grey-8">{{$t('createAndManageCustomFields')}}</div>
-                    </q-card-section>
-                    <q-card-section>
-                        <q-item>
-                            <q-item-section class="col-md-3">
-                                <q-select
-                                :label="$t('selectView')"
-                                v-model="newCustomField.display"
-                                :options="cfDisplayOptions"
-                                emit-value
-                                map-options
-                                @input="newCustomField.displaySub = ''"
-                                outlined dense
-                                />
-                            </q-item-section>
-                            <q-item-section class="col-md-3">
-                                <q-select
-                                v-if="['finding', 'vulnerability'].includes(newCustomField.display)"
-                                :label="$t('type')"
-                                v-model="newCustomField.displaySub"
-                                :options="taxonomyTypes"
-                                options-sanitize
-                                stack-label
-                                clearable
-                                outlined dense
-                                />
-                                <q-select
-                                v-if="newCustomField.display === 'section'"
-                                :label="$t('selectSection')"
-                                v-model="newCustomField.displaySub"
-                                :options="sections"
-                                option-value="name"
-                                option-label="name"
-                                options-sanitize
-                                emit-value
-                                map-options
-                                stack-label
-                                clearable
-                                outlined dense
-                                />
-                            </q-item-section>
-                        </q-item>
-                        <q-item v-if="UserService.isAllowed('custom-fields:create')" class="q-pl-none">
-                            <q-item-section class="col-md-3" top>
-                                <q-item>
-                                    <q-item-section>
-                                        <q-select
-                                        ref="select-component"
-                                        :label="$t('selectComponent')"
-                                        v-model="newCustomField.fieldType"
-                                        :options="cfComponentOptions"
-                                        emit-value
-                                        map-options
-                                        :rules="[val => !!val || 'Field is required']"
-                                        lazy-rules="ondemand"
-                                        hide-bottom-space
-                                        outlined dense
-                                        >
-                                            <template v-slot:selected-item="scope">
-                                                <q-icon :name="scope.opt.icon" />
-                                                <span class="q-pl-sm">{{scope.opt.label}}</span>
-                                            </template>
-                                            <template v-slot:option="scope">
-                                                <q-item
-                                                v-bind="scope.itemProps"
-                                                v-on="scope.itemEvents || {}"
-                                                >
-                                                <q-item-section avatar>
-                                                    <q-icon :name="scope.opt.icon" />
-                                                </q-item-section>
-                                                <q-item-section>
-                                                    {{scope.opt.label}}
-                                                </q-item-section>
-                                                </q-item>
-                                            </template>
-                                        </q-select>
-                                    </q-item-section>
-                                </q-item>
-                            </q-item-section>
-                            <q-item-section class="col-md-4" top>
-                                <q-item v-if="newCustomField.fieldType !== 'space'">
-                                    <q-item-section>
-                                        <q-input
-                                        ref="input-label"
-                                        :label="$t('label')"
-                                        v-model="newCustomField.label"
-                                        clearable
-                                        @keyup.enter="createCustomField"
-                                        :rules="[val => !!val || 'Field is required']"
-                                        lazy-rules="ondemand"
-                                        hide-bottom-space
-                                        outlined dense
-                                        />
-                                    </q-item-section>
-                                </q-item>
-                                <q-item v-if="newCustomField.fieldType !== 'space'">
-                                    <q-item-section>
-                                        <q-input
-                                        :label="$t('description')"
-                                        v-model="newCustomField.description"
-                                        clearable
-                                        @keyup.enter="createCustomField"
-                                        outlined dense
-                                        />
-                                    </q-item-section>
-                                </q-item>
-                                <q-item>
-                                    <q-item-section>
-                                        <q-select
-                                        :label="$t('size')"
-                                        v-model="newCustomField.size"
-                                        :options="[1,2,3,4,5,6,7,8,9,10,11,12]"
-                                        outlined dense
-                                        />
-                                    </q-item-section>
-       
-                                    <q-item-section>
-                                        <q-select
-                                        :label="$t('offset')"
-                                        v-model="newCustomField.offset"
-                                        :options="[0,1,2,3,4,5,6,7,8,9,10,11,12]"
-                                        outlined dense
-                                        />
-                                    </q-item-section>
-                                </q-item>
-                                <q-item>
-                                    <q-item-section v-if="newCustomField.fieldType !== 'space'">
-                                        <q-toggle
-                                        :label="$t('required')"
-                                        v-model="newCustomField.required"
-                                        />
-                                    </q-item-section>
-                                </q-item>
-                            </q-item-section>
-                            <q-item-section v-if="['select', 'select-multiple', 'checkbox', 'radio'].includes(newCustomField.fieldType)" class="col-md-4" top>
-                                <q-item>
-                                    <q-item-section>
-                                        <q-select
-                                        v-model="cfLocale"
-                                        :label="$t('optionsLanguage')"
-                                        :options="languages"
-                                        option-value="locale"
-                                        option-label="language"
-                                        emit-value
-                                        map-options
-                                        options-sanitize
-                                        outlined dense
-                                        />
-                                    </q-item-section>
-                                </q-item>
-                                <q-item v-if="newCustomFieldLangOptions.length > 0">
-                                    <q-item-section>
-                                        <q-list bordered separator dense>
-                                            <q-item v-for="(option,idx) of newCustomFieldLangOptions" :key="idx">
-                                                <q-item-section>
-                                                    {{option.value}}
-                                                </q-item-section>
-                                                <q-item-section side>
-                                                    <q-btn color="red" unelevated no-caps label="X" @click="removeCustomFieldOption(newCustomField.options, option)" />
-                                                </q-item-section>
-                                            </q-item>
-                                        </q-list>
-                                    </q-item-section>
-                                </q-item>
-                                <q-item>
-                                    <q-item-section>
-                                        <q-input
-                                        :label="$t('addOption')"
-                                        v-model="newCustomOption"
-                                        outlined dense
-                                        @keyup.enter="addCustomFieldOption(newCustomField.options)"
-                                        />
-                                    </q-item-section>
-                                    <q-item-section side>
-                                        <q-btn color="secondary" unelevated label="+" size="md" @click="addCustomFieldOption(newCustomField.options)" />
-                                    </q-item-section>
-                                </q-item>
-                            </q-item-section>
-
-                            <!-- Checklist seed editor -->
-                            <q-item-section v-if="newCustomField.fieldType === 'checklist'" class="col-md-4" top>
-                                <q-item>
-                                    <q-item-section>
-                                        <q-select v-model="cfLocale" :label="$t('optionsLanguage')" :options="languages" option-value="locale" option-label="language" emit-value map-options options-sanitize outlined dense />
-                                    </q-item-section>
-                                </q-item>
-                                <q-item>
-                                    <q-item-section>
-                                        <q-btn color="primary" outline no-caps icon="auto_awesome" :label="$t('btn.generateFromTaxonomy')" @click="openGenerateChecklistDialog(newCustomField)" class="full-width" />
-                                    </q-item-section>
-                                </q-item>
-                                <q-item>
-                                    <q-item-section>
-                                        <div class="text-caption text-grey-7 q-mb-xs">{{ $t('msg.checklistSeedHelp') }}</div>
-                                        <q-input
-                                            type="textarea"
-                                            outlined dense
-                                            :rows="10"
-                                            :model-value="getChecklistText(newCustomField)"
-                                            @update:model-value="setChecklistText(newCustomField, $event)"
-                                            :label="$t('checklistSeed')"
-                                        />
-                                    </q-item-section>
-                                </q-item>
-                            </q-item-section>
-                        </q-item>
-                    </q-card-section>
-                    <q-card-section v-if="UserService.isAllowed('custom-fields:create')">
-                        <q-btn color="secondary" class="q-ml-md" unelevated no-caps style="width:100px" label="Add" @click="createCustomField" />
-                    </q-card-section>
-                </q-card>
-
-                <!-- Preview -->
-                <q-card class="q-mt-md" v-if="canDisplayCustomFields()">
-                    <q-card-section class="row">
-                        <q-select 
-                        v-model="cfLocale"
-                        :label="$t('languageForDefaultText')"
-                        :options="languages" 
-                        option-value="locale"
-                        option-label="language"
-                        emit-value
-                        map-options 
-                        options-sanitize
-                        outlined
-                        class="col-md-2 col-12"
-                        />
-                    </q-card-section>
-                    <q-separator />
-                    <q-card-section>
-                      <draggable v-model="customFields" item-key="_id" class="row bg-grey-2 q-pa-sm" handle=".drag-handle">
-                        <template #item="{ element: field, index: idx }">
-                          <q-item
-                            v-if="field.display === newCustomField.display && field.displaySub === newCustomField.displaySub"
-                            :class="`col-md-${field.size || 12} col-12 offset-md-${field.offset || 0}`"
-                            class="relative-position q-pa-xs"
-                          >
-                            <!-- Boutons (éditer, supprimer, déplacer) à gauche et VERTICALEMENT -->
-                            <q-item-section avatar top v-if="UserService.isAllowed('custom-fields:update')" class="q-pr-sm">
-                              <div class="column items-center q-gutter-y-xs">
-                                <q-btn flat class="edit-btn-color" icon="mdi-pencil" dense size="sm">
-                                  <q-menu content-style="width: 300px" anchor="top left" self="top end">
-                                    <q-item v-if="field.fieldType !== 'space'">
-                                      <q-item-section>
-                                        <q-input class="full-width" :label="$t('label')" v-model="field.label" clearable outlined dense />
-                                      </q-item-section>
-                                    </q-item>
-                                    <q-item v-if="field.fieldType !== 'space'">
-                                      <q-item-section>
-                                        <q-input class="full-width" :label="$t('description')" v-model="field.description" clearable @clear="field.description = ''" outlined dense />
-                                      </q-item-section>
-                                    </q-item>
-                                    <q-item>
-                                      <q-item-section>
-                                        <q-select class="full-width" :label="$t('size')" v-model="field.size" :options="[1,2,3,4,5,6,7,8,9,10,11,12]" outlined dense />
-                                      </q-item-section>
-                                      <q-item-section>
-                                        <q-select class="full-width" :label="$t('offset')" v-model="field.offset" :options="[0,1,2,3,4,5,6,7,8,9,10,11,12]" outlined dense />
-                                      </q-item-section>
-                                    </q-item>
-                                    <q-item v-if="field.fieldType !== 'space'">
-                                      <q-item-section>
-                                        <q-toggle :label="$t('required')" v-model="field.required" dense />
-                                      </q-item-section>
-                                    </q-item>
-                                    <q-item v-if="['select', 'select-multiple', 'checkbox', 'radio'].includes(field.fieldType)">
-                                      <q-item-section>
-                                        <q-list bordered separator dense>
-                                          <q-item v-for="(option,idx) of getFieldLangOptions(field.options)" :key="idx">
-                                            <q-item-section>{{ option.value }}</q-item-section>
-                                            <q-item-section side>
-                                              <q-btn color="red" unelevated no-caps label="X" @click="removeCustomFieldOption(field.options, option)" />
-                                            </q-item-section>
-                                          </q-item>
-                                        </q-list>
-                                      </q-item-section>
-                                    </q-item>
-                                    <q-item>
-                                      <q-item-section>
-                                        <q-input class="full-width" :label="$t('addOption')" v-model="newCustomOption" outlined dense @keyup.enter="addCustomFieldOption(field.options)" />
-                                      </q-item-section>
-                                      <q-item-section side>
-                                        <q-btn color="secondary" unelevated label="+" size="md" @click="addCustomFieldOption(field.options)" />
-                                      </q-item-section>
-                                    </q-item>
-                                  </q-menu>
-                                </q-btn>
-                      
-                                <q-btn size="sm" flat color="red" icon="mdi-delete" @click="deleteCustomField(field)" :title="$t('btn.delete')" />
-                      
-                                <q-icon name="mdi-drag" class="cursor-pointer drag-handle" size="sm" color="grey" />
-                              </div>
-                            </q-item-section>
-                      
-                            <!-- Champs : Editeur personnalisé -->
-                            <q-item-section>
-                              <q-field
-                                v-if="field.fieldType === 'text'"
-                                class="full-width"
-                                label-slot
-                                stack-label
-                                borderless
-                                :hint="field.description"
-                                hide-bottom-space
-                              >
-                                <template v-slot:control>
-                                  <basic-editor
-                                    :key="field._id + '-' + cfLocale"
-                                    :model-value="getFieldValue(field)"
-                                    @update:model-value="setFieldValue(field, $event)"
-                                  />
-                                </template>
-                                <template v-slot:label>
-                                  {{ field.label }} <span v-if="field.required" class="text-red">*</span>
-                                </template>
-                              </q-field>
-                      
-                              <!-- Champ texte simple -->
-                              <q-input
-                                v-else-if="field.fieldType === 'input'"
-                                class="full-width"
-                                :model-value="getFieldValue(field)"
-                                @update:model-value="setFieldValue(field, $event)"
-                                :label="field.label"
-                                outlined
-                                dense
-                                stack-label
-                              />
-                      
-                              <!-- Date -->
-                              <q-input
-                                v-else-if="field.fieldType === 'date'"
-                                class="full-width"
-                                :model-value="getFieldValue(field)"
-                                @update:model-value="setFieldValue(field, $event)"
-                                :label="field.label"
-                                outlined
-                                dense
-                                stack-label
-                              >
-                                <template v-slot:append>
-                                  <q-icon name="event" class="cursor-pointer">
-                                    <q-popup-proxy transition-show="scale" transition-hide="scale">
-                                      <q-date v-model="tempDate" mask="YYYY-MM-DD" @update:model-value="setFieldValue(field, $event)" />
-                                    </q-popup-proxy>
-                                  </q-icon>
-                                </template>
-                              </q-input>
-                      
-                              <!-- Sélection simple -->
-                              <q-select
-                                v-else-if="field.fieldType === 'select'"
-                                class="full-width"
-                                :model-value="getFieldValue(field)"
-                                @update:model-value="setFieldValue(field, $event)"
-                                :options="field.options.filter(e => e.locale === cfLocale)"
-                                option-value="value"
-                                option-label="value"
-                                :label="field.label"
-                                outlined
-                                dense
-                                stack-label
-                              />
-                      
-                              <!-- Sélection multiple -->
-                              <q-select
-                                v-else-if="field.fieldType === 'select-multiple'"
-                                class="full-width"
-                                :model-value="getFieldValue(field)"
-                                @update:model-value="setFieldValue(field, $event)"
-                                :options="field.options.filter(e => e.locale === cfLocale)"
-                                option-value="value"
-                                option-label="value"
-                                multiple
-                                use-chips
-                                :label="field.label"
-                                outlined
-                                dense
-                                stack-label
-                              />
-                      
-                              <!-- Checkbox group -->
-                              <q-option-group
-                                v-else-if="field.fieldType === 'checkbox'"
-                                :model-value="getFieldValue(field)"
-                                @update:model-value="setFieldValue(field, $event)"
-                                :options="getOptionsGroup(field.options)"
-                                type="checkbox"
-                              />
-                      
-                              <!-- Checklist seed -->
-                              <q-field
-                                v-else-if="field.fieldType === 'checklist'"
-                                class="full-width"
-                                label-slot
-                                stack-label
-                                borderless
-                                :hint="field.description"
-                                hide-bottom-space
-                              >
-                                <template v-slot:label>
-                                  {{ field.label }}
-                                  <q-btn flat dense no-caps icon="auto_awesome" :label="$t('btn.generateFromTaxonomy')" class="q-ml-sm" @click="openGenerateChecklistDialog(field)" />
-                                </template>
-                                <template v-slot:control>
-                                  <q-input
-                                    type="textarea"
-                                    outlined dense
-                                    :rows="6"
-                                    class="full-width"
-                                    :model-value="getChecklistText(field)"
-                                    @update:model-value="setChecklistText(field, $event)"
-                                    :placeholder="$t('msg.checklistSeedHelp')"
-                                  />
-                                </template>
-                              </q-field>
-
-                              <!-- Radio group -->
-                              <q-option-group
-                                v-else-if="field.fieldType === 'radio'"
-                                :model-value="getFieldValue(field)"
-                                @update:model-value="setFieldValue(field, $event)"
-                                :options="getOptionsGroup(field.options)"
-                                type="radio"
-                              />
-                      
-                              <!-- Espace vide -->
-                              <div v-else-if="field.fieldType === 'space'" class="q-pa-md"></div>
-                            </q-item-section>
-                          </q-item>
-                        </template>
-                      </draggable>
-                      
-                  
-                      
-                      </q-card-section>
-                      
-                    <q-card-section v-if="UserService.isAllowed('custom-fields:update')">
-                        <q-btn :label="$t('btn.save')" class="q-ml-md" color="secondary" unelevated no-caps style="width:100px" @click="updateCustomFields" />
-                    </q-card-section>
-                </q-card>
-            </q-tab-panel>
-
             <!-- SECTIONS -->
             <q-tab-panel name="custom-sections">
                 <q-card>
                     <q-card-section>
                         <div class="text-grey-8">{{$t('createCustomSections')}}</div>
                     </q-card-section>
-                    <q-card-section v-if="languages.length > 0" class="row">
+                    <q-card-section class="row">
                         <div class="col-md-6 col-12" v-if="UserService.isAllowed('sections:create')">
                             <q-item>
                                 <q-item-section>
                                     <q-input
-                                    :label="$t('name')"
-                                    v-model="newSection.name"
-                                    clearable
-                                    :error="!!errors.sectionName"
-                                    :error-message="errors.sectionName"
-                                    hide-bottom-space
-                                    @keyup.enter="createSection"
-                                    outlined
+                                        :label="$t('name')"
+                                        v-model="newSection.name"
+                                        clearable
+                                        :error="!!errors.sectionName"
+                                        :error-message="errors.sectionName"
+                                        hide-bottom-space
+                                        @keyup.enter="createSection"
+                                        outlined
                                     />
                                 </q-item-section>
                                 <q-item-section>
                                     <q-input
-                                    :label="$t('fieldForTemplate')"
-                                    v-model="newSection.field"
-                                    clearable
-                                    :error="!!errors.sectionField"
-                                    :error-message="errors.sectionField"
-                                    hide-bottom-space
-                                    @keyup.enter="createSection"
-                                    outlined
+                                        :label="$t('fieldForTemplate')"
+                                        v-model="newSection.field"
+                                        clearable
+                                        :error="!!errors.sectionField"
+                                        :error-message="errors.sectionField"
+                                        hide-bottom-space
+                                        @keyup.enter="createSection"
+                                        outlined
                                     />
                                 </q-item-section>
+                            </q-item>
+                            <q-item>
                                 <q-item-section>
                                     <q-input
-                                    :label="$t('customIcon')"
-                                    v-model="newSection.icon"
-                                    @keyup.enter="createSection"
-                                    outlined
+                                        :label="$t('customIcon')"
+                                        v-model="newSection.icon"
+                                        outlined
                                     >
                                         <template v-slot:append>
                                             <q-avatar>
@@ -947,8 +500,40 @@
                                         </template>
                                     </q-input>
                                 </q-item-section>
+                                <q-item-section>
+                                    <q-select
+                                        :label="$t('sectionType')"
+                                        v-model="newSection.type"
+                                        :options="sectionTypeOptions"
+                                        emit-value
+                                        map-options
+                                        options-sanitize
+                                        outlined
+                                    />
+                                </q-item-section>
+                            </q-item>
+
+                            <!-- Checklist row editor (create) -->
+                            <q-item v-if="newSection.type === 'checklist'">
+                                <q-item-section>
+                                    <div class="text-caption text-grey-7 q-mb-xs">{{$t('checklistRows')}}</div>
+                                    <div v-for="(row, idx) in newSection.rows" :key="idx" class="row items-center q-mb-xs">
+                                        <q-input
+                                            v-model="row.label"
+                                            :label="$t('checklistRowLabel')"
+                                            outlined
+                                            dense
+                                            class="col"
+                                        />
+                                        <q-btn flat dense icon="delete" color="negative" @click="removeSectionRow(newSection, idx)" class="q-ml-xs" />
+                                    </div>
+                                    <q-btn outline dense no-caps color="primary" icon="add" :label="$t('addChecklistRow')" @click="addSectionRow(newSection)" class="q-mt-xs" />
+                                </q-item-section>
+                            </q-item>
+
+                            <q-item>
                                 <q-item-section side>
-                                    <q-btn color="secondary" unelevated label="+" size="md" @click="createSection" />
+                                    <q-btn color="secondary" unelevated no-caps :label="$t('btn.create')" @click="createSection" />
                                 </q-item-section>
                             </q-item>
                         </div>
@@ -958,48 +543,27 @@
                                 <q-toolbar>
                                     <div class="text-grey-8">{{$t('listOfSections')}}</div>
                                     <q-space />
-                                    <q-btn v-if="UserService.isAllowed('sections:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="editSection = true; editSections = $_.cloneDeep(sections)">
-                                        <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">Edit</q-tooltip> 
+                                    <q-btn v-if="UserService.isAllowed('sections:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="startEditingSections">
+                                        <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">Edit</q-tooltip>
                                     </q-btn>
                                 </q-toolbar>
                                 <q-separator />
-                                <div v-for="(section, idx) of sections" :key="idx">
+                                <div v-for="(sec, idx) of sections" :key="idx">
                                     <q-item>
                                         <q-item-section>
-                                            <q-input
-                                            :label="$t('name')"
-                                            v-model="section.name"
-                                            readonly
-                                            outlined
-                                            />
+                                            <q-input :label="$t('name')" v-model="sec.name" readonly outlined />
                                         </q-item-section>
                                         <q-item-section>
-                                            <q-input
-                                            :label="$t('field')"
-                                            v-model="section.field"
-                                            readonly
-                                            outlined
-                                            />
+                                            <q-input :label="$t('field')" v-model="sec.field" readonly outlined />
                                         </q-item-section>
                                         <q-item-section>
-                                            <q-input
-                                            :label="$t('customIcon')"
-                                            stack-label
-                                            v-model="section.icon"
-                                            readonly
-                                            outlined
-                                            >
-                                                <template v-slot:append>
-                                                    <q-avatar>
-                                                        <q-icon size='sm' :name="section.icon" />
-                                                    </q-avatar>
-                                                </template>
-                                            </q-input>
+                                            <q-badge :color="sec.type === 'checklist' ? 'purple' : 'teal'" :label="$t(sec.type === 'checklist' ? 'customSectionTypeChecklist' : 'customSectionTypeText')" class="q-mt-sm" />
                                         </q-item-section>
                                     </q-item>
                                 </div>
                             </q-card>
                         </div>
+
                         <div v-else class="col-md-6">
                             <q-card flat bordered>
                                 <q-toolbar>
@@ -1007,47 +571,62 @@
                                 </q-toolbar>
                                 <q-separator />
                                 <q-card-section>
-                                    <draggable v-model="editSections" handle=".handle" ghost-class="drag-ghost" direction="horizontal" item-key="field">
-                                        <template #item="{ element: section, index: idx }">
-                                          <q-item>
-                                            <q-item-section avatar>
-                                              <q-icon name="mdi-arrow-split-horizontal" class="cursor-pointer handle" color="grey" />
-                                            </q-item-section>
-                                            <q-item-section>
-                                              <q-input
-                                                :label="$t('name')"
-                                                v-model="section.name"
-                                                outlined
-                                              />
-                                            </q-item-section>
-                                            <q-item-section>
-                                              <q-input
-                                                :label="$t('field')"
-                                                v-model="section.field"
-                                                outlined
-                                              />
-                                            </q-item-section>
-                                            <q-item-section>
-                                              <q-input
-                                                :label="$t('customIcon')"
-                                                stack-label
-                                                v-model="section.icon"
-                                                outlined
-                                              >
-                                                <template v-slot:append>
-                                                  <q-avatar>
-                                                    <q-icon size="sm" :name="section.icon" />
-                                                  </q-avatar>
-                                                </template>
-                                              </q-input>
-                                            </q-item-section>
-                                            <q-item-section side>
-                                              <q-btn color="red" unelevated label="x" size="md" @click="removeSection(idx)" />
-                                            </q-item-section>
-                                          </q-item>
+                                    <draggable v-model="editSections" handle=".handle" ghost-class="drag-ghost" item-key="_uniqueId">
+                                        <template #item="{ element: sec, index: idx }">
+                                            <q-card flat bordered class="q-mb-sm">
+                                                <q-item>
+                                                    <q-item-section avatar>
+                                                        <q-icon name="mdi-arrow-split-horizontal" class="cursor-pointer handle" color="grey" />
+                                                    </q-item-section>
+                                                    <q-item-section>
+                                                        <q-input :label="$t('name')" v-model="sec.name" outlined dense />
+                                                    </q-item-section>
+                                                    <q-item-section>
+                                                        <q-input :label="$t('field')" v-model="sec.field" outlined dense />
+                                                    </q-item-section>
+                                                    <q-item-section>
+                                                        <q-input :label="$t('customIcon')" v-model="sec.icon" outlined dense>
+                                                            <template v-slot:append>
+                                                                <q-avatar><q-icon size="sm" :name="sec.icon" /></q-avatar>
+                                                            </template>
+                                                        </q-input>
+                                                    </q-item-section>
+                                                    <q-item-section>
+                                                        <q-select
+                                                            :label="$t('sectionType')"
+                                                            v-model="sec.type"
+                                                            :options="sectionTypeOptions"
+                                                            emit-value
+                                                            map-options
+                                                            options-sanitize
+                                                            outlined
+                                                            dense
+                                                            @update:model-value="val => { if (val !== 'checklist') sec.rows = [] }"
+                                                        />
+                                                    </q-item-section>
+                                                    <q-item-section side>
+                                                        <q-btn color="negative" flat icon="delete" size="sm" @click="removeSection(idx)" />
+                                                    </q-item-section>
+                                                </q-item>
+
+                                                <!-- Checklist row editor (edit) -->
+                                                <q-card-section v-if="sec.type === 'checklist'" class="q-pt-none">
+                                                    <div class="text-caption text-grey-7 q-mb-xs">{{$t('checklistRows')}}</div>
+                                                    <div v-for="(row, rIdx) in (sec.rows || [])" :key="rIdx" class="row items-center q-mb-xs">
+                                                        <q-input
+                                                            v-model="row.label"
+                                                            :label="$t('checklistRowLabel')"
+                                                            outlined
+                                                            dense
+                                                            class="col"
+                                                        />
+                                                        <q-btn flat dense icon="delete" color="negative" @click="removeSectionRow(sec, rIdx)" class="q-ml-xs" />
+                                                    </div>
+                                                    <q-btn outline dense no-caps color="primary" icon="add" :label="$t('addChecklistRow')" @click="addSectionRow(sec)" class="q-mt-xs" />
+                                                </q-card-section>
+                                            </q-card>
                                         </template>
-                                      </draggable>
-                                      
+                                    </draggable>
                                 </q-card-section>
                                 <q-card-actions align="right" class="q-mr-lg">
                                     <q-btn color="primary" outline @click="editSection = false">{{$t('btn.cancel')}}</q-btn>
@@ -1056,37 +635,9 @@
                             </q-card>
                         </div>
                     </q-card-section>
-                    <q-card-section v-else>
-                        <p>{{$t('createAtLeastOneLanguage')}}</p>
-                    </q-card-section>
                 </q-card>
             </q-tab-panel>
         </q-tab-panels>
     </div>
-
-    <!-- Generate-from-taxonomy dialog (checklist seeding) -->
-    <q-dialog v-model="checklistDialog.open">
-      <q-card style="min-width: 360px">
-        <q-card-section>
-          <div class="text-h6">{{ $t('btn.generateFromTaxonomy') }}</div>
-          <div class="text-caption text-grey-7">{{ $t('msg.generateChecklistHelp') }}</div>
-        </q-card-section>
-        <q-card-section class="q-pt-none">
-          <q-select
-            v-model="checklistDialog.type"
-            :options="taxonomyTypes"
-            :label="$t('type')"
-            outlined dense
-            class="q-mb-sm"
-          />
-          <q-checkbox v-model="checklistDialog.includeCategories" :label="$t('includeCategories')" />
-          <q-checkbox v-model="checklistDialog.includeSubcategories" :label="$t('includeSubcategories')" />
-        </q-card-section>
-        <q-card-actions align="right">
-          <q-btn flat :label="$t('btn.cancel')" v-close-popup />
-          <q-btn unelevated color="primary" :label="$t('btn.generate')" @click="applyGenerateChecklist" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
 </div>
         

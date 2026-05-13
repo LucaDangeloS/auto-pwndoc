@@ -84,16 +84,12 @@ export default {
         return  api.get(`data/sections`)
     },
 
-    getSectionsByLanguage: function(locale) {
-        return  api.get(`data/sections/${locale}`)
-    },
-
     createSection: function(section) {
         return  api.post(`data/sections`, section)
     },
 
-    deleteSection: function(field, locale) {
-        return  api.delete(`data/sections/${field}/${locale}`)
+    deleteSection: function(field) {
+        return  api.delete(`data/sections/${field}`)
     },
 
     updateSections: function(sections) {

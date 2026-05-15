@@ -38,3 +38,8 @@ opencode-gemini-auth/
 # Claude Code artifacts
 .claude/
 .playwright-mcp/
+
+# Local Codex/agent artifacts
+.agents/
+.token
+skills-lock.json

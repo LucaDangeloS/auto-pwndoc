@@ -901,6 +901,7 @@
     showMapped: 'Show already mapped',
     autoTranslateRelated: 'Auto-translate related',
     vulnerabilityAutoTranslateDone: 'Updated {count} related translation(s)',
+    vulnerabilityAutoTranslatePartial: 'Updated {count} translation(s), {failed} failed',
     automaticVulnerabilityMatching: 'Automatic vulnerability matching',
     automaticVulnerabilityMatchingWarning: 'This compares vulnerabilities using the embedding model and may consume embedding tokens when configured.',
     matchingScope: 'Matching scope',

@@ -897,6 +897,7 @@
     showMapped: 'Bereits zugeordnete anzeigen',
     autoTranslateRelated: 'Verknüpfte automatisch übersetzen',
     vulnerabilityAutoTranslateDone: '{count} verknüpfte Übersetzung(en) aktualisiert',
+    vulnerabilityAutoTranslatePartial: '{count} Übersetzung(en) aktualisiert, {failed} fehlgeschlagen',
     automaticVulnerabilityMatching: 'Automatisches Schwachstellen-Matching',
     automaticVulnerabilityMatchingWarning: 'Vergleicht Schwachstellen mit dem Embedding-Modell und kann konfigurierte Embedding-Tokens verbrauchen.',
     matchingScope: 'Matching-Umfang',

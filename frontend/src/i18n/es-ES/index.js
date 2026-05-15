@@ -899,6 +899,7 @@
     showMapped: 'Mostrar ya mapeadas',
     autoTranslateRelated: 'Auto-traducir relacionadas',
     vulnerabilityAutoTranslateDone: 'Actualizadas {count} traducción(es) relacionada(s)',
+    vulnerabilityAutoTranslatePartial: 'Actualizadas {count} traducción(es), {failed} fallida(s)',
     automaticVulnerabilityMatching: 'Matching automático de vulnerabilidades',
     automaticVulnerabilityMatchingWarning: 'Compara vulnerabilidades usando el modelo de embeddings y puede consumir tokens de embeddings si está configurado.',
     matchingScope: 'Alcance del matching',

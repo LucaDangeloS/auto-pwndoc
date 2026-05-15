@@ -737,7 +737,15 @@ export default {
             .then((data) => {
                 this.getVulnerabilities();
                 this.getTranslationGroups();
-                Notify.create({message: $t('vulnerabilityAutoTranslateDone', {count: data.data.datas.updated || 0}), color: 'positive', textColor:'white', position: 'top-right'})
+                const result = data.data.datas || {};
+                Notify.create({
+                    message: result.failed
+                        ? $t('vulnerabilityAutoTranslatePartial', {count: result.updated || 0, failed: result.failed})
+                        : $t('vulnerabilityAutoTranslateDone', {count: result.updated || 0}),
+                    color: result.failed ? 'warning' : 'positive',
+                    textColor: result.failed ? 'dark' : 'white',
+                    position: 'top-right'
+                })
             })
             .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
             .finally(() => { this.translatingRelated = false; })

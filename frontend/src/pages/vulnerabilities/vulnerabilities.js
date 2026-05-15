@@ -87,6 +87,7 @@ export default {
             matchingThreshold: 0.35,
             matchingStatus: {runId: null, inProgress: false, total: 0, processed: 0, proposals: []},
             selectedMatchingProposals: [],
+            showMatchingHistory: false,
             matchingPoll: null,
             // Vulnerability categories
             vulnCategories: [],
@@ -192,6 +193,20 @@ export default {
 
         vulnTypeOptions: function() {
             return this.$_.uniq(this.vulnerabilities.map(vuln => this.getDtType(vuln)).filter(Boolean)).sort()
+        },
+
+        visibleMatchingProposals: function() {
+            var proposals = this.matchingStatus.proposals || [];
+            if (this.showMatchingHistory) return proposals;
+            return proposals.filter(proposal => this.isPendingProposal(proposal));
+        },
+
+        pendingMatchingProposals: function() {
+            return (this.matchingStatus.proposals || []).filter(proposal => this.isPendingProposal(proposal));
+        },
+
+        selectedPendingMatchingProposals: function() {
+            return (this.selectedMatchingProposals || []).filter(proposal => this.isPendingProposal(proposal));
         }
     },
 
@@ -668,6 +683,58 @@ export default {
             if (!member || !member.lastEditedAt) return '-';
             return new Date(member.lastEditedAt).toLocaleString();
         },
+
+        translationStatusLabel: function(member) {
+            switch ((member && member.syncStatus) || 'synced') {
+                case 'stale':
+                    return $t('translationStatusStale');
+                case 'pending-review':
+                    return $t('translationStatusPendingReview');
+                case 'failed':
+                    return $t('translationStatusFailed');
+                default:
+                    return $t('translationStatusSynced');
+            }
+        },
+
+        translationStatusColor: function(member) {
+            switch ((member && member.syncStatus) || 'synced') {
+                case 'stale':
+                    return 'warning';
+                case 'pending-review':
+                    return 'info';
+                case 'failed':
+                    return 'negative';
+                default:
+                    return 'positive';
+            }
+        },
+
+        isPendingProposal: function(proposal) {
+            return !proposal || !proposal.status || proposal.status === 'pending';
+        },
+
+        matchingProposalStatusLabel: function(proposal) {
+            switch ((proposal && proposal.status) || 'pending') {
+                case 'accepted':
+                    return $t('matchingProposalStatusAccepted');
+                case 'dismissed':
+                    return $t('matchingProposalStatusDismissed');
+                default:
+                    return $t('matchingProposalStatusPending');
+            }
+        },
+
+        matchingProposalStatusColor: function(proposal) {
+            switch ((proposal && proposal.status) || 'pending') {
+                case 'accepted':
+                    return 'positive';
+                case 'dismissed':
+                    return 'grey';
+                default:
+                    return 'primary';
+            }
+        },
         
 
         mergeVulnerabilities: function() {
@@ -785,7 +852,7 @@ export default {
             return VulnerabilityService.getMatchingStatus(this.matchingStatus.runId)
             .then((data) => {
                 this.matchingStatus = data.data.datas;
-                this.selectedMatchingProposals = (this.matchingStatus.proposals || []).slice();
+                this.selectedMatchingProposals = this.pendingMatchingProposals.slice();
             })
         },
 
@@ -803,10 +870,19 @@ export default {
         },
 
         applyMatchingProposals: function() {
-            VulnerabilityService.applyMatchingProposals(this.selectedMatchingProposals, this.matchingStatus.runId)
+            VulnerabilityService.applyMatchingProposals(this.selectedPendingMatchingProposals, this.matchingStatus.runId)
             .then((data) => {
                 this.getTranslationGroups();
-                Notify.create({message: $t('vulnerabilityMatchingApplied', {count: data.data.datas.applied || 0}), color: 'positive', textColor:'white', position: 'top-right'})
+                this.getMatchingStatus();
+                Notify.create({
+                    message: $t('vulnerabilityMatchingApplied', {
+                        count: data.data.datas.applied || 0,
+                        skipped: data.data.datas.skipped || 0
+                    }),
+                    color: 'positive',
+                    textColor:'white',
+                    position: 'top-right'
+                })
             })
             .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
         },

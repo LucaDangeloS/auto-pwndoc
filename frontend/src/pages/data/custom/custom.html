@@ -14,16 +14,24 @@
             <q-tab-panel name="languages">
                 <q-card>
                     <q-card-section>
-                        <div class="row items-center justify-between">
+                        <div class="row items-center justify-between q-col-gutter-sm">
                             <div class="text-grey-8">{{$t('languageUsedInAuditsAndVuls')}}</div>
-                            <q-btn
-                                v-if="section === 'vulnerabilities' && UserService.isAllowed('vulnerabilities:update')"
-                                class="automatic-matching-btn"
-                                unelevated
-                                no-caps
-                                :label="$t('automaticVulnerabilityMatching')"
-                                @click="$router.push({path: '/vulnerabilities', query: {matching: '1'}})"
-                            />
+                            <div v-if="section === 'vulnerabilities' && UserService.isAllowed('vulnerabilities:update')" class="row q-gutter-sm">
+                                <q-btn
+                                    class="automatic-matching-btn"
+                                    unelevated
+                                    no-caps
+                                    :label="$t('automaticVulnerabilityMatching')"
+                                    @click="$router.push({path: '/vulnerabilities', query: {matching: '1'}})"
+                                />
+                                <q-btn
+                                    outline
+                                    color="secondary"
+                                    no-caps
+                                    :label="$t('cleanTranslationMappings')"
+                                    @click="cleanupTranslationGroups"
+                                />
+                            </div>
                         </div>
                     </q-card-section>
                     <q-card-section class="row">

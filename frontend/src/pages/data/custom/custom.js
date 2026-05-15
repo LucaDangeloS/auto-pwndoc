@@ -6,6 +6,7 @@ import DataService from '@/services/data'
 import Utils from '@/services/utils'
 import UserService from '@/services/user'
 import TemplateService from '@/services/template'
+import VulnerabilityService from '@/services/vulnerability'
 import TemplatesPage from '../templates/index.vue'
 
 import { $t } from '@/boot/i18n'
@@ -94,6 +95,31 @@ export default {
                 return !this.newLanguage.language || !this.newLanguage.locale
             if (this.selectedTab === 'audit-types') 
                 return !this.newAuditType.name || this.newAuditType.templates.length !== this.languages.length || this.newAuditType.templates.some(e => !e)
+        },
+
+        cleanupTranslationGroups: function() {
+            VulnerabilityService.cleanupTranslationGroups()
+            .then((data) => {
+                const result = data.data.datas || {};
+                Notify.create({
+                    message: $t('translationCleanupDone', {
+                        groups: result.removedGroups || 0,
+                        members: result.removedMembers || 0,
+                        sources: result.repairedSources || 0
+                    }),
+                    color: 'positive',
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            })
         },
 
 /* ===== LANGUAGES ===== */

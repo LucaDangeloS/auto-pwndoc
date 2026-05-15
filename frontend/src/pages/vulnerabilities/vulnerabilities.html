@@ -421,6 +421,7 @@
                                     <span class="text-weight-medium">{{ languageLabel(member.locale) }}</span>
                                     <q-badge v-if="member.isSource" color="secondary" class="q-ml-sm">{{$t('sourceVersion')}}</q-badge>
                                     <q-badge v-if="member.lastEditedAt" outline color="primary" class="q-ml-sm">{{$t('lastEdited')}}</q-badge>
+                                    <q-badge :color="translationStatusColor(member)" class="q-ml-sm">{{ translationStatusLabel(member) }}</q-badge>
                                 </q-item-label>
                                 <q-item-label caption>{{ memberTitle(member) }}</q-item-label>
                                 <q-item-label caption>{{$t('lastEdited')}}: {{ memberLastEditedLabel(member) }}</q-item-label>
@@ -428,6 +429,7 @@
                             <q-item-section side v-if="UserService.isAllowed('vulnerabilities:update')">
                                 <div class="row q-gutter-xs">
                                     <q-btn flat dense round icon="star" color="secondary" :disable="member.isSource" @click="setTranslationSource(member)"><q-tooltip>{{$t('markAsSource')}}</q-tooltip></q-btn>
+                                    <q-btn v-if="member.syncStatus === 'failed'" flat dense round icon="refresh" color="warning" :loading="translatingRelated" @click="autoTranslateRelated"><q-tooltip>{{$t('retryAutoTranslate')}}</q-tooltip></q-btn>
                                     <q-btn flat dense round icon="link_off" color="negative" @click="unrelateVulnerability(member)"><q-tooltip>{{$t('unrelateTranslation')}}</q-tooltip></q-btn>
                                 </div>
                             </q-item-section>
@@ -983,21 +985,31 @@
                 <div class="text-caption q-mb-xs">{{$t('matchingProgress', {processed: matchingStatus.processed, total: matchingStatus.total})}}</div>
                 <q-linear-progress :value="matchingStatus.total > 0 ? matchingStatus.processed / matchingStatus.total : 0" rounded color="secondary" />
             </div>
-            <q-list v-if="matchingStatus.proposals && matchingStatus.proposals.length" bordered separator class="q-mt-md">
-                <q-item v-for="proposal in matchingStatus.proposals" :key="proposal.sourceVulnId + proposal.targetVulnId">
+            <div v-if="matchingStatus.proposals && matchingStatus.proposals.length" class="row items-center justify-between q-mt-md">
+                <div class="text-caption">{{ $t('matchingPendingCount', {count: pendingMatchingProposals.length}) }}</div>
+                <q-toggle dense v-model="showMatchingHistory" :label="$t('showMatchingHistory')" />
+            </div>
+            <q-list v-if="visibleMatchingProposals.length" bordered separator class="q-mt-sm">
+                <q-item v-for="proposal in visibleMatchingProposals" :key="proposal.sourceVulnId + proposal.targetVulnId + proposal.sourceLocale + proposal.targetLocale">
                     <q-item-section side>
-                        <q-checkbox v-model="selectedMatchingProposals" :val="proposal" />
+                        <q-checkbox v-model="selectedMatchingProposals" :val="proposal" :disable="!isPendingProposal(proposal)" />
                     </q-item-section>
                     <q-item-section>
-                        <q-item-label>{{ proposal.sourceTitle }} → {{ proposal.targetTitle }}</q-item-label>
+                        <q-item-label>
+                            {{ proposal.sourceTitle }} → {{ proposal.targetTitle }}
+                            <q-badge :color="matchingProposalStatusColor(proposal)" class="q-ml-sm">{{ matchingProposalStatusLabel(proposal) }}</q-badge>
+                        </q-item-label>
                         <q-item-label caption>{{ proposal.sourceLocale }} → {{ proposal.targetLocale }} · {{ $t('distance') }}: {{ proposal.distance }}</q-item-label>
                     </q-item-section>
                 </q-item>
             </q-list>
+            <div v-else-if="matchingStatus.proposals && matchingStatus.proposals.length" class="text-caption text-grey-7 q-mt-sm">
+                {{$t('matchingNoPendingProposals')}}
+            </div>
         </q-card-section>
         <q-card-actions align="right">
             <q-btn outline color="primary" no-caps :label="$t('startMatching')" :loading="matchingStatus.inProgress" :disable="matchingStatus.inProgress" @click="startMatching" />
-            <q-btn color="secondary" unelevated no-caps :label="$t('applySelectedMappings')" :disable="selectedMatchingProposals.length === 0 || matchingStatus.inProgress" @click="applyMatchingProposals" />
+            <q-btn color="secondary" unelevated no-caps :label="$t('applySelectedMappings')" :disable="selectedPendingMatchingProposals.length === 0 || matchingStatus.inProgress" @click="applyMatchingProposals" />
         </q-card-actions>
     </q-card>
 </q-dialog>

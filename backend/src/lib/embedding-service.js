@@ -135,14 +135,18 @@ async function deleteVulnerability(vulnId, aiSettings) {
     }
 }
 
-async function searchSimilar(query, locale, aiSettings, topK = 10) {
+async function searchSimilar(query, locale, aiSettings, topK = 10, maxDistanceOverride) {
     const embeddings = buildEmbeddings(aiSettings);
     const collection = await getChromaCollection();
 
     const queryVector = await embeddings.embedQuery(query);
-    const maxDistance = (aiSettings.public && aiSettings.public.embeddingMaxDistance != null)
-        ? aiSettings.public.embeddingMaxDistance
-        : 0.8;
+    const maxDistance = maxDistanceOverride != null
+        ? maxDistanceOverride
+        : (
+            aiSettings.public && aiSettings.public.embeddingMaxDistance != null
+                ? aiSettings.public.embeddingMaxDistance
+                : 0.8
+        );
 
     const queryParams = {
         queryEmbeddings: [queryVector],

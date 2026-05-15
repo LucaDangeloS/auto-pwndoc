@@ -54,6 +54,11 @@ module.exports = function(request, app) {
         "view3DRotY": 30,
       }
 
+      const defaultVulnerabilityProcessing = {
+        "autoTranslateOnSave": false,
+        "matchThreshold": 0.35,
+      }
+
       const defaultPublicSettings = {
         "report": {
             "enabled": true,
@@ -108,6 +113,7 @@ module.exports = function(request, app) {
             "embeddingProvider": "openai",
             "embeddingModel": "text-embedding-3-small",
             "embeddingMaxDistance": 0.8,
+            "vulnerabilityProcessing": defaultVulnerabilityProcessing,
           },
           "visionEnabled": false,
           "visionPublic": {
@@ -182,6 +188,7 @@ module.exports = function(request, app) {
             "embeddingProvider": "openai",
             "embeddingModel": "text-embedding-3-small",
             "embeddingMaxDistance": 0.8,
+            "vulnerabilityProcessing": defaultVulnerabilityProcessing,
           },
           "private": {
             "apiUrl": "",
@@ -305,6 +312,7 @@ module.exports = function(request, app) {
               "embeddingProvider": "openai",
               "embeddingModel": "text-embedding-3-small",
               "embeddingMaxDistance": 0.8,
+              "vulnerabilityProcessing": defaultVulnerabilityProcessing,
             },
             "private": {
               "apiUrl": "http://localhost:11434",

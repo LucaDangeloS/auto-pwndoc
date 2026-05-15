@@ -52,6 +52,8 @@ require('./models/audit-archive');
 require('./models/company');
 require('./models/template');
 require('./models/vulnerability');
+require('./models/vulnerability-translation-group');
+require('./models/vulnerability-matching-run');
 require('./models/vulnerability-update');
 require('./models/language');
 require('./models/audit-type');

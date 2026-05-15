@@ -179,7 +179,7 @@ const SettingSchema = new Schema({
 // Get all settings
 SettingSchema.statics.getAll = () => {
     return new Promise((resolve, reject) => {
-        const query = Settings.findOne({});
+        const query = Settings.findOneAndUpdate({}, {$setOnInsert: {}}, {new: true, upsert: true, setDefaultsOnInsert: true});
         query.select('-_id -__v');
         query.exec()
             .then(settings => {
@@ -192,7 +192,7 @@ SettingSchema.statics.getAll = () => {
 // Get public settings
 SettingSchema.statics.getPublic = () => {
     return new Promise((resolve, reject) => {
-        const query = Settings.findOne({});
+        const query = Settings.findOneAndUpdate({}, {$setOnInsert: {}}, {new: true, upsert: true, setDefaultsOnInsert: true});
         query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public mcp.enabled ai.enabled ai.embeddingEnabled ai.public ai.visionEnabled ai.visionPublic');
         query.exec()
             .then(settings => resolve(settings))
@@ -203,7 +203,7 @@ SettingSchema.statics.getPublic = () => {
 // Update Settings
 SettingSchema.statics.update = (settings) => {
     return new Promise((resolve, reject) => {
-        const query = Settings.findOneAndUpdate({}, settings, { new: true, runValidators: true });
+        const query = Settings.findOneAndUpdate({}, settings, { new: true, runValidators: true, upsert: true, setDefaultsOnInsert: true });
         query.exec()
             .then(settings => resolve(settings))
             .catch(err => reject(err));

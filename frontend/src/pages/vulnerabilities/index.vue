@@ -3,8 +3,37 @@
 <script src='./vulnerabilities.js'></script>
 
 <style lang="sass">
-.card-section-merge 
-    height: calc(60vh - 173px)
+.translation-relation-modal
+    width: min(1280px, 96vw)
+    max-width: 96vw
+    height: min(82vh, 760px)
+    display: flex
+    flex-direction: column
+
+.translation-relation-modal__body
+    flex: 1 1 auto
+    min-height: 0
+
+.translation-relation-modal__column
+    min-height: 0
+    display: flex
+    flex-direction: column
+
+.card-section-merge
+    flex: 1 1 auto
+    min-height: 260px
+
+@media (max-width: 1023px)
+    .translation-relation-modal
+        width: 96vw
+        height: 88vh
+
+    .translation-relation-modal__body
+        overflow-y: auto
+
+    .card-section-merge
+        height: 260px
+        flex: 0 0 auto
 
 .vuln-row-new
     background: #e3f2fd !important

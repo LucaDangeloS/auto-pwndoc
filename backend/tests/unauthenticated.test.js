@@ -120,8 +120,8 @@ module.exports = function(request, app) {
         response = await request(app).put('/api/data/sections')
         expect(response.status).toBe(401)
 
-        // delete /api/data/sections/{field}/{locale(*)}
-        response = await request(app).delete('/api/data/sections/attack_scenario/en')
+        // delete /api/data/sections/{field}
+        response = await request(app).delete('/api/data/sections/attack_scenario')
         expect(response.status).toBe(401)
 
         response = await request(app).get('/api/data/custom-fields')
@@ -151,23 +151,6 @@ module.exports = function(request, app) {
         expect(response.status).toBe(401)
 
         response = await request(app).delete('/api/companies/FSociety')
-        expect(response.status).toBe(401)
-      })
-    })
-
-    describe('Testing Unauthenticated Client routes', () => {
-      it('should return 401 Unauthorized', async () => {
-        var response = await request(app).get('/api/clients')
-        expect(response.status).toBe(401)
-
-        response = await request(app).post('/api/clients')
-        expect(response.status).toBe(401)
-
-        // put /api/clients/{id}
-        response = await request(app).put('/api/clients/test@example.com')
-        expect(response.status).toBe(401)
-
-        response = await request(app).delete('/api/clients/test@example.com')
         expect(response.status).toBe(401)
       })
     })

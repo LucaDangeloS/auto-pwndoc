@@ -252,4 +252,37 @@ async function translateVulnerabilityUpdate(vuln, aiSettings) {
     return vuln;
 }
 
-module.exports = { translateVulnerability, translateVulnerabilityUpdate };
+async function translateDetail(sourceDetail, fromLocale, toLocale, aiSettings) {
+    if (!sourceDetail || !sourceDetail.title) return null;
+
+    var chatModel = buildChatModel(aiSettings);
+    var translatedDetail = { locale: toLocale };
+
+    translatedDetail.title = await translateField(chatModel, sourceDetail.title, 'title', fromLocale, toLocale);
+    if (sourceDetail.vulnType !== undefined) {
+        translatedDetail.vulnType = sourceDetail.vulnType
+            ? await translateField(chatModel, sourceDetail.vulnType, 'vulnerability type', fromLocale, toLocale)
+            : sourceDetail.vulnType;
+    }
+    if (sourceDetail.description !== undefined) {
+        translatedDetail.description = sourceDetail.description
+            ? await translateField(chatModel, sourceDetail.description, 'description', fromLocale, toLocale)
+            : sourceDetail.description;
+    }
+    if (sourceDetail.observation !== undefined) {
+        translatedDetail.observation = sourceDetail.observation
+            ? await translateField(chatModel, sourceDetail.observation, 'observation', fromLocale, toLocale)
+            : sourceDetail.observation;
+    }
+    if (sourceDetail.remediation !== undefined) {
+        translatedDetail.remediation = sourceDetail.remediation
+            ? await translateField(chatModel, sourceDetail.remediation, 'remediation', fromLocale, toLocale)
+            : sourceDetail.remediation;
+    }
+    if (sourceDetail.references !== undefined) translatedDetail.references = sourceDetail.references;
+    if (sourceDetail.customFields !== undefined) translatedDetail.customFields = sourceDetail.customFields;
+
+    return translatedDetail;
+}
+
+module.exports = { translateVulnerability, translateVulnerabilityUpdate, translateDetail };

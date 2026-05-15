@@ -14,7 +14,17 @@
             <q-tab-panel name="languages">
                 <q-card>
                     <q-card-section>
-                        <div class="text-grey-8">{{$t('languageUsedInAuditsAndVuls')}}</div>
+                        <div class="row items-center justify-between">
+                            <div class="text-grey-8">{{$t('languageUsedInAuditsAndVuls')}}</div>
+                            <q-btn
+                                v-if="section === 'vulnerabilities' && UserService.isAllowed('vulnerabilities:update')"
+                                class="automatic-matching-btn"
+                                unelevated
+                                no-caps
+                                :label="$t('automaticVulnerabilityMatching')"
+                                @click="$router.push({path: '/vulnerabilities', query: {matching: '1'}})"
+                            />
+                        </div>
                     </q-card-section>
                     <q-card-section class="row">
                         <div class="col-md-6 col-12" v-if="UserService.isAllowed('languages:create')">

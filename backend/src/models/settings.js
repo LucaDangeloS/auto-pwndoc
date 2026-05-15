@@ -110,6 +110,10 @@ const SettingSchema = new Schema({
         },
         embeddingModel: { type: String, default: 'text-embedding-3-small' },
         embeddingMaxDistance: { type: Number, default: 0.8, min: 0.01, max: 2 },
+        vulnerabilityProcessing: {
+          autoTranslateOnSave: { type: Boolean, default: false },
+          matchThreshold: { type: Number, default: 0.35, min: 0.01, max: 2 }
+        },
       },
       private: {
         apiUrl: { type: String, default: '' },

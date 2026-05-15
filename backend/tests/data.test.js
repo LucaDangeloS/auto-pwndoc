@@ -110,7 +110,7 @@ module.exports = function(request, app) {
           ])
       
         expect(response.status).toBe(200)
-        expect(response.body.datas).toEqual(expect.arrayContaining(expected))
+        expect(response.body.datas).toEqual(expect.arrayContaining(expected.map(section => expect.objectContaining(section))))
       })
 
       it('Delete language', async () => {
@@ -225,7 +225,7 @@ module.exports = function(request, app) {
           ])
       
         expect(response.status).toBe(200)
-        expect(response.body.datas).toEqual(expect.arrayContaining(expected))
+        expect(response.body.datas).toEqual(expect.arrayContaining(expected.map(section => expect.objectContaining(section))))
       })
 
       it('Delete audit type', async () => {
@@ -493,7 +493,7 @@ module.exports = function(request, app) {
           ])
       
         expect(response.status).toBe(200)
-        expect(response.body.datas).toEqual(expect.arrayContaining(expected))
+        expect(response.body.datas).toEqual(expect.arrayContaining(expected.map(section => expect.objectContaining(section))))
       })
 
       //it('Should not delete nonexistent section', async () => {

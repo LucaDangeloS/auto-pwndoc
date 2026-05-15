@@ -45,6 +45,14 @@
                 no-caps
                 @click="$refs.mergeModal.show()"
                 />
+                <q-btn
+                v-if="UserService.isAllowed('vulnerabilities:update')"
+                class="q-ml-sm automatic-matching-btn"
+                :label="$t('automaticVulnerabilityMatching')"
+                unelevated
+                no-caps
+                @click="openMatchingDialog"
+                />
                 <q-space />
                 <q-btn-dropdown 
                 v-if="UserService.isAllowed('vulnerabilities:create')"
@@ -384,6 +392,55 @@
             <div class="q-mt-md">
                 <taxonomy-picker v-model="currentVulnerability.taxonomies" />
             </div>
+            <q-card flat bordered class="q-mt-md">
+                <q-card-section>
+                    <div class="row items-center justify-between q-mb-sm">
+                        <div>
+                            <div class="text-subtitle2 text-weight-medium">{{$t('relatedTranslations')}}</div>
+                            <div class="text-caption text-grey-7">{{$t('relatedTranslationsHint')}}</div>
+                        </div>
+                        <q-btn
+                            v-if="UserService.isAllowed('vulnerabilities:update')"
+                            outline
+                            color="secondary"
+                            icon="translate"
+                            no-caps
+                            :label="$t('autoTranslateRelated')"
+                            :loading="translatingRelated"
+                            :disable="!currentTranslationGroup"
+                            @click="autoTranslateRelated"
+                        />
+                    </div>
+                    <div v-if="currentTranslationMembers.length === 0" class="text-caption text-grey-7 q-mb-md">
+                        {{$t('noRelatedTranslations')}}
+                    </div>
+                    <q-list v-else bordered separator class="q-mb-md">
+                        <q-item v-for="member in currentTranslationMembers" :key="memberVulnId(member) + member.locale">
+                            <q-item-section>
+                                <q-item-label>
+                                    <span class="text-weight-medium">{{ languageLabel(member.locale) }}</span>
+                                    <q-badge v-if="member.isSource" color="secondary" class="q-ml-sm">{{$t('sourceVersion')}}</q-badge>
+                                    <q-badge v-if="member.lastEditedAt" outline color="primary" class="q-ml-sm">{{$t('lastEdited')}}</q-badge>
+                                </q-item-label>
+                                <q-item-label caption>{{ memberTitle(member) }}</q-item-label>
+                                <q-item-label caption>{{$t('lastEdited')}}: {{ memberLastEditedLabel(member) }}</q-item-label>
+                            </q-item-section>
+                            <q-item-section side v-if="UserService.isAllowed('vulnerabilities:update')">
+                                <div class="row q-gutter-xs">
+                                    <q-btn flat dense round icon="star" color="secondary" :disable="member.isSource" @click="setTranslationSource(member)"><q-tooltip>{{$t('markAsSource')}}</q-tooltip></q-btn>
+                                    <q-btn flat dense round icon="link_off" color="negative" @click="unrelateVulnerability(member)"><q-tooltip>{{$t('unrelateTranslation')}}</q-tooltip></q-btn>
+                                </div>
+                            </q-item-section>
+                        </q-item>
+                    </q-list>
+                    <div v-if="UserService.isAllowed('vulnerabilities:update')" class="row q-col-gutter-md">
+                        <q-select class="col-12 col-md-3" :label="$t('language')" v-model="relationCandidateLocale" :options="relationLanguageOptions" option-value="locale" option-label="language" map-options emit-value outlined />
+                        <q-select class="col-12 col-md-5" :label="$t('relatedVulnerability')" v-model="relationCandidateVuln" :options="relationCandidates" :option-label="relationCandidateLabel" option-value="_id" emit-value map-options outlined />
+                        <div class="col-12 col-md-2 flex items-center"><q-toggle v-model="showMappedRelationCandidates" :label="$t('showMapped')" /></div>
+                        <div class="col-12 col-md-2 flex items-center"><q-btn color="secondary" unelevated no-caps :label="$t('relateTranslation')" :disable="!relationCandidateVuln" @click="relateSelectedVulnerability" /></div>
+                    </div>
+                </q-card-section>
+            </q-card>
         </q-card-section>
         <q-card-section>
             <q-field borderless :label="$t('description')" stack-label class="basic-editor">
@@ -813,7 +870,7 @@
 </q-dialog>
 
 <q-dialog persistent ref="mergeModal">
-    <q-card style="width: 1000px; max-width: 1000px; height: 60vh">
+        <q-card class="translation-relation-modal">
         <q-bar class="bg-fixed-primary text-white">
             <span>{{$t('mergeVulnerabilities')}}</span>
             <q-space />
@@ -823,8 +880,12 @@
         <div v-if="languages.length < 2">
             <q-card-section v-html="$t('mergeVulnerabilitiesInfo')"></q-card-section>
         </div>
-        <div v-else class="row">
-            <div class="col-md-6 col-6">
+        <q-card-section v-if="languages.length >= 2" class="q-pb-none">
+            <q-toggle v-model="showMappedInMerge" :label="$t('showMapped')" />
+            <div class="text-caption text-grey-7">{{$t('mergeVulnerabilitiesInfo')}}</div>
+        </q-card-section>
+        <div v-if="languages.length >= 2" class="row translation-relation-modal__body">
+            <div class="col-md-6 col-12 translation-relation-modal__column">
                 <q-card-section class="col-md-6">
                     <q-select
                     :label="$t('languageAddFromRight')"
@@ -860,8 +921,8 @@
                     </q-scroll-area>
                 </q-card-section>
             </div>
-            <q-separator vertical />
-            <div class="col">
+            <q-separator vertical class="gt-sm" />
+            <div class="col-md col-12 translation-relation-modal__column">
                 <q-card-section>
                     <q-select
                     :label="$t('languageMoveToLeft')"
@@ -900,8 +961,44 @@
         </div>
         <q-separator />
         <q-card-actions align="center">
-                <q-btn color="secondary" unelevated @click="mergeVulnerabilities" :disable="mergeVulnLeft === '' || mergeVulnRight === ''">{{$t('merge')}}</q-btn>
+                <q-btn color="secondary" unelevated @click="mergeVulnerabilities" :disable="mergeVulnLeft === '' || mergeVulnRight === ''">{{$t('relateTranslation')}}</q-btn>
             </q-card-actions>
+    </q-card>
+</q-dialog>
+
+<q-dialog v-model="matchingDialog" persistent>
+    <q-card style="width: 900px; max-width: 90vw">
+        <q-bar class="bg-fixed-primary text-white">
+            <span>{{$t('automaticVulnerabilityMatching')}}</span>
+            <q-space />
+            <q-btn dense flat icon="close" @click="matchingDialog = false" />
+        </q-bar>
+        <q-card-section>
+            <div class="text-body2 q-mb-md">{{$t('automaticVulnerabilityMatchingWarning')}}</div>
+            <div class="row q-col-gutter-md">
+                <q-select class="col-12 col-md-6" v-model="matchingScope" :label="$t('matchingScope')" :options="[{label: $t('unmappedOnly'), value: 'unmapped'}, {label: $t('allVulnerabilities'), value: 'all'}]" emit-value map-options outlined />
+                <q-input class="col-12 col-md-6" type="number" v-model.number="matchingThreshold" :label="$t('matchingThreshold')" outlined />
+            </div>
+            <div v-if="matchingStatus.inProgress || matchingStatus.total > 0" class="q-mt-md">
+                <div class="text-caption q-mb-xs">{{$t('matchingProgress', {processed: matchingStatus.processed, total: matchingStatus.total})}}</div>
+                <q-linear-progress :value="matchingStatus.total > 0 ? matchingStatus.processed / matchingStatus.total : 0" rounded color="secondary" />
+            </div>
+            <q-list v-if="matchingStatus.proposals && matchingStatus.proposals.length" bordered separator class="q-mt-md">
+                <q-item v-for="proposal in matchingStatus.proposals" :key="proposal.sourceVulnId + proposal.targetVulnId">
+                    <q-item-section side>
+                        <q-checkbox v-model="selectedMatchingProposals" :val="proposal" />
+                    </q-item-section>
+                    <q-item-section>
+                        <q-item-label>{{ proposal.sourceTitle }} → {{ proposal.targetTitle }}</q-item-label>
+                        <q-item-label caption>{{ proposal.sourceLocale }} → {{ proposal.targetLocale }} · {{ $t('distance') }}: {{ proposal.distance }}</q-item-label>
+                    </q-item-section>
+                </q-item>
+            </q-list>
+        </q-card-section>
+        <q-card-actions align="right">
+            <q-btn outline color="primary" no-caps :label="$t('startMatching')" :loading="matchingStatus.inProgress" @click="startMatching" />
+            <q-btn color="secondary" unelevated no-caps :label="$t('applySelectedMappings')" :disable="selectedMatchingProposals.length === 0" @click="applyMatchingProposals" />
+        </q-card-actions>
     </q-card>
 </q-dialog>
 </div>

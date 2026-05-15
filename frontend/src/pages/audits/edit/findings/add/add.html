@@ -116,12 +116,15 @@
                   @click="props.expand = !props.expand"
                 />
               </q-td>
-              <q-td key="category" :props="props">
+              <q-td key="type" :props="props">
                 {{ taxonomyType(props.row) || $t('noCategory') }}
               </q-td>
-              <q-td key="vulnType" :props="props">
-                {{ taxonomyCategory(props.row) || $t('undefined') }}
-                <span v-if="taxonomySubcategory(props.row)" class="text-grey-6"> › {{ taxonomySubcategory(props.row) }}</span>
+              <q-td key="category" :props="props">
+                <span v-if="taxonomyCategory(props.row)">
+                  {{ taxonomyCategory(props.row) }}
+                  <span v-if="taxonomySubcategory(props.row)" class="text-grey-6"> › {{ taxonomySubcategory(props.row) }}</span>
+                </span>
+                <span v-else class="taxonomy-empty">-</span>
               </q-td>
               <!-- ICI ON AJOUTE LE BOUTON ACTION MANUELLEMENT -->
               <q-td key="action" :props="props">

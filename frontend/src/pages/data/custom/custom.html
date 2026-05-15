@@ -3,6 +3,7 @@
     <q-tabs v-model="selectedTab" no-caps align="left" indicator-color="primary" active-bg-color="grey-3" class="bg-white full-width">
         <q-tab v-if="section === 'vulnerabilities'" name="languages" :label="$t('languages')" />
         <q-tab v-if="section === 'audits'" name="audit-types" :label="$t('auditTypes')" />
+        <q-tab v-if="section === 'audits'" name="templates" :label="$t('templates')" />
         <q-tab v-if="section === 'custom'" name="custom-sections" :label="$t('customSections')" />
     </q-tabs>
 
@@ -636,6 +637,11 @@
                         </div>
                     </q-card-section>
                 </q-card>
+            </q-tab-panel>
+
+            <!-- TEMPLATES -->
+            <q-tab-panel v-if="section === 'audits'" name="templates">
+                <templates-page />
             </q-tab-panel>
         </q-tab-panels>
     </div>

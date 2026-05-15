@@ -21,7 +21,7 @@ export default [
       {path: '', redirect: 'collaborators'},
       {path: 'collaborators', component: () => import('pages/data/collaborators')},
       {path: 'companies', component: () => import('pages/data/companies')},
-      {path: 'templates', component: () => import('pages/data/templates')},
+      {path: 'templates', redirect: {path: '/data/audits-data', query: {tab: 'templates'}}},
       {path: 'vulnerabilities-data', component: () => import('pages/data/vulnerabilities-data')},
       {path: 'vulnerability-taxonomy', component: () => import('pages/data/vulnerability-taxonomy')},
       {path: 'audits-data', component: () => import('pages/data/audits-data')},

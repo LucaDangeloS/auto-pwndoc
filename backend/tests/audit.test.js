@@ -63,7 +63,7 @@ module.exports = function (request, app) {
       });
 
       it("Create second audit", async () => {
-        var audit = { name: "Audit 2", language: "fr", auditType: "Web" };
+        var audit = { name: "Audit 2", language: "de", auditType: "Web" };
         var response = await request(app)
           .post("/api/audits")
           .set("Cookie", [`token=JWT ${userToken}`])

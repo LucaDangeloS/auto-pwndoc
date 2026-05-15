@@ -83,12 +83,13 @@ module.exports = function(app) {
                     var vuln = await Vulnerability.findById(r.vulnId).lean();
                     if (!vuln) return null;
                     var detail = (vuln.details || []).find(d => d.locale === (locale || 'en')) || {};
+                    var taxonomy = (Array.isArray(vuln.taxonomies) && vuln.taxonomies[0]) || {};
                     return {
                         vulnId: r.vulnId,
                         distance: r.distance,
                         title: detail.title || r.title || '',
-                        vulnType: detail.vulnType || r.vulnType || '',
-                        category: vuln.category || r.category || '',
+                        vulnType: taxonomy.category || detail.vulnType || r.vulnType || '',
+                        category: taxonomy.type || vuln.category || r.category || '',
                         description: detail.description || '',
                         observation: detail.observation || '',
                         remediation: detail.remediation || '',
@@ -265,12 +266,13 @@ module.exports = function(app) {
                             var vuln = await Vulnerability.findById(r.vulnId).lean();
                             if (!vuln) return null;
                             var detail = (vuln.details || []).find(d => d.locale === (locale || 'en')) || {};
+                            var taxonomy = (Array.isArray(vuln.taxonomies) && vuln.taxonomies[0]) || {};
                             return {
                                 vulnId: r.vulnId,
                                 distance: r.distance,
                                 title: detail.title || r.title || '',
-                                vulnType: detail.vulnType || r.vulnType || '',
-                                category: vuln.category || r.category || '',
+                                vulnType: taxonomy.category || detail.vulnType || r.vulnType || '',
+                                category: taxonomy.type || vuln.category || r.category || '',
                                 description: detail.description || '',
                                 observation: detail.observation || '',
                                 remediation: detail.remediation || '',

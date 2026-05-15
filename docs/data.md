@@ -86,7 +86,7 @@ A Language is defined by:
 > Example
 > ```
 Language: English   Locale: en
-Language: French    Locale: fr
+Language: German    Locale: de
 > ```
 
 ### Audit Types
@@ -103,7 +103,7 @@ An Audit Type is defined by:
 > Example
 >```
 Name: Web Application,
-Templates: [English Template, French Template],
+Templates: [English Template, German Template],
 Sections: [Executive Summary, Nessus Scan],
 Hidden Sections: [Network]
 > ```
@@ -121,7 +121,7 @@ A Vulnerability Type is defined by:
 English
     Name: Wireless,
     Name: Mobile Application
-French
+German
     Name: Réseau Sans Fil
     Name: Application Mobile
 > ```

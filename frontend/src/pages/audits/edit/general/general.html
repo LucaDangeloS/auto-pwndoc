@@ -250,8 +250,6 @@
                 :label="$t('customFields')"
                 v-if="audit.customFields && audit.customFields.length > 0"
                 default-opened
-                header-class="bg-blue-grey-5 text-white"
-                expand-icon-class="text-white"
             >
                 <custom-fields
                     ref="customfields"
@@ -260,6 +258,7 @@
                     no-sync-editor
                     :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     :locale="audit.language"
+                    show-template-hints
                 />
             </q-expansion-item>
         </q-card>

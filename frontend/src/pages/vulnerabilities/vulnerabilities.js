@@ -28,8 +28,8 @@ export default {
             // Datatable headers
             dtHeaders: [
                 { name: 'title', label: $t('title'), field: 'title', align: 'left', sortable: true },
-                { name: 'category', label: $t('category'), field: 'category', align: 'left', sortable: true },
                 { name: 'type', label: $t('type'), field: 'type', align: 'left', sortable: true },
+                { name: 'category', label: $t('category'), field: 'category', align: 'left', sortable: true },
                 { name: 'updatedAt', label: $t('lastUpdated'), field: 'updatedAt', align: 'left', sortable: true },
                 { name: 'action', label: '', field: 'action', align: 'left', sortable: false },
             ],
@@ -144,16 +144,11 @@ export default {
             );
           },
         vulnCategoriesOptions: function() {
-            var result = this.vulnCategories.map(cat => {return cat.name})
-            result.unshift('No Category')
-            return result
+            return this.$_.uniq(this.vulnerabilities.map(vuln => this.getDtCategory(vuln)).filter(Boolean)).sort()
         },
 
         vulnTypeOptions: function() {
-            // Locale-agnostic in the new taxonomy model.
-            var result = this.vulnTypes.map(type => type.name)
-            result.unshift('Undefined')
-            return result
+            return this.$_.uniq(this.vulnerabilities.map(vuln => this.getDtType(vuln)).filter(Boolean)).sort()
         }
     },
 
@@ -500,11 +495,19 @@ export default {
         },
 
         getDtType: function(row) {
+            const taxonomy = row && Array.isArray(row.taxonomies) && row.taxonomies[0];
+            return (taxonomy && taxonomy.type) || row.category || '';
+        },
+
+        getDtCategory: function(row) {
+            const taxonomy = row && Array.isArray(row.taxonomies) && row.taxonomies[0];
             var index = row.details.findIndex(obj => obj.locale === this.dtLanguage);
-            if (index < 0 || !row.details[index].vulnType)
-                return "Undefined";
-            else
-                return row.details[index].vulnType;         
+            return (taxonomy && taxonomy.category) || (index >= 0 && row.details[index].vulnType) || '';
+        },
+
+        getDtSubcategory: function(row) {
+            const taxonomy = row && Array.isArray(row.taxonomies) && row.taxonomies[0];
+            return (taxonomy && taxonomy.subcategory) || '';
         },
 
         getDtUpdatedAt: function(row) {
@@ -534,8 +537,8 @@ export default {
                         : data.sort((a, b) => (this.getDtUpdatedAt(a) || '').localeCompare(this.getDtUpdatedAt(b) || ''));  
                 } else if (sortBy === 'category') {
                     (descending)
-                        ? data.sort((a, b) => (b.category || $t('noCategory')).localeCompare(a.category || $t('noCategory')))
-                        : data.sort((a, b) => (a.category || $t('noCategory')).localeCompare(b.category || $t('noCategory')));
+                        ? data.sort((a, b) => (this.getDtCategory(b) || '').localeCompare(this.getDtCategory(a) || ''))
+                        : data.sort((a, b) => (this.getDtCategory(a) || '').localeCompare(this.getDtCategory(b) || ''));
                 }
         
                 return data;
@@ -545,7 +548,7 @@ export default {
         customFilter: function(rows, terms, cols, getCellValue) {
             var result = rows && rows.filter(row => {
                 var title = this.getDtTitle(row).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                var category = (row.category || $t('noCategory')).toLowerCase()
+                var category = this.getDtCategory(row).toLowerCase()
                 var type = this.getDtType(row).toLowerCase()
                 var updatedAt = this.getDtUpdatedAt(row)
                 

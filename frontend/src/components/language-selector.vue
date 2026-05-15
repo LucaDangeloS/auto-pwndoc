@@ -25,8 +25,6 @@ export default defineComponent({
           langOptions: [
               { value: "en-US", label: "English" },
               { value: "es-ES", label: "Español" },
-              { value: "fr-FR", label: "Français" },
-              { value: "zh-CN", label: "中文" },
               { value: "de-DE", label: "Deutsch" }
           ],
       };

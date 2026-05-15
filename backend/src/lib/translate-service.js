@@ -5,10 +5,8 @@ const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 
 const LOCALE_NAMES = {
     'en': 'English',
-    'fr': 'French',
     'de': 'German',
     'es': 'Spanish',
-    'zh': 'Chinese (Simplified)',
     'pt': 'Portuguese',
     'it': 'Italian',
     'nl': 'Dutch',

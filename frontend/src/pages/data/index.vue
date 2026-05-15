@@ -18,15 +18,6 @@
                 </q-item-section>
                 <q-item-section>{{$t('companies')}}</q-item-section>
             </q-item>
-            <q-item to='/data/templates'>
-                <q-item-section avatar>
-                    <q-icon name="fa fa-file-word" />
-                </q-item-section>
-                <q-item-section>{{$t('templates')}}</q-item-section>
-            </q-item>
-
-            <q-separator spaced />
-
             <q-item-label header>{{$t('vulnerabilities')}}</q-item-label>
             <q-item to='/data/vulnerabilities-data'>
                 <q-item-section avatar>

@@ -337,7 +337,7 @@ expressions.filters.d = function(input, s) {
     return (input && input != "undefined") ? input : s;
 }
 
-// Display "From ... to ..." dates nicely, removing redundant information when the start and end date occur during the same month or year: {date_start | fromTo: date_end:'fr' | capfirst}
+// Display "From ... to ..." dates nicely, removing redundant information when the start and end date occur during the same month or year: {date_start | fromTo: date_end:'de' | capfirst}
 // To internationalize or customize the resulting string, associate the desired output to the strings "from {0} to {1}" and "on {0}" in your Pwndoc translate file.
 expressions.filters.fromTo = function(start, end, locale) {
     const start_date = new Date(start);
@@ -1059,7 +1059,7 @@ expressions.filters.barChart = function(input, field, title, barColor, labelColo
 }
 
 // Translate using locale from 'translate' folder
-// Example: {input | translate: 'fr'}
+// Example: {input | translate: 'de'}
 expressions.filters.translate = function(input, locale) {
     if (!input) return input
     return $t(input, locale)

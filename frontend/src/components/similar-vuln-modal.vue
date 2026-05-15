@@ -65,8 +65,8 @@
               <q-item-section>
                 <q-item-label lines="2">{{ r.title || $t('untitled') }}</q-item-label>
                 <q-item-label caption>
-                  <span v-if="r.category">{{ r.category }} &bull; </span>
-                  <span v-if="r.vulnType">{{ r.vulnType }} &bull; </span>
+                  <span v-if="r.category">{{ $t('type') }}: {{ r.category }} &bull; </span>
+                  <span>{{ $t('category') }}: <span v-if="r.vulnType">{{ r.vulnType }}</span><span v-else class="taxonomy-empty">-</span> &bull; </span>
                   <span class="text-weight-medium">
                     {{ $t('similarVulnDistance') }}: {{ r.distance != null ? r.distance.toFixed(3) : 'N/A' }}
                   </span>

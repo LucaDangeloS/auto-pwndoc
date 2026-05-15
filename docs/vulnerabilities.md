@@ -74,8 +74,8 @@ It's possible to merge vulnerabilities for cases where 2 different vulnerabiliti
 
 When both languages have been selected, only Vulnerabilities that don't have the other column language will be displayed.  
 In this example :
-- In the left column only Vulnerabilities having English language AND no French language are displayed
-- In the right column only Vulnerabilities having French language AND no English language are displayed
+- In the left column only Vulnerabilities having English language AND no German language are displayed
+- In the right column only Vulnerabilities having German language AND no English language are displayed
 
 The language details from the Vulnerability of the right column will be moved to the Vulnerability of the left column. So this is *CVSS*, *references*, *etc* of the left column that will be kept.
 

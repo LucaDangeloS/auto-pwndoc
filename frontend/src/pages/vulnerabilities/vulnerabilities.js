@@ -754,17 +754,27 @@ export default {
             this.getMatchingStatus();
         },
 
+        closeMatchingDialog: function() {
+            this.matchingDialog = false;
+            if (this.matchingPoll) {
+                clearInterval(this.matchingPoll);
+                this.matchingPoll = null;
+            }
+        },
+
         startMatching: function() {
             VulnerabilityService.startMatching({scope: this.matchingScope, threshold: this.matchingThreshold})
             .then((data) => {
-                if (data.data.datas && data.data.datas.runId) this.matchingStatus.runId = data.data.datas.runId;
-                this.pollMatchingStatus();
+                if (data.data.datas && data.data.datas.runId) {
+                    this.matchingStatus = Object.assign({}, this.matchingStatus, data.data.datas);
+                }
+                this.getMatchingStatus().finally(() => this.pollMatchingStatus());
             })
             .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
         },
 
         getMatchingStatus: function() {
-            VulnerabilityService.getMatchingStatus(this.matchingStatus.runId)
+            return VulnerabilityService.getMatchingStatus(this.matchingStatus.runId)
             .then((data) => {
                 this.matchingStatus = data.data.datas;
                 this.selectedMatchingProposals = (this.matchingStatus.proposals || []).slice();
@@ -774,11 +784,13 @@ export default {
         pollMatchingStatus: function() {
             if (this.matchingPoll) clearInterval(this.matchingPoll);
             this.matchingPoll = setInterval(() => {
-                this.getMatchingStatus();
-                if (!this.matchingStatus.inProgress) {
-                    clearInterval(this.matchingPoll);
-                    this.matchingPoll = null;
-                }
+                this.getMatchingStatus()
+                .then(() => {
+                    if (!this.matchingStatus.inProgress) {
+                        clearInterval(this.matchingPoll);
+                        this.matchingPoll = null;
+                    }
+                });
             }, 1500);
         },
 

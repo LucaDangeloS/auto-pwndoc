@@ -586,6 +586,116 @@ const STEPS = [
         },
     },
 
+    // ── Step 15: Remove retired French and Chinese language options ─────────
+    // autopwndoc now exposes English, Spanish, and German as supported UI/report
+    // languages. Remove legacy French/Chinese rows from migrated or existing DBs
+    // so selectors no longer offer unsupported locales.
+    {
+        id: 15,
+        name: 'remove-retired-locales',
+        async run(_srcDb, dstDb) {
+            const retiredLocales = ['fr', 'fr-FR', 'zh', 'zh-CN'];
+            const retiredLanguageNames = ['French', 'Français', 'Francais', 'Chinese', 'Chinese (Simplified)', '中文'];
+            const result = await dstDb.collection('languages').deleteMany({
+                $or: [
+                    { locale: { $in: retiredLocales } },
+                    { language: { $in: retiredLanguageNames } },
+                ],
+            });
+            console.log(`[migration] remove-retired-locales: ${result.deletedCount} language rows removed`);
+        },
+    },
+
+    // ── Step 16: Remove obsolete WSTG general custom-field remnants ─────────
+    // Earlier checklist experiments left two generic CustomField rows on the
+    // audit General page ("WSTG Checklist" and "wstg"). They are not part of
+    // the durable audit model and should not appear on existing or future
+    // audits.
+    {
+        id: 16,
+        name: 'remove-wstg-general-custom-field-remnants',
+        async run(_srcDb, dstDb) {
+            const customFieldCol = dstDb.collection('customfields');
+            const remnantFields = await customFieldCol.find({
+                display: 'general',
+                label: { $in: ['WSTG Checklist', 'wstg'] },
+            }).project({_id: 1, label: 1}).toArray();
+
+            if (remnantFields.length === 0) {
+                console.log('[migration] remove-wstg-general-custom-field-remnants: no custom fields found');
+                return;
+            }
+
+            const ids = remnantFields.map(field => field._id);
+            const labels = remnantFields.map(field => field.label);
+            const pullMatch = {$or: [
+                {customField: {$in: ids}},
+                {'customField._id': {$in: ids}},
+                {'customField.label': {$in: labels}},
+            ]};
+            const deleteResult = await customFieldCol.deleteMany({_id: {$in: ids}});
+            const auditResult = await dstDb.collection('audits').updateMany({}, {
+                $pull: {
+                    customFields: pullMatch,
+                    'findings.$[].customFields': pullMatch,
+                },
+            });
+            const vulnResult = await dstDb.collection('vulnerabilities').updateMany({}, {
+                $pull: {'details.$[].customFields': pullMatch},
+            });
+            const updateResult = await dstDb.collection('vulnerabilityupdates').updateMany({}, {
+                $pull: {customFields: pullMatch},
+            });
+
+            console.log(
+                `[migration] remove-wstg-general-custom-field-remnants: ${deleteResult.deletedCount} customfields removed, ` +
+                `${auditResult.modifiedCount} audits cleaned, ${vulnResult.modifiedCount} vulnerabilities cleaned, ` +
+                `${updateResult.modifiedCount} vulnerability updates cleaned`
+            );
+        },
+    },
+
+    // ── Step 17: Clean embedded WSTG custom-field copies ────────────────────
+    // Step 16 deletes the source CustomField rows. Databases that already ran
+    // the first version of that step can still have embedded audit copies
+    // because audit custom fields are stored as mixed snapshots, not only
+    // ObjectId refs. This pass removes those orphaned snapshots by label.
+    {
+        id: 17,
+        name: 'remove-embedded-wstg-general-custom-field-copies',
+        async run(_srcDb, dstDb) {
+            const labels = ['WSTG Checklist', 'wstg'];
+            const knownIds = [
+                new mongoose.Types.ObjectId('69ff65003358ec1c5776ae0d'),
+                new mongoose.Types.ObjectId('6a0095990d8d2846272c012d'),
+            ];
+            const pullMatch = {$or: [
+                {customField: {$in: knownIds}},
+                {'customField._id': {$in: knownIds}},
+                {'customField.label': {$in: labels}},
+            ]};
+
+            const auditResult = await dstDb.collection('audits').updateMany({}, {
+                $pull: {
+                    customFields: pullMatch,
+                    'findings.$[].customFields': pullMatch,
+                },
+            });
+            const vulnResult = await dstDb.collection('vulnerabilities').updateMany({}, {
+                $pull: {'details.$[].customFields': pullMatch},
+            });
+            const updateResult = await dstDb.collection('vulnerabilityupdates').updateMany({}, {
+                $pull: {customFields: pullMatch},
+            });
+
+            console.log(
+                `[migration] remove-embedded-wstg-general-custom-field-copies: ` +
+                `${auditResult.modifiedCount} audits cleaned, ${vulnResult.modifiedCount} vulnerabilities cleaned, ` +
+                `${updateResult.modifiedCount} vulnerability updates cleaned`
+            );
+        },
+    },
+
 ];
 
 // ─── Runner ───────────────────────────────────────────────────────────────────

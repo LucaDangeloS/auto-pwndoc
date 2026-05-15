@@ -90,10 +90,13 @@ export default {
             return this.riskOptions.find(o => o.value === this.executiveSummary.overallRisk) || null;
         },
 
+        auditFindings() {
+            return Array.isArray(this.audit?.findings) ? this.audit.findings : [];
+        },
+
         presentSeverities() {
-            if (!this.audit || !this.audit.findings) return new Set();
             const present = new Set();
-            for (const finding of this.audit.findings) {
+            for (const finding of this.auditFindings) {
                 const { severity } = this._findingSeverityAndScore(finding);
                 present.add(severity);
             }
@@ -111,9 +114,38 @@ export default {
             };
         },
 
+        graphTemplateHints() {
+            return [
+                {
+                    title: this.$t('graphSeverityPie3D'),
+                    useCase: this.$t('graphSeverityPie3DUseCase'),
+                    templateVar: '{@findings | severityPie3D}'
+                },
+                {
+                    title: this.$t('graphSeverityPie3DNamed'),
+                    useCase: this.$t('graphSeverityPie3DNamedUseCase'),
+                    templateVar: "{@findings | severityPie3D:'Risk distribution'}"
+                },
+                {
+                    title: this.$t('graphLegacySeverityPie'),
+                    useCase: this.$t('graphLegacySeverityPieUseCase'),
+                    templateVar: "{@findings | pieChart:'Risk distribution':'212121':'fe0000':'f9a009':'008000'}"
+                },
+                {
+                    title: this.$t('graphFindingsByType'),
+                    useCase: this.$t('graphFindingsByTypeUseCase'),
+                    templateVar: "{@findings | barChart:'category':'Findings by type'}"
+                },
+                {
+                    title: this.$t('graphFindingsBySeverity'),
+                    useCase: this.$t('graphFindingsBySeverityUseCase'),
+                    templateVar: "{@findings | barChart:'cvss.baseSeverity':'Findings by severity'}"
+                }
+            ];
+        },
+
         findingsDigest() {
-            if (!this.audit || !this.audit.findings) return '';
-            return this.audit.findings
+            return this.auditFindings
                 .map(f => this._findingDigestLine(f))
                 .join('\n');
         },
@@ -282,8 +314,7 @@ export default {
         },
 
         findingsForSeverity(severity) {
-            if (!this.audit || !this.audit.findings) return [];
-            return this.audit.findings.filter(f => {
+            return this.auditFindings.filter(f => {
                 const { severity: sev } = this._findingSeverityAndScore(f);
                 if (severity === 'Informative') return sev === 'Informative';
                 return sev === severity;

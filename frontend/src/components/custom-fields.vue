@@ -41,6 +41,7 @@
 
                     <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
+                        <template-hint v-if="showTemplateHints" :template-var="customFieldTemplateVar(field)" class="q-ml-xs" />
                     </template>
                 </q-field>
 
@@ -60,6 +61,7 @@
                 >
                     <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
+                        <template-hint v-if="showTemplateHints" :template-var="customFieldTemplateVar(field)" class="q-ml-xs" />
                     </template>
                 </q-input>
 
@@ -86,6 +88,7 @@
                     </template>
                     <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
+                        <template-hint v-if="showTemplateHints" :template-var="customFieldTemplateVar(field)" class="q-ml-xs" />
                     </template>
                 </q-input>
 
@@ -111,6 +114,7 @@
                 >
                      <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
+                        <template-hint v-if="showTemplateHints" :template-var="customFieldTemplateVar(field)" class="q-ml-xs" />
                     </template>
                 </q-select>
 
@@ -138,6 +142,7 @@
                 >
                      <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
+                        <template-hint v-if="showTemplateHints" :template-var="customFieldTemplateVar(field)" class="q-ml-xs" />
                     </template>
                      <template v-slot:selected-item="scope">
                         <q-chip
@@ -178,6 +183,7 @@
                     </template>
                     <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
+                        <template-hint v-if="showTemplateHints" :template-var="customFieldTemplateVar(field)" class="q-ml-xs" />
                     </template>
                 </q-field>
 
@@ -206,6 +212,7 @@
                     </template>
                     <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
+                        <template-hint v-if="showTemplateHints" :template-var="customFieldTemplateVar(field)" class="q-ml-xs" />
                     </template>
                 </q-field>
 
@@ -220,9 +227,10 @@
                 >
                     <template v-slot:label>
                         {{ field.customField.label }} <span v-if="field.customField.required" class="text-red">*</span>
+                        <template-hint v-if="showTemplateHints" :template-var="customFieldTemplateVar(field)" class="q-ml-xs" />
                     </template>
                     <template v-slot:control>
-                        <div class="full-width">
+                        <div class="custom-field-checklist full-width">
                             <table class="checklist-table full-width">
                                 <thead>
                                     <tr>
@@ -236,13 +244,13 @@
                                     <tr v-for="(row, rIdx) in (Array.isArray(field.text) ? field.text : [])" :key="rIdx">
                                         <td>
                                             <div class="text-body2">{{ row.label }}</div>
-                                            <div v-if="row.taxonomy && (row.taxonomy.type || row.taxonomy.category || row.taxonomy.subcategory)" class="text-caption text-grey-6">
+                                            <div v-if="row.taxonomy && (row.taxonomy.type || row.taxonomy.category || row.taxonomy.subcategory)" class="checklist-table__meta text-caption">
                                                 {{ [row.taxonomy.type, row.taxonomy.category, row.taxonomy.subcategory].filter(Boolean).join(' › ') }}
                                             </div>
                                         </td>
                                         <td>
                                             <span v-if="row.code" class="text-caption text-mono">{{ row.code }}</span>
-                                            <span v-else class="text-grey-5">—</span>
+                                            <span v-else class="checklist-table__empty">—</span>
                                         </td>
                                         <td class="text-center">
                                             <q-btn-toggle
@@ -266,7 +274,7 @@
                                         </td>
                                     </tr>
                                     <tr v-if="!Array.isArray(field.text) || field.text.length === 0">
-                                        <td colspan="4" class="text-grey-6 text-italic q-pa-sm">{{ $t('msg.checklistEmpty') }}</td>
+                                        <td colspan="4" class="checklist-table__empty text-italic q-pa-sm">{{ $t('msg.checklistEmpty') }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -283,6 +291,7 @@
 import { defineComponent } from 'vue';
 
 import BasicEditor from 'components/editor';
+import TemplateHint from 'components/template-hint';
 
 export default defineComponent({
   emits: ['editorchange'],
@@ -317,6 +326,14 @@ export default defineComponent({
       idUnique: {
           type: String,
           default: ''
+      },
+      showTemplateHints: {
+          type: Boolean,
+          default: false
+      },
+      templateScope: {
+          type: String,
+          default: ''
       }
   },
 
@@ -332,7 +349,8 @@ export default defineComponent({
   },
 
   components: {
-      BasicEditor
+      BasicEditor,
+      TemplateHint
   },
 
   computed: {
@@ -391,6 +409,22 @@ export default defineComponent({
           return options
           .filter(e => e.locale === this.locale)
           .map(e => {return {label: e.value, value: e.value}})
+      },
+
+      normalizeTemplateKey: function(label) {
+          const key = (label || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .replace(/\s/g, '')
+          return this.templateScope ? key.replace(/[^\w]/g, '_') : key
+      },
+
+      customFieldTemplateVar: function(field) {
+          const key = this.normalizeTemplateKey(field && field.customField && field.customField.label)
+          const prefix = this.templateScope ? `${this.templateScope}.` : ''
+          const filter = field && field.customField && field.customField.fieldType === 'text' ? ' | convertHTML' : ''
+          return `${prefix}${key}${filter}`
       }
   },
 });
@@ -409,9 +443,28 @@ export default defineComponent({
 .checklist-table thead th {
     font-weight: 500;
     font-size: 12px;
-    color: rgba(0,0,0,0.6);
+    color: rgba(0,0,0,0.68);
     text-transform: uppercase;
     letter-spacing: 0.4px;
+}
+.custom-field-checklist {
+    color: rgba(0,0,0,0.87);
+}
+.checklist-table__meta,
+.checklist-table__empty {
+    color: rgba(0,0,0,0.56);
+}
+.body--dark .custom-field-checklist {
+    color: rgba(255,255,255,0.88);
+}
+.body--dark .checklist-table th,
+.body--dark .checklist-table td {
+    border-bottom-color: rgba(255,255,255,0.14);
+}
+.body--dark .checklist-table thead th,
+.body--dark .checklist-table__meta,
+.body--dark .checklist-table__empty {
+    color: rgba(255,255,255,0.64);
 }
 .text-mono {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;

@@ -6,6 +6,7 @@ import DataService from '@/services/data'
 import Utils from '@/services/utils'
 import UserService from '@/services/user'
 import TemplateService from '@/services/template'
+import TemplatesPage from '../templates/index.vue'
 
 import { $t } from '@/boot/i18n'
 
@@ -54,12 +55,13 @@ export default {
 
     components: {
         BasicEditor,
-        draggable
+        draggable,
+        TemplatesPage
     },
 
     mounted: function() {
         if (this.section === 'vulnerabilities') this.selectedTab = 'languages';
-        else if (this.section === 'audits') this.selectedTab = 'audit-types';
+        else if (this.section === 'audits') this.selectedTab = ['audit-types', 'templates'].includes(this.$route.query.tab) ? this.$route.query.tab : 'audit-types';
         else this.selectedTab = 'custom-sections';
 
         this.getTemplates()

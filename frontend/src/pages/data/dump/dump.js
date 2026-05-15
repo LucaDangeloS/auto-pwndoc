@@ -215,7 +215,8 @@ export default {
         formatSerpicoText: function(str) {
             if (!str) return null
             if (str === 'English') return 'en'
-            if (str === 'French') return 'fr'
+            if (str === 'German') return 'de'
+            if (str === 'Spanish') return 'es'
 
             var res = str
             // Headers (used as bold in Serpico)

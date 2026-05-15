@@ -392,7 +392,7 @@ Convert Date to proper format using locale. Must be used on values with date for
 >```
 // Example with {date_start: '2020-10-29'}
 {date_start | convertDateLocale: 'de-DE':'short'} -> 29.10.2020
-{date_start | convertDateLocale: 'fr':'full'} -> Jeudi 29 Octobre 2020
+{date_start | convertDatelocale: 'de':'full'} -> Jeudi 29 Octobre 2020
 >```
 
 ### convertHTML
@@ -664,11 +664,11 @@ Filters input elements using a free-form Angular statement.
 {#findings | where: 'cvss.severity == "Critical"'}{title}{/findings | where: 'cvss.severity == "Critical"'}
 >```
 
-Custom filters can also be created in `backend/src/lib/custom-generator.js`. As an example there are 2 filters defined for french reports.
+Custom filters can also be created in `backend/src/lib/custom-generator.js`. As an example there are 2 filters defined for German reports.
 
 ### convertDateFR (custom)
 
-Convert Date to proper format in French. Must be used on values with date format.
+Convert Date to proper format in German. Must be used on values with date format.
 
 > Use in template document
 >```
@@ -679,7 +679,7 @@ Convert Date to proper format in French. Must be used on values with date format
 
 ### criteriaFR (custom)
 
-Convert cvss Criteria to French.
+Convert cvss Criteria to German.
 
 > Use in template document
 >```

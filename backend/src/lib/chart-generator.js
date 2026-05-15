@@ -184,7 +184,7 @@ chartGenerator.generatePieChart = function (title, colorCrit, colorHigh, colorMe
                     <a:cs typeface="+mn-cs"/>
                     </a:defRPr>
                 </a:pPr>
-                <a:endParaRPr lang="fr-FR"/>
+                <a:endParaRPr lang="en-US"/>
                 </a:p>
             </c:txPr>
             </c:legend>
@@ -334,7 +334,7 @@ chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML,
           </a:solidFill>
         </a:defRPr>
       </a:pPr>
-      <a:endParaRPr lang="fr-FR"/>
+      <a:endParaRPr lang="en-US"/>
     </a:p>
   </c:txPr>
   <c:crossAx val="568375904"/>
@@ -394,7 +394,7 @@ chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML,
                 <a:cs typeface="+mn-cs"/>
               </a:defRPr>
             </a:pPr>
-            <a:endParaRPr lang="fr-FR"/>
+            <a:endParaRPr lang="en-US"/>
           </a:p>
         </c:txPr>
         <c:crossAx val="568377344"/>
@@ -434,7 +434,7 @@ chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML,
       <a:pPr>
         <a:defRPr/>
       </a:pPr>
-      <a:endParaRPr lang="fr-FR"/>
+      <a:endParaRPr lang="en-US"/>
     </a:p>
   </c:txPr>
 </c:chartSpace>

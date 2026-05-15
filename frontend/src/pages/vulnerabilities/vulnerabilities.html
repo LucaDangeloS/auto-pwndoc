@@ -34,8 +34,8 @@
                 outlined
                 />
                 <q-toggle :label="$t('btn.valid')" v-model="search.valid" :true-value=0 :false-value="null" />
-                <q-toggle :label="$t('btn.new')" color="light-blue" v-model="search.new" :true-value=1 :false-value="null" />
-                <q-toggle :label="$t('btn.updates')" color="orange" v-model="search.updates" :true-value=2 :false-value="null" />
+                <q-toggle class="vuln-toggle-new" :label="$t('btn.new')" color="light-blue-5" v-model="search.new" :true-value=1 :false-value="null" />
+                <q-toggle class="vuln-toggle-updates" :label="$t('btn.updates')" color="orange-6" v-model="search.updates" :true-value=2 :false-value="null" />
                 <q-btn 
                 v-if="UserService.isAllowed('vulnerabilities:update')"
                 class="q-ml-md"
@@ -85,9 +85,9 @@
                         <q-select 
                         dense
                         :label="$t('search')"
-                        v-model="search.category"
+                        v-model="search.type"
                         clearable
-                        :options="vulnCategoriesOptions"
+                        :options="vulnTypeOptions"
                         options-sanitize
                         outlined
                         />
@@ -96,9 +96,9 @@
                         <q-select 
                         dense
                         :label="$t('search')"
-                        v-model="search.type"
+                        v-model="search.category"
                         clearable
-                        :options="vulnTypeOptions"
+                        :options="vulnCategoriesOptions"
                         options-sanitize
                         outlined
                         />
@@ -117,15 +117,19 @@
             </template>
 
             <template v-slot:body="props">
-                <q-tr @dblclick="dblClick(props.row)" v-if="getDtTitle(props.row) !== 'Not defined for this language yet'" :props="props" :class="(props.row.status === 1)?'bg-light-blue-2':(props.row.status === 2)?'bg-orange-2':''">
+                <q-tr @dblclick="dblClick(props.row)" v-if="getDtTitle(props.row) !== 'Not defined for this language yet'" :props="props" :class="(props.row.status === 1)?'vuln-row-new':(props.row.status === 2)?'vuln-row-updates':''">
                     <q-td key="title" :props="props">
                         {{getDtTitle(props.row)}}
                     </q-td>
-                    <q-td key="category" :props="props">
-                        {{props.row.category || $t('noCategory')}}
-                    </q-td>
                     <q-td key="type" :props="props">
-                        {{getDtType(props.row)}}
+                        {{ getDtType(props.row) || '-' }}
+                    </q-td>
+                    <q-td key="category" :props="props">
+                        <span v-if="getDtCategory(props.row)">
+                            {{ getDtCategory(props.row) }}
+                            <span v-if="getDtSubcategory(props.row)" class="text-grey-6"> › {{ getDtSubcategory(props.row) }}</span>
+                        </span>
+                        <span v-else class="taxonomy-empty">-</span>
                     </q-td>
                     <q-td key="updatedAt" :props="props">
                         {{getDtUpdatedAt(props.row)}}

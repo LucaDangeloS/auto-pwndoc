@@ -2,14 +2,14 @@
   At the end
     2 Languages: [
         {locale: 'en', language: 'English'},
-        {locale: 'fr', language: 'French'}
+        {locale: 'de', language: 'German'}
       ]
     1 Audit type: {locale: 'en', name: 'Web'}
     1 Vulnerability type: {locale: 'en', name: 'Internal'}
     3 Sections: [
         {locale: 'en', name: 'Attack Scenario', field: 'attack_scenario'},
         {locale: 'en', name: 'Goal', field: 'goal'},
-        {locale: 'fr', name: 'But', field: 'goal'}
+        {locale: 'de', name: 'But', field: 'goal'}
       ]
 */
 
@@ -38,9 +38,9 @@ module.exports = function(request, app) {
           language: 'English'
         }
 
-        var french = {
-          locale: 'fr',
-          language: 'French'
+        var german = {
+          locale: 'de',
+          language: 'German'
         }
 
         var espagnol = {
@@ -58,7 +58,7 @@ module.exports = function(request, app) {
           .set('Cookie', [
             `token=JWT ${userToken}`
           ])
-          .send(french)
+          .send(german)
         expect(response.status).toBe(201)
 
         var response = await request(app).post('/api/data/languages')
@@ -71,8 +71,8 @@ module.exports = function(request, app) {
 
       it('Should not create with existing locale', async () => {
         var language = {
-          locale: 'fr',
-          language: 'French2'
+          locale: 'de',
+          language: 'German2'
         }
         var response = await request(app).post('/api/data/languages')
           .set('Cookie', [
@@ -100,7 +100,7 @@ module.exports = function(request, app) {
       it('Get languages', async () => {
         const expected = [
           {locale: 'en', language: 'English'},
-          {locale: 'fr', language: 'French'},
+          {locale: 'de', language: 'German'},
           {locale: 'es', language: 'Espagnol'}
         ]
 
@@ -507,7 +507,7 @@ module.exports = function(request, app) {
       //it('Delete section', async () => {
       //  const expected = [
       //    {locale: "en", name: 'Attack Scenario', field: 'attack_scenario'},
-      //    {locale: "fr", name: 'Scenario', field: 'attack_scenario'},
+      //    {locale: "de", name: 'Scenario', field: 'attack_scenario'},
       //    {locale: "en", name: 'Goal', field: 'goal'},
       //  ]
 

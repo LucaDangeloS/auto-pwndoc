@@ -44,8 +44,8 @@ export default {
             // Headers for vulnerabilities datatable
             dtVulnHeaders: [
                 {name: 'title', label: $t('title'), field: row => row.detail.title, align: 'left', sortable: true},
-                {name: 'category', label: $t('category'), field: 'category', align: 'left', sortable: true},
-                {name: 'vulnType', label: $t('vulnType'), field: row => row.detail.vulnType, align: 'left', sortable: true},
+                {name: 'type', label: $t('type'), field: row => (row.taxonomies && row.taxonomies[0] && row.taxonomies[0].type) || row.category || '', align: 'left', sortable: true},
+                {name: 'category', label: $t('category'), field: row => (row.taxonomies && row.taxonomies[0] && row.taxonomies[0].category) || (row.detail && row.detail.vulnType) || '', align: 'left', sortable: true},
                 {name: 'action', label: '', field: 'action', align: 'left', sortable: false},
             ],
             // Pagination for vulnerabilities datatable
@@ -121,29 +121,21 @@ export default {
             };
           },
           vulnCategoriesOptions() {
-            return this.$_.uniq(this.$_.map(this.vulnerabilities, vuln => {
-              return vuln.category || $t('noCategory');
-            }));
+            return this.$_.uniq(this.vulnerabilities.map(vuln => this.taxonomyType(vuln)).filter(Boolean)).sort();
           },
           vulnTypeOptions() {
-            return this.$_.uniq(
-              this.vulnerabilities.map(vuln => vuln.detail?.vulnType || $t('undefined'))
-            );
+            return this.$_.uniq(this.vulnerabilities.map(vuln => this.taxonomyCategory(vuln)).filter(Boolean)).sort();
           },
           filteredVulnerabilities() {
             if (!this.dtLanguage) return this.vulnerabilities; // If no language selected, display all
             return this.vulnerabilities.filter(vuln => vuln.locale === this.dtLanguage);
           },
         vulnCategoriesOptions: function() {
-            return this.$_.uniq(this.$_.map(this.vulnerabilities, vuln => {
-                return vuln.category || $t('noCategory')
-            }))
+            return this.$_.uniq(this.vulnerabilities.map(vuln => this.taxonomyType(vuln)).filter(Boolean)).sort()
         },
 
         vulnTypeOptions: function() {
-            return this.$_.uniq(
-              this.vulnerabilities.map(vuln => vuln.detail?.vulnType || $t('undefined'))
-            );
+            return this.$_.uniq(this.vulnerabilities.map(vuln => this.taxonomyCategory(vuln)).filter(Boolean)).sort();
           },
           filteredVulnerabilities() {
             if (!this.dtLanguage) return this.vulnerabilities; // If no language selected, display all
@@ -233,16 +225,16 @@ export default {
               if (!row.detail || !row.detail.title) return false;
           
               const title = row.detail.title.toLowerCase();
-              const category = row.category ? row.category.toLowerCase() : '';
-              const vulnType = row.detail.vulnType ? row.detail.vulnType.toLowerCase() : '';
+              const type = this.taxonomyType(row).toLowerCase();
+              const category = this.taxonomyCategory(row).toLowerCase();
           
               const searchTitle = terms.title ? terms.title.toLowerCase() : '';
-              const searchCategory = terms.category ? terms.category.toLowerCase() : '';
-              const searchVulnType = terms.vulnType ? terms.vulnType.toLowerCase() : '';
+              const searchType = terms.category ? terms.category.toLowerCase() : '';
+              const searchCategory = terms.vulnType ? terms.vulnType.toLowerCase() : '';
           
               return title.includes(searchTitle)
-                && category.includes(searchCategory)
-                && vulnType.includes(searchVulnType);
+                && type.includes(searchType)
+                && category.includes(searchCategory);
             });
             this.filteredRowsCount = result.length;
             return result;

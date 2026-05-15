@@ -76,29 +76,34 @@ CustomFieldSchema.statics.updateAll = (fields) => {
 // Delete Field
 CustomFieldSchema.statics.delete = (fieldId) => {
     return new Promise((resolve, reject) => {
-        var pullCount = 0
         var Vulnerability = mongoose.model('Vulnerability')
-        var query = Vulnerability.find()
-        query.exec()
-        .then(rows => {
-            var promises = []
-            promises.push(CustomField.findByIdAndDelete(fieldId).exec())
-            rows.map(row => {
-                row.details.map(detail => {
-                    if (detail.customFields.some(field => `${field.customField}` === fieldId))
-                        pullCount++
-                    
-                    detail.customFields.pull({customField: fieldId})
-                })
-                promises.push(row.save())
-            })
-            return Promise.all(promises)
+        var Audit = mongoose.model('Audit')
+        var VulnerabilityUpdate = mongoose.model('VulnerabilityUpdate')
+
+        CustomField.findByIdAndDelete(fieldId).exec()
+        .then(row => {
+            if (!row)
+                return Promise.reject({fn: 'NotFound', message: {msg: 'Custom Field not found', vulnCount: 0, auditCount: 0, updateCount: 0}})
+
+            var pullMatch = {$or: [
+                {customField: fieldId},
+                {'customField._id': row._id},
+                {'customField.label': row.label}
+            ]}
+
+            return Promise.all([
+                Vulnerability.updateMany({}, {$pull: {'details.$[].customFields': pullMatch}}).exec(),
+                Audit.updateMany({}, {$pull: {customFields: pullMatch, 'findings.$[].customFields': pullMatch}}).exec(),
+                VulnerabilityUpdate.updateMany({}, {$pull: {customFields: pullMatch}}).exec(),
+            ])
         })
-        .then((row) => {
-            if (row && row[0])
-                resolve({msg: `Custom Field deleted successfully`, vulnCount: pullCount})
-            else
-                reject({fn: 'NotFound', message: {msg: 'Custom Field not found', vulnCount: pullCount}})
+        .then(results => {
+            resolve({
+                msg: 'Custom Field deleted successfully',
+                vulnCount: results[0].modifiedCount || 0,
+                auditCount: results[1].modifiedCount || 0,
+                updateCount: results[2].modifiedCount || 0,
+            })
         })
         .catch((err) => {
             console.log(err)

@@ -62,7 +62,7 @@ The inherited Custom Fields system and its integration with findings and section
 
 - Added a short name to companies and included it on reports [`cd72648`](https://github.com/pwndoc/pwndoc/commit/cd72648c504c4190f364d9fcea6b471e13290092)
 - Create filter to sort findings in document [`a551379`](https://github.com/pwndoc/pwndoc/commit/a551379830d2652a9daef09a7a95e5c0bf915fcd)
-- Add i18n fr-FR translation [`260f5dc`](https://github.com/pwndoc/pwndoc/commit/260f5dcc5c3c30be65fd03375c277ba170ee5ddf)
+- Add i18n de-DE translation [`260f5dc`](https://github.com/pwndoc/pwndoc/commit/260f5dcc5c3c30be65fd03375c277ba170ee5ddf)
 - i18n de-DE: Adding German Interface Translation [`48dad91`](https://github.com/pwndoc/pwndoc/commit/48dad91d9ed36728db03bf24eb5f3112385a96e7)
 - Add 'Disable user' feature [`a8d6d49`](https://github.com/pwndoc/pwndoc/commit/a8d6d49809de0e1a9cfa1d7baefff849afdd6a8f)
 
@@ -118,7 +118,7 @@ The inherited Custom Fields system and its integration with findings and section
     - Add tooltips description
 - Add translation for report data [`88d89f0`](https://github.com/pwndoc/pwndoc/commit/88d89f07a407820f4f8e035bedaf2f574e08876b)
     - Dictionary files can be used to translate some data automatically depending on audit language
-    - A dictionary draft for French can be found in [`backend/src/translate`](https://github.com/pwndoc/pwndoc/tree/master/backend/src/translate)
+    - A dictionary draft for German can be found in [`backend/src/translate`](https://github.com/pwndoc/pwndoc/tree/master/backend/src/translate)
     - The name of the folder should correspond to the name of the locale defined in `Data > Custom Data > Languages`
     - Angular expression can be directly used in report template: `{input | translate:'locale'}`
     - The following data will be automatically translated based on the audit language:
@@ -134,7 +134,7 @@ The inherited Custom Fields system and its integration with findings and section
 
 - Add Internationalization for Frontend [`a239bb6`](https://github.com/pwndoc/pwndoc/commit/a239bb60c2e3ab1feaed4298d250894d22db0487)
     - Language can be changed in `Settings` page
-    - Currently supported languages: `en-US` and `zh-CN`
+    - Currently supported languages: `en-US` and `de-DE`
 - Add TOTP feature [`c1aaf12`](https://github.com/pwndoc/pwndoc/commit/c1aaf12e0f47b6b0d3e7c8d05d6ff5dc473d18ce)
     - TOTP can be enabled in the user profile page
 - Add Sub-Templating [`21e583b`](https://github.com/pwndoc/pwndoc/commit/21e583b2798001dbd75529d5e9d250c2d450ca74)

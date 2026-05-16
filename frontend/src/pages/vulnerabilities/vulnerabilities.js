@@ -88,6 +88,7 @@ export default {
             matchingStatus: {runId: null, inProgress: false, total: 0, processed: 0, proposals: []},
             selectedMatchingProposals: [],
             showMatchingHistory: false,
+            matchingSort: 'score-desc',
             matchingPoll: null,
             // Vulnerability categories
             vulnCategories: [],
@@ -197,8 +198,8 @@ export default {
 
         visibleMatchingProposals: function() {
             var proposals = this.matchingStatus.proposals || [];
-            if (this.showMatchingHistory) return proposals;
-            return proposals.filter(proposal => this.isPendingProposal(proposal));
+            if (!this.showMatchingHistory) proposals = proposals.filter(proposal => this.isPendingProposal(proposal));
+            return this.sortMatchingProposals(proposals);
         },
 
         pendingMatchingProposals: function() {
@@ -207,6 +208,23 @@ export default {
 
         selectedPendingMatchingProposals: function() {
             return (this.selectedMatchingProposals || []).filter(proposal => this.isPendingProposal(proposal));
+        },
+
+        visiblePendingMatchingProposals: function() {
+            return this.visibleMatchingProposals.filter(proposal => this.isPendingProposal(proposal));
+        },
+
+        allVisiblePendingMatchingSelected: function() {
+            var visiblePending = this.visiblePendingMatchingProposals;
+            if (!visiblePending.length) return false;
+            return visiblePending.every(proposal => this.selectedMatchingProposals.includes(proposal));
+        },
+
+        matchingSortOptions: function() {
+            return [
+                {label: $t('matchingSortBestFirst'), value: 'score-desc'},
+                {label: $t('matchingSortWorstFirst'), value: 'score-asc'}
+            ];
         }
     },
 
@@ -712,6 +730,37 @@ export default {
 
         isPendingProposal: function(proposal) {
             return !proposal || !proposal.status || proposal.status === 'pending';
+        },
+
+        matchingScore: function(proposal) {
+            var distance = proposal && proposal.distance != null ? Number(proposal.distance) : 1;
+            if (!Number.isFinite(distance)) distance = 1;
+            var score = Math.max(0, Math.min(1, 1 - distance));
+            return Math.round(score * 100);
+        },
+
+        sortMatchingProposals: function(proposals) {
+            var direction = this.matchingSort === 'score-asc' ? 1 : -1;
+            return proposals.slice().sort((a, b) => {
+                var scoreDiff = (this.matchingScore(a) - this.matchingScore(b)) * direction;
+                if (scoreDiff !== 0) return scoreDiff;
+                var distanceA = a && a.distance != null ? Number(a.distance) : Number.MAX_SAFE_INTEGER;
+                var distanceB = b && b.distance != null ? Number(b.distance) : Number.MAX_SAFE_INTEGER;
+                return distanceA - distanceB;
+            });
+        },
+
+        toggleAllVisiblePendingMatching: function(selected) {
+            var visiblePending = this.visiblePendingMatchingProposals;
+            if (selected) {
+                var merged = this.selectedMatchingProposals.slice();
+                visiblePending.forEach(proposal => {
+                    if (!merged.includes(proposal)) merged.push(proposal);
+                });
+                this.selectedMatchingProposals = merged;
+                return;
+            }
+            this.selectedMatchingProposals = this.selectedMatchingProposals.filter(proposal => !visiblePending.includes(proposal));
         },
 
         matchingProposalStatusLabel: function(proposal) {

@@ -987,7 +987,26 @@
             </div>
             <div v-if="matchingStatus.proposals && matchingStatus.proposals.length" class="row items-center justify-between q-mt-md">
                 <div class="text-caption">{{ $t('matchingPendingCount', {count: pendingMatchingProposals.length}) }}</div>
-                <q-toggle dense v-model="showMatchingHistory" :label="$t('showMatchingHistory')" />
+                <div class="row items-center q-gutter-sm">
+                    <q-checkbox
+                        dense
+                        :model-value="allVisiblePendingMatchingSelected"
+                        :label="$t('selectAllPending')"
+                        :disable="!visiblePendingMatchingProposals.length"
+                        @update:model-value="toggleAllVisiblePendingMatching"
+                    />
+                    <q-select
+                        dense
+                        outlined
+                        emit-value
+                        map-options
+                        style="min-width: 180px"
+                        v-model="matchingSort"
+                        :label="$t('sortByMatchingScore')"
+                        :options="matchingSortOptions"
+                    />
+                    <q-toggle dense v-model="showMatchingHistory" :label="$t('showMatchingHistory')" />
+                </div>
             </div>
             <q-list v-if="visibleMatchingProposals.length" bordered separator class="q-mt-sm">
                 <q-item v-for="proposal in visibleMatchingProposals" :key="proposal.sourceVulnId + proposal.targetVulnId + proposal.sourceLocale + proposal.targetLocale">
@@ -999,7 +1018,7 @@
                             {{ proposal.sourceTitle }} → {{ proposal.targetTitle }}
                             <q-badge :color="matchingProposalStatusColor(proposal)" class="q-ml-sm">{{ matchingProposalStatusLabel(proposal) }}</q-badge>
                         </q-item-label>
-                        <q-item-label caption>{{ proposal.sourceLocale }} → {{ proposal.targetLocale }} · {{ $t('distance') }}: {{ proposal.distance }}</q-item-label>
+                        <q-item-label caption>{{ proposal.sourceLocale }} → {{ proposal.targetLocale }} · {{ $t('matchingScore') }}: {{ matchingScore(proposal) }}% · {{ $t('distance') }}: {{ proposal.distance }}</q-item-label>
                     </q-item-section>
                 </q-item>
             </q-list>

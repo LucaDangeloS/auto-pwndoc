@@ -27,7 +27,6 @@ var Finding = {
     id:                     Schema.Types.ObjectId,
     identifier:             Number, //incremental ID to be shown in the report
     title:                  String,
-    vulnType:               String, // legacy; kept until Phase 2 — see taxonomies[]
     description:            String,
     observation:            String,
     remediation:            String,
@@ -42,7 +41,6 @@ var Finding = {
     retestPassed:           {type: Boolean, default: null},
     scope:                  String,
     status:                 {type: Number, enum: [0,1], default: 1}, // 0: done, 1: redacting
-    category:               String, // legacy; kept until Phase 2 — see taxonomies[]
     taxonomies:             [TaxonomyRef],
     customFields:           [customField]
 }
@@ -68,6 +66,11 @@ var SortOption = {
     sortValue:  String,
     sortOrder:  {type: String, enum: ['desc', 'asc']},
     sortAuto:   Boolean
+}
+
+function findingTaxonomyType(finding) {
+    var taxonomy = finding && Array.isArray(finding.taxonomies) && finding.taxonomies[0];
+    return (taxonomy && taxonomy.type) || 'No Category';
 }
 
 var AuditSchema = new Schema({
@@ -437,7 +440,7 @@ AuditSchema.statics.createFinding = (isAdmin, auditId, userId, finding) => {
             if (!row)
                 throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
             else {
-                var sortOption = row.sortFindings.find(e => e.category === (finding.category || 'No Category'))
+                var sortOption = row.sortFindings.find(e => e.category === findingTaxonomyType(finding))
                 if ((sortOption && sortOption.sortAuto) || !sortOption) // if sort is set to automatic or undefined then we sort (default sort will be applied to undefined sortOption)
                     return Audit.updateSortFindings(isAdmin, auditId, userId, null)
                 else // if manual sorting then we do not sort
@@ -515,7 +518,7 @@ AuditSchema.statics.updateFinding = (isAdmin, auditId, userId, findingId, newFin
             if (finding === null)
                 reject({fn: 'NotFound', message: 'Finding not found'})         
             else {
-                var sortOption = row.sortFindings.find(e => e.category === (newFinding.category || 'No Category'))
+                var sortOption = row.sortFindings.find(e => e.category === findingTaxonomyType(newFinding))
                 if (sortOption && !sortOption.sortAuto)
                     sortAuto = false
 
@@ -705,12 +708,10 @@ AuditSchema.statics.updateSortFindings = (isAdmin, auditId, userId, update) => {
             var categoriesOrder = row.map(e => e.name)
             categoriesOrder.push("undefined") // Put uncategorized findings at the end
 
-            // Group findings by category. Phase 3 prefers the new
-            // taxonomies[0].type and falls back to the legacy `category`
-            // for findings that haven't been re-saved through the picker.
+            // Group findings by the canonical taxonomy type.
             var findingList = _
             .chain(audit.findings)
-            .groupBy(f => (f.taxonomies && f.taxonomies[0] && f.taxonomies[0].type) || f.category || 'undefined')
+            .groupBy(f => (f.taxonomies && f.taxonomies[0] && f.taxonomies[0].type) || 'undefined')
             .toPairs()
             .sort((a,b) => categoriesOrder.indexOf(a[0]) - categoriesOrder.indexOf(b[0]))
             .fromPairs()

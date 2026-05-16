@@ -38,7 +38,6 @@ export default {
     return {
       finding: {
         title: '',
-        vulnType: '',
         taxonomies: [],
         description: '',
         observation: '',

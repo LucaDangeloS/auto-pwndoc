@@ -8,12 +8,6 @@ module.exports = function(app, io) {
     var utils = require('../lib/utils');
     var Settings = require('mongoose').model('Settings');
 
-    // Phase 3 dual-write helper: keep `taxonomies[]` and the legacy
-    // `category`/`vulnType` strings in sync on the finding payload before
-    // it reaches the audit model. The new picker writes `taxonomies[]`;
-    // the existing UI still sends `category`/`vulnType`. Whichever the
-    // caller provides, the other is derived so that report-generator,
-    // embedding-service and the auto-mark hook all see consistent data.
     function syncTaxonomy(finding, body) {
         if (Array.isArray(body.taxonomies)) {
             finding.taxonomies = body.taxonomies.map(t => ({
@@ -22,18 +16,11 @@ module.exports = function(app, io) {
                 subcategory: (t && t.subcategory) || '',
                 code: (t && t.code) || ''
             }));
-            // Backfill legacy fields from the first entry when caller
-            // didn't set them explicitly.
-            const t0 = finding.taxonomies[0];
-            if (t0) {
-                if (finding.category === undefined && t0.type) finding.category = t0.type;
-                if (finding.vulnType === undefined && t0.category) finding.vulnType = t0.category;
-            }
             return;
         }
-        // Caller sent only legacy fields — derive a single-entry taxonomy.
-        const type = finding.category || '';
-        const category = finding.vulnType || '';
+        // Accept old clients and imports that still send legacy classifier fields.
+        const type = body.category || '';
+        const category = body.vulnType || '';
         if (type || category) {
             finding.taxonomies = [{ type: type, category: category, subcategory: '', code: '' }];
         }
@@ -310,7 +297,6 @@ module.exports = function(app, io) {
         finding.title = req.body.title;
 
         // Optional parameters
-        if (req.body.vulnType) finding.vulnType = req.body.vulnType;
         if (req.body.description) finding.description = req.body.description;
         if (req.body.observation) finding.observation = req.body.observation;
         if (req.body.remediation) finding.remediation = req.body.remediation;
@@ -324,7 +310,6 @@ module.exports = function(app, io) {
         if (req.body.retestPassed !== undefined) finding.retestPassed = req.body.retestPassed;
         if (req.body.scope) finding.scope = req.body.scope;
         if (req.body.status !== undefined) finding.status = req.body.status;
-        if (req.body.category) finding.category = req.body.category
         if (req.body.customFields) finding.customFields = req.body.customFields
         syncTaxonomy(finding, req.body);
 
@@ -363,7 +348,6 @@ module.exports = function(app, io) {
         var finding = {};
         // Optional parameters
         if (req.body.title) finding.title = req.body.title;
-        if (req.body.vulnType) finding.vulnType = req.body.vulnType;
         if (!_.isNil(req.body.description)) finding.description = req.body.description;
         if (!_.isNil(req.body.observation)) finding.observation = req.body.observation;
         if (!_.isNil(req.body.remediation)) finding.remediation = req.body.remediation;
@@ -377,7 +361,6 @@ module.exports = function(app, io) {
         if (req.body.retestPassed !== undefined) finding.retestPassed = req.body.retestPassed;
         if (!_.isNil(req.body.scope)) finding.scope = req.body.scope;
         if (req.body.status !== undefined) finding.status = req.body.status;
-        if (req.body.category) finding.category = req.body.category
         if (req.body.customFields) finding.customFields = req.body.customFields
         syncTaxonomy(finding, req.body);
 

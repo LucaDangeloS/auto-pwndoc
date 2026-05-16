@@ -14,6 +14,10 @@ module.exports = function(app) {
 
     var PROTOCOL_VERSION = '2025-03-26';
 
+    function firstTaxonomy(row) {
+        return (row && Array.isArray(row.taxonomies) && row.taxonomies[0]) || {};
+    }
+
     var tools = [
         {
             name: 'list_audits',
@@ -227,20 +231,24 @@ module.exports = function(app) {
         }
         if (name === 'list_findings') {
             var audit = await internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId));
-            return (audit.findings || []).map(finding => ({
-                _id: finding._id,
-                id: finding.id,
-                identifier: finding.identifier,
-                title: finding.title,
-                vulnType: finding.vulnType,
-                category: finding.category,
-                priority: finding.priority,
-                remediationComplexity: finding.remediationComplexity,
-                cvssv3: finding.cvssv3,
-                cvssv4: finding.cvssv4,
-                status: finding.status,
-                retestPassed: finding.retestPassed
-            }));
+            return (audit.findings || []).map(finding => {
+                var taxonomy = firstTaxonomy(finding);
+                return {
+                    _id: finding._id,
+                    id: finding.id,
+                    identifier: finding.identifier,
+                    title: finding.title,
+                    taxonomies: finding.taxonomies || [],
+                    vulnType: taxonomy.category || '',
+                    category: taxonomy.type || '',
+                    priority: finding.priority,
+                    remediationComplexity: finding.remediationComplexity,
+                    cvssv3: finding.cvssv3,
+                    cvssv4: finding.cvssv4,
+                    status: finding.status,
+                    retestPassed: finding.retestPassed
+                };
+            });
         }
         if (name === 'get_finding') {
             return internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId));
@@ -269,10 +277,12 @@ module.exports = function(app) {
             var locale = args.locale || 'en-GB';
             var detail = (vulnerability.details || []).find(d => d.locale === locale) || (vulnerability.details || []).find(d => d.title);
             if (!detail) throw new Error('Vulnerability detail not found');
+            var taxonomy = firstTaxonomy(vulnerability);
 
             var fields = {
                 title: detail.title,
-                vulnType: detail.vulnType,
+                taxonomies: vulnerability.taxonomies || [],
+                vulnType: taxonomy.category || '',
                 description: detail.description,
                 observation: detail.observation,
                 remediation: detail.remediation,
@@ -282,7 +292,7 @@ module.exports = function(app) {
                 cvssv4: vulnerability.cvssv4,
                 priority: vulnerability.priority,
                 remediationComplexity: vulnerability.remediationComplexity,
-                category: vulnerability.category
+                category: taxonomy.type || ''
             };
             return internalRequest('PUT', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId), fields);
         }

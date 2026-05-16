@@ -696,6 +696,51 @@ const STEPS = [
         },
     },
 
+    // Step 18: Remove legacy classifier storage
+    // After taxonomies[] became the canonical classifier, these loose legacy
+    // fields are no longer written by the API. Remove stored remnants so future
+    // reads and exports are taxonomy-first.
+    {
+        id: 18,
+        name: 'drop-legacy-vulnerability-classifier-fields',
+        async run(_srcDb, dstDb) {
+            if (process.env.NODE_ENV === 'test') {
+                console.log('[migration] drop-legacy-vulnerability-classifier-fields: skipped in test bootstrap');
+                return;
+            }
+            const vulnerabilityCol = dstDb.collection('vulnerabilities');
+            const auditCol = dstDb.collection('audits');
+            const updateCol = dstDb.collection('vulnerabilityupdates');
+
+            const vulnResult = await vulnerabilityCol.updateMany({}, {
+                $unset: {
+                    category: '',
+                    'details.$[].vulnType': '',
+                },
+            });
+
+            const auditResult = await auditCol.updateMany({}, {
+                $unset: {
+                    'findings.$[].category': '',
+                    'findings.$[].vulnType': '',
+                },
+            });
+
+            const updateResult = await updateCol.updateMany({}, {
+                $unset: {
+                    category: '',
+                    vulnType: '',
+                },
+            });
+
+            console.log(
+                `[migration] drop-legacy-vulnerability-classifier-fields: ` +
+                `${vulnResult.modifiedCount || 0} vulnerabilities, ${auditResult.modifiedCount || 0} audits, ` +
+                `${updateResult.modifiedCount || 0} vulnerability updates cleaned`
+            );
+        },
+    },
+
 ];
 
 // Runner

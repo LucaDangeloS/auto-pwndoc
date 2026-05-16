@@ -19,7 +19,7 @@ export default {
         return {
             finding: {
                 title: '',
-                vulnType: '',
+                taxonomies: [],
                 description: '',
                 observation: '',
                 references: [],
@@ -44,8 +44,8 @@ export default {
             // Headers for vulnerabilities datatable
             dtVulnHeaders: [
                 {name: 'title', label: $t('title'), field: row => row.detail.title, align: 'left', sortable: true},
-                {name: 'type', label: $t('type'), field: row => (row.taxonomies && row.taxonomies[0] && row.taxonomies[0].type) || row.category || '', align: 'left', sortable: true},
-                {name: 'category', label: $t('category'), field: row => (row.taxonomies && row.taxonomies[0] && row.taxonomies[0].category) || (row.detail && row.detail.vulnType) || '', align: 'left', sortable: true},
+                {name: 'type', label: $t('type'), field: row => (row.taxonomies && row.taxonomies[0] && row.taxonomies[0].type) || '', align: 'left', sortable: true},
+                {name: 'category', label: $t('category'), field: row => (row.taxonomies && row.taxonomies[0] && row.taxonomies[0].category) || '', align: 'left', sortable: true},
                 {name: 'action', label: '', field: 'action', align: 'left', sortable: false},
             ],
             // Pagination for vulnerabilities datatable
@@ -144,18 +144,13 @@ export default {
     },
 
     methods: {
-        // Phase 3 helpers — pull taxonomy display values from the new
-        // taxonomies[] array, falling back to legacy fields so vulnerabilities
-        // saved before the dual-write helper landed still render. The row
-        // shape from getAllByLanguage flattens cvssv3/category to top-level
-        // and a single locale-filtered detail under .detail.
         taxonomyType: function(row) {
             const t = row && Array.isArray(row.taxonomies) && row.taxonomies[0];
-            return (t && t.type) || row.category || '';
+            return (t && t.type) || '';
         },
         taxonomyCategory: function(row) {
             const t = row && Array.isArray(row.taxonomies) && row.taxonomies[0];
-            return (t && t.category) || (row.detail && row.detail.vulnType) || '';
+            return (t && t.category) || '';
         },
         taxonomySubcategory: function(row) {
             const t = row && Array.isArray(row.taxonomies) && row.taxonomies[0];
@@ -220,7 +215,6 @@ export default {
         },
 
         customFilter(rows, terms, cols, getCellValue) {
-            console.log('ok')
             var result = rows && rows.filter(row => {
               if (!row.detail || !row.detail.title) return false;
           
@@ -247,11 +241,9 @@ export default {
         addFindingFromVuln: function(vuln) {
             var finding = null;
             if (vuln) {
-                console.log(vuln.detail.customFields)
-                console.log(Utils.filterCustomFields('vulnerability', vuln.category, this.$parent.customFields, [], this.audit.language))
                 finding = {
                     title: vuln.detail.title,
-                    vulnType: vuln.detail.vulnType,
+                    taxonomies: vuln.taxonomies || [],
                     description: vuln.detail.description,
                     observation: vuln.detail.observation,
                     remediation: vuln.detail.remediation,
@@ -259,7 +251,6 @@ export default {
                     priority: vuln.priority,
                     references: vuln.detail.references,
                     cvssv3: vuln.cvssv3,
-                    category: vuln.category,
                     customFields: vuln.detail.customFields
                 };
             }
@@ -291,7 +282,12 @@ export default {
             if (category && this.findingTitle) {
                 finding = {
                     title: this.findingTitle,
-                    vulnType: "",
+                    taxonomies: [{
+                        type: category.name,
+                        category: '',
+                        subcategory: '',
+                        code: ''
+                    }],
                     description: "",
                     observation: "",
                     remediation: "",
@@ -299,14 +295,13 @@ export default {
                     priority: "",
                     references: [],
                     cvssv3: "",
-                    category: category.name,
                     customFields: [...Utils.filterCustomFields('finding', category.name, this.$parent.customFields, [], this.audit.language),...Utils.filterCustomFields('vulnerability', category.name, this.$parent.customFields, [], this.audit.language)]
                 };
             }
             else if (this.findingTitle){
                 finding = {
                     title: this.findingTitle,
-                    vulnType: "",
+                    taxonomies: [],
                     description: "",
                     observation: "",
                     remediation: "",

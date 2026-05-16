@@ -1646,12 +1646,11 @@ async function prepAuditData(data, settings) {
         } else {
             tmpCVSS = CVSS31.calculateCVSSFromVector(finding.cvssv3);
         }
-        // Phase 3: derive `vulnType` and `category` template variables from
-        // taxonomies[0] (locale-agnostic). Falls back to legacy fields for
-        // documents that were never re-saved through the new picker.
+        // Keep legacy template variables populated from the canonical taxonomy
+        // object so existing DOCX templates continue to work.
         const t0 = (Array.isArray(finding.taxonomies) && finding.taxonomies[0]) || {};
-        const derivedCategory = t0.type || finding.category || "";
-        const derivedVulnType = t0.category || finding.vulnType || "";
+        const derivedCategory = t0.type || "";
+        const derivedVulnType = t0.category || "";
         var tmpFinding = {
             title: finding.title || "",
             vulnType: $t(derivedVulnType) || "",

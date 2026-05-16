@@ -70,7 +70,6 @@ export default {
             vulnUpdates: [],
             currentUpdate: '',
             currentUpdateLocale: '',
-            vulnTypes: [],
             // Merge languages
             mergeLanguageLeft: '',
             mergeLanguageRight: '',
@@ -109,7 +108,6 @@ export default {
 
     mounted: function() {
         this.getLanguages()
-        this.getVulnTypes()
         this.getVulnerabilities()
         this.getTranslationGroups()
         this.getVulnerabilityCategories()
@@ -136,11 +134,6 @@ export default {
     computed: {
         lenCurrentTitle: function() {
             return this.currentVulnerability.details[this.currentDetailsIndex].title.length
-        },
-        vulnTypesLang: function() {
-            // Taxonomy is locale-agnostic in the new model; the filter is
-            // a no-op kept for callsite compatibility.
-            return this.vulnTypes;
         },
         vulnAiContext: function() {
             const detail = this.currentVulnerability.details[this.currentDetailsIndex] || {};
@@ -258,24 +251,6 @@ export default {
             })
         },
 
-        // Get Vulnerabilities types — Phase 3: source from VulnerabilityTaxonomy
-        // (locale-agnostic). The shape `[{name, locale}]` is preserved so the
-        // existing vulnTypesLang filter and select bindings keep working;
-        // locale is set to the audit's current language so the no-op filter
-        // matches every entry.
-        getVulnTypes: function() {
-            DataService.getVulnerabilityTaxonomy()
-            .then((data) => {
-                var rows = data.data.datas || [];
-                var unique = Array.from(new Set(rows.map(r => r.type))).filter(Boolean).sort();
-                var locale = this.currentLanguage || this.dtLanguage || '';
-                this.vulnTypes = unique.map(t => ({ name: t, locale }));
-            })
-            .catch((err) => {
-                console.log(err)
-            })
-        },
-
         // Get available vulnerability "categories" — Phase 3: same source
         // (taxonomy types). Shape preserved as [{name}] so existing markup
         // (`category.name`, `vulnCategoriesOptions`) keeps working.
@@ -328,7 +303,7 @@ export default {
             if (this.errors.title)
                 return;
 
-            VulnerabilityService.createVulnerabilities([this.currentVulnerability])
+            VulnerabilityService.createVulnerabilities([this.vulnerabilityPayload(this.currentVulnerability)])
             .then(() => {
                 this.getVulnerabilities();
                 this.$refs.createModal.hide();
@@ -359,7 +334,7 @@ export default {
             if (this.errors.title)
                 return;
               
-            VulnerabilityService.updateVulnerability(this.vulnerabilityId, this.currentVulnerability)
+            VulnerabilityService.updateVulnerability(this.vulnerabilityId, this.vulnerabilityPayload(this.currentVulnerability))
             .then(() => {
                 this.getVulnerabilities();
                 this.getTranslationGroups();
@@ -387,14 +362,21 @@ export default {
             if (update.cvssv4 !== undefined) this.currentVulnerability.cvssv4 = update.cvssv4;
             if (update.priority !== undefined) this.currentVulnerability.priority = update.priority;
             if (update.remediationComplexity !== undefined) this.currentVulnerability.remediationComplexity = update.remediationComplexity;
-            if (update.category !== undefined) this.currentVulnerability.category = update.category;
+            if (update.taxonomies !== undefined) this.currentVulnerability.taxonomies = update.taxonomies || [];
+            else if (update.category !== undefined || update.vulnType !== undefined) {
+                this.currentVulnerability.taxonomies = [{
+                    type: update.category || '',
+                    category: update.vulnType || '',
+                    subcategory: '',
+                    code: ''
+                }];
+            }
 
             var index = this.currentVulnerability.details.findIndex(obj => obj.locale === update.locale);
             if (index < 0) {
                 this.currentVulnerability.details.push({
                     locale: update.locale,
                     title: update.title,
-                    vulnType: update.vulnType,
                     description: update.description,
                     observation: update.observation,
                     remediation: update.remediation,
@@ -403,7 +385,6 @@ export default {
                 });
             } else {
                 if (update.title !== undefined) this.currentVulnerability.details[index].title = update.title;
-                if (update.vulnType !== undefined) this.currentVulnerability.details[index].vulnType = update.vulnType;
                 if (update.description !== undefined) this.currentVulnerability.details[index].description = update.description;
                 if (update.observation !== undefined) this.currentVulnerability.details[index].observation = update.observation;
                 if (update.remediation !== undefined) this.currentVulnerability.details[index].remediation = update.remediation;
@@ -450,7 +431,7 @@ export default {
             .then((data) => {
                 this.vulnUpdates = data.data.datas;
                 this.vulnUpdates.forEach(vuln => {
-                    vuln.customFields = Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, vuln.customFields, vuln.locale)
+                    vuln.customFields = Utils.filterCustomFields('vulnerability', this.currentVulnerabilityType(), this.customFields, vuln.customFields, vuln.locale)
                 })
                 if (this.vulnUpdates.length > 0) {
                     // Sort by modification date (newest first)
@@ -485,13 +466,39 @@ export default {
             })
             .onOk(() => {
                 if (category){
-                    this.currentVulnerability.category = category.name
+                    this.currentVulnerability.taxonomies = [{
+                        type: category.name,
+                        category: '',
+                        subcategory: '',
+                        code: ''
+                    }];
                 }
                 else {
-                    this.currentVulnerability.category = null
+                    this.currentVulnerability.taxonomies = [];
                 }
                 this.setCurrentDetails()
             })
+        },
+
+        currentVulnerabilityType: function() {
+            const taxonomy = this.currentVulnerability && Array.isArray(this.currentVulnerability.taxonomies) && this.currentVulnerability.taxonomies[0];
+            return (taxonomy && taxonomy.type) || '';
+        },
+
+        taxonomyDiff: function(update) {
+            return !this.$_.isEqual(this.currentVulnerability.taxonomies || [], (update && update.taxonomies) || []);
+        },
+
+        vulnerabilityPayload: function(vulnerability) {
+            var payload = this.$_.cloneDeep(vulnerability);
+            delete payload.category;
+            payload.taxonomies = Array.isArray(payload.taxonomies) ? payload.taxonomies : [];
+            payload.details = (payload.details || []).map(detail => {
+                var clean = this.$_.cloneDeep(detail);
+                delete clean.vulnType;
+                return clean;
+            });
+            return payload;
         },
 
         cleanErrors: function() {
@@ -510,7 +517,6 @@ export default {
             // dropdown so existing UX still primes the picker. Backend's
             // syncVulnTaxonomy keeps both sides consistent on save.
             if (this.currentCategory && this.currentCategory.name) {
-                this.currentVulnerability.category = this.currentCategory.name;
                 this.currentVulnerability.taxonomies = [{
                     type: this.currentCategory.name,
                     category: '',
@@ -518,7 +524,6 @@ export default {
                     code: ''
                 }];
             } else {
-                this.currentVulnerability.category = null;
                 this.currentVulnerability.taxonomies = [];
             }
 
@@ -532,7 +537,6 @@ export default {
                 var details = {
                     locale: this.currentLanguage,
                     title: '',
-                    vulnType: '',
                     updatedAt: '',
                     description: '',
                     observation: '',
@@ -541,13 +545,12 @@ export default {
                     customFields: []
                 }
          
-                details.customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, [], this.currentLanguage))
-                console.log( details.customFields,'vulnerability', this.currentVulnerability.category, this.customFields, [], this.currentLanguage)
+                details.customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerabilityType(), this.customFields, [], this.currentLanguage))
                 this.currentVulnerability.details.push(details,)
                 index = this.currentVulnerability.details.length - 1;
             }
             else {
-                this.currentVulnerability.details[index].customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, this.currentVulnerability.details[index].customFields, this.currentLanguage))
+                this.currentVulnerability.details[index].customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerabilityType(), this.customFields, this.currentVulnerability.details[index].customFields, this.currentLanguage))
             }
             this.currentDetailsIndex = index;
      
@@ -585,13 +588,12 @@ export default {
 
         getDtType: function(row) {
             const taxonomy = row && Array.isArray(row.taxonomies) && row.taxonomies[0];
-            return (taxonomy && taxonomy.type) || row.category || '';
+            return (taxonomy && taxonomy.type) || '';
         },
 
         getDtCategory: function(row) {
             const taxonomy = row && Array.isArray(row.taxonomies) && row.taxonomies[0];
-            var index = row.details.findIndex(obj => obj.locale === this.dtLanguage);
-            return (taxonomy && taxonomy.category) || (index >= 0 && row.details[index].vulnType) || '';
+            return (taxonomy && taxonomy.category) || '';
         },
 
         getDtSubcategory: function(row) {

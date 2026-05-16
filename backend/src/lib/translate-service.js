@@ -158,9 +158,6 @@ async function translateVulnerability(vuln, aiSettings) {
 
             translatedDetail.title = await translateField(chatModel, sourceDetail.title, 'title', fromLocale, targetLocale);
 
-            if (sourceDetail.vulnType) {
-                translatedDetail.vulnType = await translateField(chatModel, sourceDetail.vulnType, 'vulnerability type', fromLocale, targetLocale);
-            }
             if (sourceDetail.description) {
                 translatedDetail.description = await translateField(chatModel, sourceDetail.description, 'description', fromLocale, targetLocale);
             }
@@ -209,11 +206,6 @@ async function translateVulnerabilityUpdate(vuln, aiSettings) {
 
             translatedDetail.title = await translateField(chatModel, sourceDetail.title, 'title', fromLocale, targetLocale);
 
-            if (sourceDetail.vulnType !== undefined) {
-                translatedDetail.vulnType = sourceDetail.vulnType
-                    ? await translateField(chatModel, sourceDetail.vulnType, 'vulnerability type', fromLocale, targetLocale)
-                    : sourceDetail.vulnType;
-            }
             if (sourceDetail.description !== undefined) {
                 translatedDetail.description = sourceDetail.description
                     ? await translateField(chatModel, sourceDetail.description, 'description', fromLocale, targetLocale)
@@ -259,11 +251,6 @@ async function translateDetail(sourceDetail, fromLocale, toLocale, aiSettings) {
     var translatedDetail = { locale: toLocale };
 
     translatedDetail.title = await translateField(chatModel, sourceDetail.title, 'title', fromLocale, toLocale);
-    if (sourceDetail.vulnType !== undefined) {
-        translatedDetail.vulnType = sourceDetail.vulnType
-            ? await translateField(chatModel, sourceDetail.vulnType, 'vulnerability type', fromLocale, toLocale)
-            : sourceDetail.vulnType;
-    }
     if (sourceDetail.description !== undefined) {
         translatedDetail.description = sourceDetail.description
             ? await translateField(chatModel, sourceDetail.description, 'description', fromLocale, toLocale)

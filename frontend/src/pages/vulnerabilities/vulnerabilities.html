@@ -307,7 +307,7 @@
             :key="currentDetailsIndex"
              v-bind="lenCurrentTitle === 0 ? { disabled: true } : {}"
             :readonly="lenCurrentTitle === 0"
-            :category="currentVulnerability.category"
+            :category="currentVulnerabilityType()"
             :idUnique="currentDetailsIndex+currentVulnerability._id" 
             custom-element="QCardSection"
             display="vuln"
@@ -328,7 +328,7 @@
     <q-card :style="($q.screen.gt.lg)?'width: 50vw':'width:1000px'">
         <q-bar class="bg-fixed-primary text-white">
             <div class="q-toolbar-title">
-                <span v-if="currentVulnerability.category">{{$t('editVulnerability')}} ({{currentVulnerability.category}})</span>
+                <span v-if="currentVulnerabilityType()">{{$t('editVulnerability')}} ({{currentVulnerabilityType()}})</span>
                 <span v-else>{{$t('editVulnerability')}} ({{$t('noCategory')}})</span>
             </div>
             <q-separator vertical color="white" class="q-mx-md" />
@@ -572,23 +572,8 @@
                         <q-input
                         :label="$t('title')+' *'"
                         stack-label
-                        class="col-md-8"
+                        class="col-md-10"
                         v-model="currentVulnerability.details[currentDetailsIndex].title"
-                        outlined
-                        />
-                        <q-select 
-                        class="col-md-2"
-                        :label="$t('type')"
-                        v-model="currentVulnerability.details[currentDetailsIndex].vulnType"
-                        :key="currentDetailsIndex"
-                         v-bind="lenCurrentTitle === 0 ? { disabled: true } : {}"
-                        :readonly="lenCurrentTitle == 0" 
-                        :options="vulnTypesLang" 
-                        option-value="name" 
-                        option-label="name" 
-                        emit-value 
-                        map-options
-                        options-sanitize
                         outlined
                         />
                         <q-select
@@ -605,6 +590,9 @@
                         options-sanitize
                         outlined
                         />
+                    </q-card-section>
+                    <q-card-section class="q-pt-none">
+                        <taxonomy-picker v-model="currentVulnerability.taxonomies" />
                     </q-card-section>
                     <q-card-section>
                         <q-field borderless :label="$t('description')" stack-label class="basic-editor">
@@ -706,22 +694,8 @@
                                 <q-input
                                 :label="$t('title')+' *'"
                                 stack-label
-                                class="col-md-8"
+                                class="col-md-10"
                                 v-model="update.title"
-                                outlined
-                                />
-                                <q-select 
-                                class="col-md-2"
-                                :bg-color="(currentVulnerability.details[currentDetailsIndex].vulnType != update.vulnType)?'diffbackground':''"
-                                :key="currentDetailsIndex"
-                                :label="$t('type')"
-                                v-model="update.vulnType" 
-                                :options="vulnTypesLang" 
-                                option-value="name" 
-                                option-label="name" 
-                                emit-value 
-                                map-options
-                                options-sanitize
                                 outlined
                                 />
                                 <q-select
@@ -738,6 +712,9 @@
                                 options-sanitize
                                 outlined
                                 />
+                            </q-card-section>
+                            <q-card-section class="q-pt-none" :class="taxonomyDiff(update) ? 'bg-diffbackground' : ''">
+                                <taxonomy-picker v-model="update.taxonomies" />
                             </q-card-section>
                             <q-card-section>
                                 <q-field 

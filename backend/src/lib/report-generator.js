@@ -89,6 +89,7 @@ async function generateDoc(audit) {
     var content = fs.readFileSync(templatePath, "binary");
 
     zip = new PizZip(content);
+    normalizeRawTagParagraphs(zip);
 
     translate.setLocale(audit.language)
     $t = translate.translate
@@ -160,6 +161,7 @@ async function generateDoc(audit) {
 
     try {
         doc.render(preppedAudit);
+        mergeMarkedAuditSummaryParagraphs(zip);
     }
     catch (error) {
         if (error.properties.id === 'multi_error') {
@@ -225,6 +227,170 @@ async function generateDoc(audit) {
     return buf;
 }
 exports.generateDoc = generateDoc;
+
+function decodeXmlText(input) {
+    return input
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, '&');
+}
+
+function encodeXmlText(input) {
+    return input
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function normalizeRawTagParagraphXml(xml) {
+    let mergeMarkerIndex = 0;
+
+    return xml.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g, paragraph => {
+        const textSegments = [];
+        paragraph.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g, (match, text) => {
+            textSegments.push(decodeXmlText(text));
+            return match;
+        });
+
+        if (textSegments.length === 0) return paragraph;
+
+        const fullText = textSegments.join('');
+        const openTagMatch = paragraph.match(/^<w:p\b[^>]*>/);
+        const paragraphPropertiesMatch = paragraph.match(/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/);
+        if (!openTagMatch) return paragraph;
+
+        const openTag = openTagMatch[0];
+        const paragraphProperties = paragraphPropertiesMatch ? paragraphPropertiesMatch[0] : '';
+        const rawTag = fullText.trim();
+        const paragraphStyle = getParagraphStyle(paragraphProperties);
+        if (fullText !== rawTag && /^\{@[\s\S]*\}$/.test(rawTag)) {
+            return buildTextParagraph(openTag, paragraphProperties, addConvertHTMLStyle(rawTag, paragraphStyle));
+        }
+
+        if (!/\{@audit\.(?:executive|critical|high|medium|low|informative)_summary\s*\|\s*convertHTML(?:\s*:[^}]*)?\}/.test(fullText)) {
+            return paragraph;
+        }
+
+        const shouldMerge = fullText.trim() !== fullText.match(/\{@audit\.(?:executive|critical|high|medium|low|informative)_summary\s*\|\s*convertHTML(?:\s*:[^}]*)?\}/)[0];
+        const parts = fullText.split(/(\{@audit\.(?:executive|critical|high|medium|low|informative)_summary\s*\|\s*convertHTML(?:\s*:[^}]*)?\})/g);
+        const paragraphs = [];
+        const marker = `AUTOPWNDOC_MERGE_AUDIT_SUMMARY_${mergeMarkerIndex++}`;
+
+        parts
+            .filter(part => part.length > 0)
+            .forEach(part => {
+                if (/^\{@audit\.(?:executive|critical|high|medium|low|informative)_summary\s*\|\s*convertHTML(?:\s*:[^}]*)?\}$/.test(part)) {
+                    paragraphs.push(buildTextParagraph(openTag, paragraphProperties, addConvertHTMLStyle(part, paragraphStyle)));
+                    return;
+                }
+
+                paragraphs.push(shouldMerge
+                    ? buildRawRunsParagraph(openTag, paragraphProperties, `${textRun(part)}${hiddenTextRun(`${marker}_START`)}`)
+                    : buildTextParagraph(openTag, paragraphProperties, part)
+                );
+            });
+
+        if (shouldMerge) {
+            paragraphs.push(buildRawRunsParagraph(openTag, paragraphProperties, hiddenTextRun(`${marker}_END`)));
+        }
+
+        return paragraphs.length > 0 ? paragraphs.join('') : paragraph;
+    });
+}
+
+function buildTextParagraph(openTag, paragraphProperties, text) {
+    return `${openTag}${paragraphProperties}<w:r><w:t xml:space="preserve">${encodeXmlText(text)}</w:t></w:r></w:p>`;
+}
+
+function buildRawRunsParagraph(openTag, paragraphProperties, runs) {
+    return `${openTag}${paragraphProperties}${runs}</w:p>`;
+}
+
+function textRun(text) {
+    return `<w:r><w:t xml:space="preserve">${encodeXmlText(text)}</w:t></w:r>`;
+}
+
+function hiddenTextRun(text) {
+    return `<w:r><w:rPr><w:vanish/></w:rPr><w:t>${encodeXmlText(text)}</w:t></w:r>`;
+}
+
+function getParagraphStyle(paragraphProperties) {
+    const match = paragraphProperties.match(/<w:pStyle\b[^>]*\bw:val="([^"]+)"/);
+    return match ? match[1] : null;
+}
+
+function addConvertHTMLStyle(rawTag, paragraphStyle) {
+    if (!paragraphStyle || !/\|\s*convertHTML\b/.test(rawTag) || /\|\s*convertHTML\s*:/.test(rawTag)) {
+        return rawTag;
+    }
+
+    return rawTag.replace(/\|\s*convertHTML\b/, `| convertHTML: '${paragraphStyle}'`);
+}
+
+function removeMergeMarkerRuns(paragraph) {
+    return paragraph.replace(/<w:r\b[^>]*>(?:(?!<\/w:r>)[\s\S])*?AUTOPWNDOC_MERGE_AUDIT_SUMMARY_\d+_(?:START|END)(?:(?!<\/w:r>)[\s\S])*?<\/w:r>/g, '');
+}
+
+function extractParagraphBody(paragraph) {
+    return paragraph
+        .replace(/^<w:p\b[^>]*>/, '')
+        .replace(/^<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/, '')
+        .replace(/<\/w:p>$/, '');
+}
+
+function mergeMarkedAuditSummaryParagraphs(docxZip) {
+    const xmlPaths = Object.keys(docxZip.files).filter(path =>
+        /^word\/(?:document|header\d+|footer\d+)\.xml$/.test(path)
+    );
+
+    xmlPaths.forEach(path => {
+        const file = docxZip.files[path];
+        if (!file) return;
+
+        const xml = file.asText();
+        const normalizedXml = xml.replace(
+            /(<w:p\b(?:(?!<w:p\b)[\s\S])*?AUTOPWNDOC_MERGE_AUDIT_SUMMARY_(\d+)_START(?:(?!<w:p\b)[\s\S])*?<\/w:p>)([\s\S]*?)(<w:p\b(?:(?!<w:p\b)[\s\S])*?AUTOPWNDOC_MERGE_AUDIT_SUMMARY_\2_END(?:(?!<w:p\b)[\s\S])*?<\/w:p>)/g,
+            (match, prefixBlock, markerId, summaryContent) => {
+                const summaryParagraph = summaryContent.match(/^(\s*<w:p\b[^>]*>[\s\S]*?<\/w:p>)/);
+                let prefixParagraph = removeMergeMarkerRuns(prefixBlock);
+
+                if (!summaryParagraph) {
+                    return `${prefixParagraph}${summaryContent}`;
+                }
+
+                const firstSummaryParagraph = summaryParagraph[1].trimStart();
+                const remainingSummaryContent = summaryContent.slice(summaryParagraph[1].length);
+                prefixParagraph = prefixParagraph.replace('</w:p>', `${extractParagraphBody(firstSummaryParagraph)}</w:p>`);
+                return `${prefixParagraph}${remainingSummaryContent}`;
+            }
+        );
+
+        if (normalizedXml !== xml) {
+            docxZip.file(path, normalizedXml);
+        }
+    });
+}
+
+function normalizeRawTagParagraphs(docxZip) {
+    const xmlPaths = Object.keys(docxZip.files).filter(path =>
+        /^word\/(?:document|header\d+|footer\d+)\.xml$/.test(path)
+    );
+
+    xmlPaths.forEach(path => {
+        const file = docxZip.files[path];
+        if (!file) return;
+
+        const xml = file.asText();
+        const normalizedXml = normalizeRawTagParagraphXml(xml);
+        if (normalizedXml !== xml) {
+            docxZip.file(path, normalizedXml);
+        }
+    });
+}
+
+exports._normalizeRawTagParagraphXml = normalizeRawTagParagraphXml;
 
 // *** Angular parser filters ***
 
@@ -1530,6 +1696,17 @@ function stripParagraphTags(input) {
         .replace(/<\/?p[^>]*>/gi, '') // supprime toutes les balises <p> ou </p>
         .trim();
 }
+
+function normalizeTaxonomies(taxonomies) {
+    if (!Array.isArray(taxonomies)) return [];
+    return taxonomies.map(taxonomy => ({
+        type: taxonomy.type || "",
+        category: taxonomy.category || "",
+        subcategory: taxonomy.subcategory || "",
+        code: taxonomy.code || ""
+    }));
+}
+
 async function prepAuditData(data, settings) {
     /** CVSS Colors for table cells */
     var noneColor = settings.report.public.cvssColors.noneColor.replace('#', ''); //default of blue ("#4A86E8")
@@ -1627,13 +1804,23 @@ async function prepAuditData(data, settings) {
     result.is_retest = data.isRetest === true
 
     const execSummary = data.executiveSummary || {}
-    result.overall_risk = execSummary.overallRisk ? $t(execSummary.overallRisk) : ''
+    result.overall_risk = execSummary.overallRisk ? ($t(execSummary.overallRisk) || execSummary.overallRisk) : ''
     result.executive_summary = await splitHTMLParagraphs(execSummary.summary || '')
     result.critical_summary = await splitHTMLParagraphs(execSummary.criticalSummary || '')
     result.high_summary = await splitHTMLParagraphs(execSummary.highSummary || '')
     result.medium_summary = await splitHTMLParagraphs(execSummary.mediumSummary || '')
     result.low_summary = await splitHTMLParagraphs(execSummary.lowSummary || '')
     result.informative_summary = await splitHTMLParagraphs(execSummary.informativeSummary || '')
+    result.audit = {
+        is_retest: result.is_retest,
+        overall_risk: result.overall_risk,
+        executive_summary: execSummary.summary || '',
+        critical_summary: execSummary.criticalSummary || '',
+        high_summary: execSummary.highSummary || '',
+        medium_summary: execSummary.mediumSummary || '',
+        low_summary: execSummary.lowSummary || '',
+        informative_summary: execSummary.informativeSummary || ''
+    }
 
     result.findings = []
     for (finding of data.findings) {
@@ -1648,7 +1835,8 @@ async function prepAuditData(data, settings) {
         }
         // Keep legacy template variables populated from the canonical taxonomy
         // object so existing DOCX templates continue to work.
-        const t0 = (Array.isArray(finding.taxonomies) && finding.taxonomies[0]) || {};
+        const taxonomies = normalizeTaxonomies(finding.taxonomies);
+        const t0 = taxonomies[0] || {};
         const derivedCategory = t0.type || "";
         const derivedVulnType = t0.category || "";
         var tmpFinding = {
@@ -1675,7 +1863,7 @@ async function prepAuditData(data, settings) {
                 subcategory: t0.subcategory || "",
                 code: t0.code || ""
             },
-            taxonomies: Array.isArray(finding.taxonomies) ? finding.taxonomies : [],
+            taxonomies: taxonomies,
             identifier: "IDX-" + utils.lPad(finding.identifier),
             unique_id: finding._id.toString()
         }

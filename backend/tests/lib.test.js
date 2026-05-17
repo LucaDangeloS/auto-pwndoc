@@ -2,6 +2,7 @@ module.exports = function () {
   var html2ooxml = require("../src/lib/html2ooxml")
   var utils = require("../src/lib/utils")
   var chartGenerator = require("../src/lib/chart-generator")
+  var reportGenerator = require("../src/lib/report-generator")
 
   describe('Lib functions Suite Tests', () => {
 
@@ -66,6 +67,74 @@ module.exports = function () {
         expect(xml).toContain('<a:srgbClr val="4A86E8"/>')
         expect(xml).toContain('<c:v>Informational</c:v>')
         expect(xml).toContain('<c:v>5</c:v>')
+      })
+    })
+
+    describe('report template normalization tests', () => {
+      it('removes accidental whitespace around raw DOCX tags', () => {
+        var xml =
+          '<w:document><w:body>' +
+            '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr>' +
+              '<w:r><w:t xml:space="preserve"> </w:t></w:r>' +
+              '<w:r><w:t>{@audit.critical_summary | convertHTML}</w:t></w:r>' +
+            '</w:p>' +
+          '</w:body></w:document>'
+
+        var normalized = reportGenerator._normalizeRawTagParagraphXml(xml)
+
+        expect(normalized).toContain('<w:pPr><w:pStyle w:val="Normal"/></w:pPr>')
+        expect(normalized).toContain('<w:t xml:space="preserve">{@audit.critical_summary | convertHTML: \'Normal\'}</w:t>')
+        expect(normalized).not.toContain('<w:t xml:space="preserve"> </w:t>')
+      })
+
+      it('keeps truly mixed raw DOCX tag paragraphs unchanged', () => {
+        var xml =
+          '<w:document><w:body>' +
+            '<w:p>' +
+              '<w:r><w:t>Summary: </w:t></w:r>' +
+              '<w:r><w:t>{@finding.references_links}</w:t></w:r>' +
+            '</w:p>' +
+          '</w:body></w:document>'
+
+        expect(reportGenerator._normalizeRawTagParagraphXml(xml)).toEqual(xml)
+      })
+
+      it('splits mixed audit summary raw DOCX tags into separate paragraphs', () => {
+        var xml =
+          '<w:document><w:body>' +
+            '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr>' +
+              '<w:r><w:t>Critical summary: </w:t></w:r>' +
+              '<w:r><w:t>{@audit.critical_summary | convertHTML}</w:t></w:r>' +
+            '</w:p>' +
+          '</w:body></w:document>'
+
+        var normalized = reportGenerator._normalizeRawTagParagraphXml(xml)
+
+        expect(normalized).toContain('<w:t xml:space="preserve">Critical summary: </w:t>')
+        expect(normalized).toContain('AUTOPWNDOC_MERGE_AUDIT_SUMMARY_0_START')
+        expect(normalized).toContain('<w:t xml:space="preserve">{@audit.critical_summary | convertHTML: \'Normal\'}</w:t>')
+        expect(normalized).toContain('AUTOPWNDOC_MERGE_AUDIT_SUMMARY_0_END')
+        expect((normalized.match(/<w:p>/g) || []).length).toEqual(3)
+      })
+
+      it('normalizes audit summary raw DOCX tags split across Word runs', () => {
+        var xml =
+          '<w:document><w:body>' +
+            '<w:p>' +
+              '<w:r><w:t xml:space="preserve"> </w:t></w:r>' +
+              '<w:r><w:t>{</w:t></w:r>' +
+              '<w:r><w:t>@</w:t></w:r>' +
+              '<w:r><w:t>audit.</w:t></w:r>' +
+              '<w:r><w:t>critical</w:t></w:r>' +
+              '<w:r><w:t>_summary | convertHTML}</w:t></w:r>' +
+            '</w:p>' +
+          '</w:body></w:document>'
+
+        var normalized = reportGenerator._normalizeRawTagParagraphXml(xml)
+
+        expect(normalized).toContain('<w:t xml:space="preserve">{@audit.critical_summary | convertHTML}</w:t>')
+        expect(normalized).not.toContain('<w:t>{</w:t>')
+        expect(normalized).not.toContain('<w:t>@</w:t>')
       })
     })
 

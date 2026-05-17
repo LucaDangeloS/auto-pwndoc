@@ -1,4 +1,7 @@
-import { Dark } from 'quasar'
+import { Dark, setCssVar } from 'quasar'
+
+const LIGHT_PRIMARY = '#3c4759'
+const DARK_PRIMARY = '#a5b4fc'
 
 function updateDarkMode(dark = null) {
   let darkmode = !!localStorage.getItem('darkmodeEnabled') || false
@@ -8,6 +11,7 @@ function updateDarkMode(dark = null) {
   }
 
   Dark.set(darkmode)
+  setCssVar('primary', darkmode ? DARK_PRIMARY : LIGHT_PRIMARY)
 
   if (darkmode) {
     localStorage.setItem('darkmodeEnabled', 'y')

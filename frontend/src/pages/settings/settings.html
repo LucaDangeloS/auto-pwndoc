@@ -933,14 +933,11 @@
                     <div class="text-caption text-grey-8 q-mb-sm">
                         {{$t('aiTemperature')}}: <strong>{{settings.ai.public.temperature}}</strong>
                     </div>
-                    <input
-                        v-model.number="settings.ai.public.temperature"
-                        class="ai-temperature-slider"
-                        type="range"
-                        min="0"
-                        max="2"
-                        step="0.1"
-                        :disabled="!canEdit || !settings.ai.enabled"
+                    <q-slider
+                        v-model="settings.ai.public.temperature"
+                        :min="0" :max="2" :step="0.1"
+                        color="primary"
+                        :disable="!canEdit || !settings.ai.enabled"
                     />
                     <div class="row justify-between text-caption text-grey-6">
                         <span>0 — precise</span>
@@ -1172,39 +1169,47 @@
                 <div class="text-bold">{{$t('mcpApiKey')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('mcpApiKeyHint')}}</div>
             </q-card-section>
-            <q-card-section class="q-col-gutter-md row">
-                <q-input
-                    class="col-12 col-md-8"
-                    :label="$t('mcpApiKey')"
-                    v-model="settings.mcp.apiKey"
-                    outlined
-                    readonly
-                    :type="showMcpApiKey ? 'text' : 'password'"
-                    :hint="settings.mcp.apiKeyCreatedAt ? $t('mcpKeyCreatedAt') + ': ' + new Date(settings.mcp.apiKeyCreatedAt).toLocaleString() : $t('mcpNoApiKey')"
-                >
-                    <template v-slot:append>
-                        <q-btn
-                            flat round dense size="sm"
-                            :icon="showMcpApiKey ? 'visibility_off' : 'visibility'"
-                            :aria-label="showMcpApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey')"
-                            @click="showMcpApiKey = !showMcpApiKey"
+            <q-card-section>
+                <div class="row items-center q-col-gutter-md">
+                    <div class="col-12 col-md">
+                        <q-input
+                            :label="$t('mcpApiKey')"
+                            v-model="settings.mcp.apiKey"
+                            outlined
+                            readonly
+                            :type="showMcpApiKey ? 'text' : 'password'"
+                            hide-bottom-space
                         >
-                            <q-tooltip>{{ showMcpApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey') }}</q-tooltip>
-                        </q-btn>
-                        <q-btn
-                            flat round dense size="sm"
-                            icon="content_copy"
-                            :disable="!settings.mcp.apiKey"
-                            :aria-label="$t('mcpCopyKey')"
-                            @click="copyText(settings.mcp.apiKey)"
-                        >
-                            <q-tooltip>{{ $t('mcpCopyKey') }}</q-tooltip>
-                        </q-btn>
-                    </template>
-                </q-input>
-                <div class="col-12 col-md-4 row items-start q-gutter-sm">
-                    <q-btn color="primary" no-caps icon="vpn_key" :label="$t('mcpGenerateKey')" :disable="!canEdit" @click="rotateMcpKey" />
-                    <q-btn outline color="negative" no-caps icon="delete" :label="$t('mcpClearKey')" :disable="!canEdit || !settings.mcp.apiKey" @click="clearMcpKey" />
+                            <template v-slot:append>
+                                <q-btn
+                                    flat round dense size="sm"
+                                    :icon="showMcpApiKey ? 'visibility_off' : 'visibility'"
+                                    :aria-label="showMcpApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey')"
+                                    @click="showMcpApiKey = !showMcpApiKey"
+                                >
+                                    <q-tooltip>{{ showMcpApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey') }}</q-tooltip>
+                                </q-btn>
+                                <q-btn
+                                    flat round dense size="sm"
+                                    icon="content_copy"
+                                    :disable="!settings.mcp.apiKey"
+                                    :aria-label="$t('mcpCopyKey')"
+                                    @click="copyText(settings.mcp.apiKey)"
+                                >
+                                    <q-tooltip>{{ $t('mcpCopyKey') }}</q-tooltip>
+                                </q-btn>
+                            </template>
+                        </q-input>
+                    </div>
+                    <div class="col-12 col-md-auto row items-center no-wrap q-gutter-x-sm">
+                        <q-btn color="primary" no-caps icon="vpn_key" :label="$t('mcpGenerateKey')" :disable="!canEdit" @click="rotateMcpKey" />
+                        <q-btn outline color="negative" no-caps icon="delete" :label="$t('mcpClearKey')" :disable="!canEdit || !settings.mcp.apiKey" @click="clearMcpKey" />
+                    </div>
+                </div>
+                <div class="row q-col-gutter-x-md">
+                    <div class="col-12 col-md text-caption text-grey-7 q-mt-xs">
+                        {{settings.mcp.apiKeyCreatedAt ? $t('mcpKeyCreatedAt') + ': ' + new Date(settings.mcp.apiKeyCreatedAt).toLocaleString() : $t('mcpNoApiKey')}}
+                    </div>
                 </div>
             </q-card-section>
 

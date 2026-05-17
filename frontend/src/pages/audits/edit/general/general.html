@@ -29,7 +29,7 @@
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #append><template-hint template-var="audit.name" /></template>
+                        <template #append><template-hint template-var="name" :description="$t('templateHintAuditRoot')" /></template>
                     </q-input>
                     <div class="col"></div>
                     <q-select
@@ -46,7 +46,7 @@
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #append><template-hint template-var="audit.language" /></template>
+                        <template #append><template-hint template-var="language" :description="$t('templateHintAuditRoot')" /></template>
                     </q-select>
                     <q-select
                         class="col-md-6 col-12"
@@ -88,7 +88,7 @@
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #append><template-hint template-var="audit.company.name" /></template>
+                        <template #append><template-hint template-var="company.name" :description="$t('templateHintAuditRoot')" /></template>
                     </q-select>
                     <q-select
                         v-if="$settings.reviews.enabled"
@@ -105,7 +105,7 @@
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #append><template-hint template-var="{#audit.reviewers}.firstname .lastname{/audit.reviewers}" /></template>
+                        <template #append><template-hint template-var="{#reviewers}{firstname} {lastname}{/reviewers}" :description="$t('templateHintAuditRoot')" /></template>
                         <template v-slot:selected-item="scope">
                             <q-chip
                                 dense
@@ -134,7 +134,7 @@
                         outlined
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
-                        <template #append><template-hint template-var="{#audit.collaborators}.firstname .lastname{/audit.collaborators}" /></template>
+                        <template #append><template-hint template-var="{#collaborators}{firstname} {lastname}{/collaborators}" :description="$t('templateHintAuditRoot')" /></template>
                         <template v-slot:after>
                             <q-chip
                                 class="q-mt-lg"
@@ -174,7 +174,11 @@
                         <template #default>
                             <span class="row items-center no-wrap q-ml-xs">
                                 {{ $t('isRetest') }}
-                                <template-hint template-var="audit.is_retest" />
+                                <template-hint
+                                    template-var="{#is_retest}Retest-only content{/is_retest}"
+                                    :description="$t('templateHintRetestConditional')"
+                                    :examples="['{^is_retest}Initial-audit content{/is_retest}', '{#findings}{#retest_passed}Passed retest: {title}{/retest_passed}{/findings}']"
+                                />
                             </span>
                         </template>
                     </q-toggle>
@@ -193,7 +197,7 @@
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
                         <template #append>
-                            <template-hint template-var="audit.date_start" />
+                            <template-hint template-var="date_start" :description="$t('templateHintAuditRoot')" />
                             <q-icon name="event" class="cursor-pointer">
                                 <q-popup-proxy ref="qDateStartProxy" transition-show="scale" transition-hide="scale">
                                     <q-date :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date_start" @input="() => $refs.qDateStartProxy.hide()" />
@@ -210,7 +214,7 @@
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
                         <template #append>
-                            <template-hint template-var="audit.date_end" />
+                            <template-hint template-var="date_end" :description="$t('templateHintAuditRoot')" />
                             <q-icon name="event" class="cursor-pointer">
                                 <q-popup-proxy ref="qDateEndProxy" transition-show="scale" transition-hide="scale">
                                     <q-date :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date_end" @input="() => $refs.qDateEndProxy.hide()" />
@@ -227,7 +231,7 @@
                         :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     >
                         <template #append>
-                            <template-hint template-var="audit.date" />
+                            <template-hint template-var="date" :description="$t('templateHintAuditRoot')" />
                             <q-icon name="event" class="cursor-pointer">
                                 <q-popup-proxy ref="qDateProxy" transition-show="scale" transition-hide="scale">
                                     <q-date :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date" @input="() => $refs.qDateProxy.hide()" />
@@ -241,7 +245,7 @@
             <q-card-section>
                 <div class="row items-center q-mb-xs">
                     <span class="text-subtitle2 text-grey-7">{{ $t('auditScope') }}</span>
-                    <template-hint template-var="audit.scope" class="q-ml-xs" />
+                    <template-hint template-var="{#scope}{.}{/scope}" :description="$t('templateHintAuditRoot')" class="q-ml-xs" />
                 </div>
                 <textarea-array v-model="audit.scope" no-empty-line :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"/>
             </q-card-section>

@@ -79,7 +79,7 @@
               <template #default>
                 <span class="row items-center no-wrap q-ml-xs">
                   {{ $t('completed') }}
-                  <template-hint template-var="finding.status" />
+                  <template-hint template-var="status" :description="$t('templateHintFindingScope')" />
                 </span>
               </template>
             </q-toggle>
@@ -109,7 +109,7 @@
                   outlined
                   :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                 >
-                  <template #append><template-hint template-var="finding.title" /></template>
+                  <template #append><template-hint template-var="title" :description="$t('templateHintFindingScope')" /></template>
                 </q-input>
 
                 <div class="col-md-12 col-12 q-mt-sm">
@@ -122,7 +122,11 @@
                 <div class="col-md-12 row items-center q-mt-sm">
                   <span class="row items-center text-subtitle2 text-grey-7">
                     {{ $t('description') }}
-                    <template-hint template-var="finding.description | convertHTML" class="q-ml-xs" />
+                    <template-hint
+                      template-var="{#description}{@text | convertHTML}{#images}{%image}{caption}{/images}{/description}"
+                      :description="$t('templateHintRichTextFinding')"
+                      class="q-ml-xs"
+                    />
                   </span>
                 </div>
                 <q-field class="col-md-12 basic-editor" borderless stack-label>
@@ -143,7 +147,11 @@
                 <div class="col-md-12 row items-center q-mt-sm">
                   <span class="row items-center text-subtitle2 text-grey-7">
                     {{ $t('observation') }}
-                    <template-hint template-var="finding.observation | convertHTML" class="q-ml-xs" />
+                    <template-hint
+                      template-var="{#observation}{@text | convertHTML}{#images}{%image}{caption}{/images}{/observation}"
+                      :description="$t('templateHintRichTextFinding')"
+                      class="q-ml-xs"
+                    />
                   </span>
                 </div>
                 <q-field class="col-md-12 basic-editor" borderless stack-label>
@@ -163,7 +171,12 @@
                 <div class="col-12">
                   <div class="row items-center q-mb-xs">
                     <span class="text-subtitle2 text-grey-7">{{ $t('references') }}</span>
-                    <template-hint template-var="{#finding.references}{.}{/finding.references}" class="q-ml-xs" />
+                    <template-hint
+                      template-var="{#references}{.}{/references}"
+                      :description="$t('templateHintFindingScope')"
+                      :examples="['{@references_links}']"
+                      class="q-ml-xs"
+                    />
                   </div>
                   <textarea-array
                     v-model="finding.references"
@@ -186,7 +199,11 @@
                   <q-card-section class="row items-center justify-between q-pb-none">
                     <span class="row items-center text-subtitle2 text-grey-7">
                       {{ $t('proofs') }}
-                      <template-hint template-var="finding.poc | convertHTML" class="q-ml-xs" />
+                      <template-hint
+                        template-var="{#poc}{@text | convertHTML}{#images}{%image}{caption}{/images}{/poc}"
+                        :description="$t('templateHintRichTextFinding')"
+                        class="q-ml-xs"
+                      />
                     </span>
                     <ai-action-btn
                       v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
@@ -234,7 +251,7 @@
                   <q-card-section class="row items-center q-pb-xs">
                     <span class="row items-center text-subtitle2">
                       {{ $t('retestResult') }}
-                      <template-hint template-var="finding.retest_passed" class="q-ml-xs" />
+                      <template-hint template-var="retest_passed" :description="$t('templateHintFindingScope')" class="q-ml-xs" />
                     </span>
                     <q-space />
                     <q-btn-toggle
@@ -264,7 +281,11 @@
                   <q-card-section>
                     <div class="row items-center q-mb-sm">
                       <span class="text-subtitle2 text-grey-7">{{ $t('retestEvidenceContent') }}</span>
-                      <template-hint template-var="finding.retest_evidence | convertHTML" class="q-ml-xs" />
+                      <template-hint
+                        template-var="{#retest_evidence}{@text | convertHTML}{#images}{%image}{caption}{/images}{/retest_evidence}"
+                        :description="$t('templateHintRichTextFinding')"
+                        class="q-ml-xs"
+                      />
                     </div>
                     <basic-editor
                       ref="basiceditor_retestEvidence"
@@ -290,7 +311,7 @@
               <q-card-section>
                 <span class="row items-center">
                   {{ $t('affectedAssets') }}
-                  <template-hint template-var="finding.affected" class="q-ml-xs" />
+                  <template-hint template-var="{@affected | convertHTML}" :description="$t('templateHintFindingScope')" class="q-ml-xs" />
                 </span>
               </q-card-section>
               <q-separator />
@@ -310,7 +331,12 @@
               </q-inner-loading>
               <q-card-section class="row items-center q-pb-none">
                 <span class="text-subtitle2 text-grey-7">{{ $t('cvssScore') }}</span>
-                <template-hint template-var="finding.cvss.baseMetricScore / finding.cvss4.baseMetricScore" class="q-ml-xs" />
+                <template-hint
+                  template-var="cvss.baseMetricScore"
+                  :description="$t('templateHintFindingScope')"
+                  :examples="['cvss.baseSeverity', 'cvss4.baseMetricScore', 'cvss4.baseSeverity']"
+                  class="q-ml-xs"
+                />
               </q-card-section>
               <div class="col-12">
                 <cvss-calculator-unified
@@ -345,7 +371,7 @@
                     outlined
                     :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                   >
-                    <template #append><template-hint template-var="finding.remediationComplexity" /></template>
+                    <template #append><template-hint template-var="remediationComplexity" :description="$t('templateHintFindingScope')" /></template>
                   </q-select>
                   <q-select
                     :label="$t('priority')"
@@ -364,13 +390,17 @@
                     outlined
                     :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                   >
-                    <template #append><template-hint template-var="finding.priority" /></template>
+                    <template #append><template-hint template-var="priority" :description="$t('templateHintFindingScope')" /></template>
                   </q-select>
                 </div>
                 <div class="col-md-12 row items-center q-mt-md q-mb-xs">
                   <span class="row items-center text-subtitle2 text-grey-7">
                     {{ $t('remediation') }}
-                    <template-hint template-var="finding.remediation | convertHTML" class="q-ml-xs" />
+                    <template-hint
+                      template-var="{#remediation}{@text | convertHTML}{#images}{%image}{caption}{/images}{/remediation}"
+                      :description="$t('templateHintRichTextFinding')"
+                      class="q-ml-xs"
+                    />
                   </span>
                 </div>
                 <q-field class="col-md-12 basic-editor" borderless stack-label>

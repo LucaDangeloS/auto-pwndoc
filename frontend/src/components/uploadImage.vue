@@ -12,7 +12,7 @@
       <div v-if="imageError" class="text-center q-pa-md">
         <q-icon name="error" color="negative" size="48px" />
         <div class="text-caption text-negative q-mt-sm">
-          Impossible de charger l'image
+          {{ $t('err.imageLoadFailed') }}
         </div>
         <q-btn 
           flat 
@@ -21,7 +21,7 @@
           @click="retryLoad"
           class="q-mt-sm"
         >
-          Réessayer
+          {{ $t('btn.retry') }}
         </q-btn>
       </div>
       <div>

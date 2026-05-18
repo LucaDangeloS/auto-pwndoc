@@ -114,27 +114,78 @@ export default {
                 {
                     title: this.$t('graphSeverityPie3D'),
                     useCase: this.$t('graphSeverityPie3DUseCase'),
-                    templateVar: '{@findings | severityPie3D}'
+                    templateVar: '{@findings | severityPie3D}',
+                    examples: [
+                        "{@findings | severityPie3D:'Risk distribution':'value':'ffffff':'212121'}",
+                        "{@findings | severityPie3D:'Risk distribution':'percent':'212121':'212121'}",
+                        "{@findings | severityPie3D:'Risk distribution':'both':'ffffff':'212121'}"
+                    ]
                 },
                 {
                     title: this.$t('graphSeverityPie3DNamed'),
                     useCase: this.$t('graphSeverityPie3DNamedUseCase'),
-                    templateVar: "{@findings | severityPie3D:'Risk distribution'}"
-                },
-                {
-                    title: this.$t('graphLegacySeverityPie'),
-                    useCase: this.$t('graphLegacySeverityPieUseCase'),
-                    templateVar: "{@findings | pieChart:'Risk distribution':'212121':'fe0000':'f9a009':'008000'}"
+                    templateVar: "{@findings | severityPie3D:'Risk distribution'}",
+                    examples: [
+                        "{@findings | severityPie3D:'Distribución de riesgo':'both':'000000':'212121'}"
+                    ]
                 },
                 {
                     title: this.$t('graphFindingsByType'),
                     useCase: this.$t('graphFindingsByTypeUseCase'),
-                    templateVar: "{@findings | barChart:'category':'Findings by type'}"
+                    templateVar: "{@findings | barChart:'category':'Findings by type'}",
+                    examples: [
+                        "{@findings | barChart:'category':'Findings by type':'value':'ffffff':'212121'}",
+                        "{@findings | barChart:'category':'Findings by type':'percent':'212121':'212121'}",
+                        "{@findings | barChart:'category':'Findings by type':'both':'ffffff':'212121'}"
+                    ]
                 },
                 {
                     title: this.$t('graphFindingsBySeverity'),
                     useCase: this.$t('graphFindingsBySeverityUseCase'),
-                    templateVar: "{@findings | barChart:'cvss.baseSeverity':'Findings by severity'}"
+                    templateVar: "{@findings | barChart:'cvss.baseSeverity':'Findings by severity'}",
+                    examples: [
+                        "{@findings | barChart:'cvss.baseSeverity':'Findings by severity':'both':'ffffff':'212121'}"
+                    ]
+                }
+            ];
+        },
+
+        fieldTemplateHints() {
+            return [
+                {
+                    title: this.$t('overallRisk'),
+                    useCase: this.$t('templateHintAuditAlias'),
+                    templateVar: '{audit.overall_risk}'
+                },
+                {
+                    title: this.$t('executiveSummaryText'),
+                    useCase: this.$t('templateHintAuditHtmlAlias'),
+                    templateVar: '{@audit.executive_summary | convertHTML}'
+                },
+                {
+                    title: this.$t('severitySummaries'),
+                    useCase: this.$t('templateHintAuditHtmlAlias'),
+                    templateVar: '{@audit.critical_summary | convertHTML}'
+                },
+                {
+                    title: this.$t('severitySummaries'),
+                    useCase: this.$t('templateHintAuditHtmlAlias'),
+                    templateVar: '{@audit.high_summary | convertHTML}'
+                },
+                {
+                    title: this.$t('severitySummaries'),
+                    useCase: this.$t('templateHintAuditHtmlAlias'),
+                    templateVar: '{@audit.medium_summary | convertHTML}'
+                },
+                {
+                    title: this.$t('severitySummaries'),
+                    useCase: this.$t('templateHintAuditHtmlAlias'),
+                    templateVar: '{@audit.low_summary | convertHTML}'
+                },
+                {
+                    title: this.$t('severitySummaries'),
+                    useCase: this.$t('templateHintAuditHtmlAlias'),
+                    templateVar: '{@audit.informative_summary | convertHTML}'
                 }
             ];
         },

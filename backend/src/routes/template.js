@@ -5,6 +5,23 @@ module.exports = function(app) {
     var acl = require('../lib/auth').acl;
     var utils = require('../lib/utils');
     var fs = require('fs');
+    var PizZip = require('pizzip');
+
+    function validateTemplateFile(fileBuffer, ext) {
+        if ((ext || '').toLowerCase() !== 'docx')
+            return 'Only DOCX template files are supported';
+
+        try {
+            var zip = new PizZip(fileBuffer);
+            if (!zip.file('[Content_Types].xml') || !zip.file('word/document.xml'))
+                return 'Template file is not a valid DOCX document';
+        }
+        catch (err) {
+            return 'Template file is not a valid DOCX document';
+        }
+
+        return null;
+    }
 
     // Get templates list
     app.get("/api/templates", acl.hasPermission('templates:read'), function(req, res) {
@@ -34,9 +51,15 @@ module.exports = function(app) {
         template.name = req.body.name;
         template.ext = req.body.ext
 
+        var fileBuffer = Buffer.from(req.body.file, 'base64');
+        var validationError = validateTemplateFile(fileBuffer, template.ext);
+        if (validationError) {
+            Response.BadParameters(res, validationError);
+            return;
+        }
+
         Template.create(template)
         .then(data => {
-            var fileBuffer = Buffer.from(req.body.file, 'base64');
             fs.writeFileSync(`${__basedir}/../report-templates/${template.name}.${template.ext}`, fileBuffer);
             Response.Created(res, data);
         })
@@ -55,6 +78,15 @@ module.exports = function(app) {
             Response.BadParameters(res, 'Bad ext format');
             return;
         }
+        var fileBuffer = null;
+        if (req.body.file && req.body.ext) {
+            fileBuffer = Buffer.from(req.body.file, 'base64');
+            var validationError = validateTemplateFile(fileBuffer, req.body.ext);
+            if (validationError) {
+                Response.BadParameters(res, validationError);
+                return;
+            }
+        }
         var template = {};
         // Optional parameters
         if (req.body.name) template.name = req.body.name;
@@ -64,7 +96,6 @@ module.exports = function(app) {
         .then(data => {
             // Update file only
             if (!req.body.name && req.body.file && req.body.ext) {
-                var fileBuffer = Buffer.from(req.body.file, 'base64');
                 try {fs.unlinkSync(`${__basedir}/../report-templates/${data.name}.${data.ext || 'docx'}`)} catch {}
                 fs.writeFileSync(`${__basedir}/../report-templates/${data.name}.${req.body.ext}`, fileBuffer);
             }
@@ -74,7 +105,6 @@ module.exports = function(app) {
             }
             // Update both name and file
             else if (req.body.name && req.body.file && req.body.ext) {
-                var fileBuffer = Buffer.from(req.body.file, 'base64');
                 try {fs.unlinkSync(`${__basedir}/../report-templates/${data.name}.${data.ext || 'docx'}`)} catch {}
                 fs.writeFileSync(`${__basedir}/../report-templates/${req.body.name}.${req.body.ext}`, fileBuffer);
             }

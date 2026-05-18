@@ -29,7 +29,7 @@ const SettingSchema = new Schema({
                 dataLabelColor: { type: String, default: "#ffffff", validate: [colorValidator, 'Invalid color'] },
                 dataLabelSize: { type: Number, default: 11, min: 6, max: 36 },
                 dataLabelBold: { type: Boolean, default: true },
-                dataLabelMode: { type: String, enum: ['value', 'percent', 'both', 'none'], default: 'value' },
+                dataLabelMode: { type: String, enum: ['value', 'percent', 'both', 'none'], default: 'percent' },
                 borderEnabled: { type: Boolean, default: false },
                 borderColor: { type: String, default: "#d9e2f3", validate: [colorValidator, 'Invalid color'] },
                 borderWidth: { type: Number, default: 1, min: 0, max: 6 },

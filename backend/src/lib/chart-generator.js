@@ -203,8 +203,31 @@ chartGenerator.generatePieChart = function (title, colorCrit, colorHigh, colorMe
         `;
 }
 
+function barPointColorsXml(colors) {
+    if (!Array.isArray(colors) || colors.length === 0) return '';
+    return colors.map((color, index) => `<c:dPt>
+        <c:idx val="${index}"/>
+        <c:spPr>
+            <a:solidFill><a:srgbClr val="${encodeHTMLEntities(color)}"/></a:solidFill>
+            <a:ln w="19050"><a:solidFill><a:srgbClr val="${encodeHTMLEntities(color)}"/></a:solidFill></a:ln>
+            <a:effectLst/>
+        </c:spPr>
+    </c:dPt>`).join('');
+}
+
 // Returns XML corresponding to a barChart 
-chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML, labelSize, labelColor){
+chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML, labelSize, labelColor, barColors, dataLabels, titleColor){
+   const pointColorsXml = barPointColorsXml(barColors);
+   const dataLabelsConfig = dataLabels || {};
+   const resolvedTitleColor = titleColor || '000000';
+   const barDataLabelsXml = dataLabelsXml(
+        dataLabelsConfig.items || [],
+        dataLabelsConfig.mode || 'value',
+        dataLabelsConfig.size || 10,
+        dataLabelsConfig.color || '000000',
+        dataLabelsConfig.bold || false,
+        { forceCustomPercent: true }
+   );
 
    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:c16r2="http://schemas.microsoft.com/office/drawing/2015/06/chart">
@@ -217,10 +240,14 @@ chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML,
             <a:lstStyle/>
             <a:p>
                 <a:pPr>
-                <a:defRPr sz="1600"/>
+                <a:defRPr sz="1600">
+                    <a:solidFill><a:srgbClr val="${encodeHTMLEntities(resolvedTitleColor)}"/></a:solidFill>
+                </a:defRPr>
                 </a:pPr>
                 <a:r>
-                <a:rPr sz="1600"/>
+                <a:rPr sz="1600">
+                    <a:solidFill><a:srgbClr val="${encodeHTMLEntities(resolvedTitleColor)}"/></a:solidFill>
+                </a:rPr>
                 <a:t>${encodeHTMLEntities(title)}</a:t>
                 </a:r>
             </a:p>
@@ -273,28 +300,9 @@ chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML,
               </c:numCache>
             </c:numRef>
           </c:val>
+          ${pointColorsXml}
         </c:ser>
-       <c:dLbls>
-  <c:showLegendKey val="0"/>
-  <c:showVal val="1"/>  
-  <c:showCatName val="0"/>
-  <c:showSerName val="0"/>
-  <c:showPercent val="0"/>
-  <c:showBubbleSize val="0"/>
-        <c:txPr>
-            <a:bodyPr/>
-            <a:lstStyle/>
-            <a:p>
-            <a:pPr>
-                <a:defRPr sz="1000" b="0"> 
-                <a:solidFill>
-                    <a:srgbClr val="000000"/> 
-                </a:solidFill>
-                </a:defRPr>
-            </a:pPr>
-            </a:p>
-        </c:txPr>
-        </c:dLbls>
+       ${barDataLabelsXml}
         <c:gapWidth val="100"/>
         <c:axId val="568377344"/>
         <c:axId val="568375904"/>
@@ -472,22 +480,95 @@ function dataLabelFlags(mode) {
     };
 }
 
-// Returns XML corresponding to a native editable 3D pieChart.
-chartGenerator.generatePie3DChart = function({ title, severities, theme }) {
-    const labelsXml = severities.map((item, index) => `<c:pt idx="${index}"><c:v>${encodeHTMLEntities(item.label)}</c:v></c:pt>`).join('');
-    const valuesXml = severities.map((item, index) => `<c:pt idx="${index}"><c:v>${encodeHTMLEntities(String(item.value))}</c:v></c:pt>`).join('');
-    const colorsXml = severities.map((item, index) => `<c:dPt><c:idx val="${index}"/><c:spPr><a:solidFill><a:srgbClr val="${encodeHTMLEntities(item.color)}"/></a:solidFill></c:spPr></c:dPt>`).join('');
-    const labels = dataLabelFlags(theme.dataLabelMode);
-    const dataLabelsXml = theme.dataLabelMode === 'none' ? '' : `<c:dLbls>
+function dataLabelNumberFormat(mode) {
+    return mode === 'percent' || mode === 'both'
+        ? '<c:numFmt formatCode="0%" sourceLinked="0"/>'
+        : '';
+}
+
+function percentText(value, total) {
+    if (!total) return '0%';
+    return `${Math.round((value / total) * 100)}%`;
+}
+
+function customDataLabelXml(index, text, size, color, bold) {
+    return `<c:dLbl>
+        <c:idx val="${index}"/>
+        <c:tx>
+            <c:rich>
+                <a:bodyPr/>
+                <a:lstStyle/>
+                <a:p>
+                    <a:r>
+                        <a:rPr sz="${encodeHTMLEntities(String(size * 100))}" b="${bold ? 1 : 0}">
+                            <a:solidFill><a:srgbClr val="${encodeHTMLEntities(color)}"/></a:solidFill>
+                        </a:rPr>
+                        <a:t>${encodeHTMLEntities(text)}</a:t>
+                    </a:r>
+                </a:p>
+            </c:rich>
+        </c:tx>
         <c:showLegendKey val="0"/>
+        <c:showVal val="0"/>
+        <c:showCatName val="0"/>
+        <c:showSerName val="0"/>
+        <c:showPercent val="0"/>
+        <c:showBubbleSize val="0"/>
+        <c:showLeaderLines val="0"/>
+    </c:dLbl>`;
+}
+
+function dataLabelsXml(items, mode, size, color, bold, options = {}) {
+    if (mode === 'none') return '';
+
+    const total = items.reduce((sum, item) => sum + Number(item.value || 0), 0);
+    const customLabels = mode === 'both' || (mode === 'percent' && options.forceCustomPercent);
+    const customXml = customLabels
+        ? items.map((item, index) => {
+            const text = mode === 'both'
+                ? `${item.value} (${percentText(item.value, total)})`
+                : percentText(item.value, total);
+            return customDataLabelXml(index, text, size, color, bold);
+        }).join('')
+        : '';
+    const labels = customLabels ? { showVal: 0, showPercent: 0 } : dataLabelFlags(mode);
+
+    return `<c:dLbls>
+        ${customXml}
+        <c:showLegendKey val="0"/>
+        ${dataLabelNumberFormat(mode)}
         <c:showVal val="${labels.showVal}"/>
         <c:showCatName val="0"/>
         <c:showSerName val="0"/>
         <c:showPercent val="${labels.showPercent}"/>
         <c:showBubbleSize val="0"/>
         <c:showLeaderLines val="0"/>
-        ${fontXml(theme.dataLabelSize, theme.dataLabelColor, theme.dataLabelBold)}
+        ${fontXml(size, color, bold)}
     </c:dLbls>`;
+}
+
+function pieSliceShapeXml(color) {
+    return `<c:spPr>
+        <a:solidFill><a:srgbClr val="${encodeHTMLEntities(color)}"/></a:solidFill>
+        <a:ln><a:noFill/></a:ln>
+        <a:effectLst>
+            <a:softEdge rad="38100"/>
+        </a:effectLst>
+    </c:spPr>`;
+}
+
+// Returns XML corresponding to a native editable 3D pieChart.
+chartGenerator.generatePie3DChart = function({ title, severities, theme }) {
+    const labelsXml = severities.map((item, index) => `<c:pt idx="${index}"><c:v>${encodeHTMLEntities(item.label)}</c:v></c:pt>`).join('');
+    const valuesXml = severities.map((item, index) => `<c:pt idx="${index}"><c:v>${encodeHTMLEntities(String(item.value))}</c:v></c:pt>`).join('');
+    const colorsXml = severities.map((item, index) => `<c:dPt><c:idx val="${index}"/>${pieSliceShapeXml(item.color)}</c:dPt>`).join('');
+    const dataLabelsXmlForPie = dataLabelsXml(
+        severities,
+        theme.dataLabelMode,
+        theme.dataLabelSize,
+        theme.dataLabelColor,
+        theme.dataLabelBold
+    );
 
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
@@ -515,7 +596,8 @@ chartGenerator.generatePie3DChart = function({ title, severities, theme }) {
                     <c:val><c:numRef><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="${severities.length}"/>${valuesXml}</c:numCache></c:numRef></c:val>
                     ${colorsXml}
                 </c:ser>
-                ${dataLabelsXml}
+                ${dataLabelsXmlForPie}
+                <c:firstSliceAng val="270"/>
             </c:pie3DChart>
             ${shapeXml(theme)}
         </c:plotArea>

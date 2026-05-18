@@ -22,6 +22,9 @@
   padding: 6px 8px
   border-radius: 4px
 
+.graph-template-example + .graph-template-example
+  margin-top: 6px
+
 .body--dark
   .graph-template-row
     border-top-color: rgba(255, 255, 255, .12)

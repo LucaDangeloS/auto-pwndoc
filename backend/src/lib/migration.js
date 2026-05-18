@@ -741,6 +741,25 @@ const STEPS = [
         },
     },
 
+    // Step 19: Default severity chart labels to percentages
+    {
+        id: 19,
+        name: 'default-severity-chart-labels-to-percent',
+        async run(_srcDb, dstDb) {
+            const col = dstDb.collection('settings');
+            const result = await col.updateMany(
+                {
+                    $or: [
+                        { 'report.public.chartTheme.dataLabelMode': { $exists: false } },
+                        { 'report.public.chartTheme.dataLabelMode': 'value' },
+                    ],
+                },
+                { $set: { 'report.public.chartTheme.dataLabelMode': 'percent' } }
+            );
+            console.log(`[migration] default-severity-chart-labels-to-percent: ${result.modifiedCount} settings documents updated`);
+        },
+    },
+
 ];
 
 // Runner

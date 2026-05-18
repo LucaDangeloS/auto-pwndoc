@@ -150,7 +150,7 @@ const DEFAULT_CHART_THEME = {
     dataLabelColor: '#ffffff',
     dataLabelSize: 11,
     dataLabelBold: true,
-    dataLabelMode: 'value',
+    dataLabelMode: 'percent',
     borderEnabled: false,
     borderColor: '#d9e2f3',
     borderWidth: 1,

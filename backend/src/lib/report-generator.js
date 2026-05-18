@@ -42,7 +42,7 @@ const DEFAULT_CHART_THEME = {
     dataLabelColor: 'FFFFFF',
     dataLabelSize: 11,
     dataLabelBold: true,
-    dataLabelMode: 'value',
+    dataLabelMode: 'percent',
     borderEnabled: false,
     borderColor: 'D9E2F3',
     borderWidth: 1,
@@ -88,7 +88,15 @@ async function generateDoc(audit) {
     var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
 
-    zip = new PizZip(content);
+    try {
+        zip = new PizZip(content);
+    }
+    catch (err) {
+        throw ({
+            fn: 'BadParameters',
+            message: `Template "${audit.template.name}.${audit.template.ext || 'docx'}" is not a valid DOCX file. Please re-upload the template.`
+        });
+    }
     normalizeRawTagParagraphs(zip);
 
     translate.setLocale(audit.language)
@@ -1007,10 +1015,11 @@ expressions.filters.count = function(input, severity, scoreType) {
 expressions.filters.pieChart = function(input, title, colorCrit, colorHigh, colorMed, colorLow) {
     if(!input) return input;
     if(!title) title = "";
-    if(!colorCrit) colorCrit = "000000";
-    if(!colorHigh) colorHigh = "FF0000";
-    if(!colorMed) colorMed = "FFA500";
-    if(!colorLow) colorLow = "FFFF00";
+    const colors = _.get(reportSettings, 'report.public.cvssColors', {});
+    colorCrit = stripHash(colors.criticalColor, '212121');
+    colorHigh = stripHash(colors.highColor, 'FE0000');
+    colorMed = stripHash(colors.mediumColor, 'F9A009');
+    colorLow = stripHash(colors.lowColor, '008000');
     var countCritical = 0;
     var countHigh = 0;
     var countMedium = 0;
@@ -1075,10 +1084,41 @@ function getFindingBaseSeverity(finding) {
     return 'Informational';
 }
 
+function getSeverityRank(severity) {
+    const ranks = { Informational: 0, None: 0, Low: 1, Medium: 2, High: 3, Critical: 4 };
+    return ranks[severity] || 0;
+}
+
+function getSeverityColor(severity, colors, fallback) {
+    const colorMap = {
+        Critical: stripHash(colors.criticalColor, '212121'),
+        High: stripHash(colors.highColor, 'FE0000'),
+        Medium: stripHash(colors.mediumColor, 'F9A009'),
+        Low: stripHash(colors.lowColor, '008000'),
+        Informational: stripHash(colors.noneColor, '4A86E8'),
+        None: stripHash(colors.noneColor, '4A86E8'),
+    };
+    return colorMap[severity] || fallback;
+}
+
+function normalizeChartLabelMode(mode, fallback) {
+    const normalized = typeof mode === 'string' ? mode.toLowerCase() : '';
+    return ['value', 'percent', 'both', 'none'].includes(normalized) ? normalized : fallback;
+}
+
+function chartThemeWithTemplateOverrides(labelMode, labelColor, titleColor) {
+    const theme = getChartTheme(reportSettings);
+    theme.dataLabelMode = normalizeChartLabelMode(labelMode, theme.dataLabelMode);
+    if (labelColor && typeof labelColor === 'string') theme.dataLabelColor = stripHash(labelColor, theme.dataLabelColor);
+    if (titleColor && typeof titleColor === 'string') theme.titleColor = stripHash(titleColor, theme.titleColor);
+    return theme;
+}
+
 // Generate a native editable 3D pie chart for findings severity.
 // Example: {@findings | severityPie3D}
 // Example: {@findings | severityPie3D:'Risk distribution'}
-expressions.filters.severityPie3D = function(input, title) {
+// Example: {@findings | severityPie3D:'Risk distribution':'both':'ffffff':'212121'}
+expressions.filters.severityPie3D = function(input, title, labelMode, labelColor, titleColor) {
     if (!input) return input;
 
     const counts = { Critical: 0, High: 0, Medium: 0, Low: 0, Informational: 0 };
@@ -1095,12 +1135,13 @@ expressions.filters.severityPie3D = function(input, title) {
         { key: 'Medium', label: $t('Medium'), value: counts.Medium, color: stripHash(colors.mediumColor, 'F9A009') },
         { key: 'Low', label: $t('Low'), value: counts.Low, color: stripHash(colors.lowColor, '008000') },
         { key: 'Informational', label: $t('Informational'), value: counts.Informational, color: stripHash(colors.noneColor, '4A86E8') },
-    ];
+    ].filter(item => item.value > 0);
+    if (severities.length === 0) return '';
 
     pie3DChartXML = chartGenerator.generatePie3DChart({
         title: title || $t('Vulnerabilities'),
         severities,
-        theme: getChartTheme(reportSettings),
+        theme: chartThemeWithTemplateOverrides(labelMode, labelColor, titleColor),
     });
 
     numberOfPie3DChart += 1;
@@ -1138,18 +1179,33 @@ expressions.filters.severityPie3D = function(input, title) {
 }
 
 // Generate a bar chart for findings data
-// Example: {@findings | barChart:'field':'title':'barColor':'labelColor':'labelSize'}
+// Example: {@findings | barChart:'field':'title':'labelMode':'numberColor':'titleColor'}
 // Example: {@findings | barChart:'vulnType':'My bar chart'}
-// Example: {@findings | barChart:'cvss.baseSeverity':'My chart':'FF0000':'AABB00':'1500'}
-expressions.filters.barChart = function(input, field, title, barColor, labelColor, labelSize) {
+// Example: {@findings | barChart:'category':'Findings by type':'both':'ffffff':'212121'}
+expressions.filters.barChart = function(input, field, title, barColor, labelColor, labelSize, dataLabelMode, dataLabelColor) {
     if(!input) return input;
     if(!field) return field;
-    if(!labelSize) labelSize = 1100
     if(!title) title = "";
-    if(!barColor) barColor = "000000";
-    if(!labelColor) labelColor = "000000";
+
+    var titleColor = arguments.length > 8 ? arguments[8] : null;
+    var axisLabelColor = "000000";
+    var axisLabelSize = 1100;
+    var labelModeArg = dataLabelMode;
+    var numberColorArg = dataLabelColor;
+
+    if (normalizeChartLabelMode(barColor, null)) {
+        labelModeArg = barColor;
+        numberColorArg = labelColor;
+        titleColor = labelSize;
+    } else {
+        axisLabelColor = labelColor || axisLabelColor;
+        axisLabelSize = labelSize || axisLabelSize;
+    }
+
+    var fallbackBarColor = "000000";
 
     var dataTypeCount = {};
+    var dataTypeSeverity = {};
 
     for(var i = 0; i < input.length; i++){
         var fieldValue = input[i];
@@ -1170,6 +1226,10 @@ expressions.filters.barChart = function(input, field, title, barColor, labelColo
             } else {
                 dataTypeCount[fieldValue] = 1;
             }
+            var findingSeverity = getFindingBaseSeverity(input[i]);
+            if (!dataTypeSeverity[fieldValue] || getSeverityRank(findingSeverity) > getSeverityRank(dataTypeSeverity[fieldValue])) {
+                dataTypeSeverity[fieldValue] = findingSeverity;
+            }
         }
     }
 
@@ -1177,15 +1237,27 @@ expressions.filters.barChart = function(input, field, title, barColor, labelColo
     legendXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
 
     var index = 0;
+    var colors = _.get(reportSettings, 'report.public.cvssColors', {});
+    var barColors = [];
+    var dataLabels = [];
 
     for (var type in dataTypeCount) {
 
         legendXML += ` <c:pt idx="${index}"><c:v>${encodeHTMLEntities(type.toString())}</c:v></c:pt>`
         valueXML += `<c:pt idx="${index}"><c:v>${encodeHTMLEntities(dataTypeCount[type].toString())}</c:v></c:pt>`
+        barColors.push(getSeverityColor(dataTypeSeverity[type], colors, fallbackBarColor));
+        dataLabels.push({ label: type.toString(), value: dataTypeCount[type] });
         index+=1;
     }
 
-    barChartXML = chartGenerator.generateBarChart(title, barColor, legendXML, valueXML, labelSize, labelColor);
+    const theme = chartThemeWithTemplateOverrides(labelModeArg, numberColorArg, titleColor);
+    barChartXML = chartGenerator.generateBarChart(title, fallbackBarColor, legendXML, valueXML, axisLabelSize, axisLabelColor, barColors, {
+        items: dataLabels,
+        mode: theme.dataLabelMode,
+        color: theme.dataLabelColor,
+        size: theme.dataLabelSize,
+        bold: theme.dataLabelBold,
+    }, theme.titleColor);
 
     numberOfBarChart +=1
 

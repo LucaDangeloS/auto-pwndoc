@@ -79,8 +79,10 @@ export default {
             translationGroups: [],
             relationCandidateLocale: '',
             relationCandidateVuln: '',
+            translationTargetLocale: '',
             showMappedRelationCandidates: false,
             translatingRelated: false,
+            translatingLocale: false,
             matchingDialog: false,
             matchingScope: 'unmapped',
             matchingThreshold: 0.35,
@@ -127,6 +129,9 @@ export default {
             if (this.relationCandidateLocale === val || !this.relationLanguageOptions.some(lang => lang.locale === this.relationCandidateLocale)) {
                 this.relationCandidateLocale = this.relationLanguageOptions[0]?.locale || '';
                 this.relationCandidateVuln = '';
+            }
+            if (!this.translationTargetLocale || !this.missingTranslationLanguageOptions.some(lang => lang.locale === this.translationTargetLocale)) {
+                this.translationTargetLocale = this.missingTranslationLanguageOptions[0]?.locale || '';
             }
         }
     },
@@ -180,6 +185,9 @@ export default {
                 if (!this.showMappedRelationCandidates && this.isVulnerabilityMapped(vuln._id)) return false;
                 return true;
             });
+        },
+        missingTranslationLanguageOptions: function() {
+            return this.languages.filter(lang => lang.locale !== this.currentLanguage && !this.getVulnTitleLocale(this.currentVulnerability, lang.locale));
         },
         vulnCategoriesOptions: function() {
             return this.$_.uniq(this.vulnerabilities.map(vuln => this.getDtCategory(vuln)).filter(Boolean)).sort()
@@ -268,9 +276,13 @@ export default {
 
         getVulnerabilities: function() {
             this.loading = true
-            VulnerabilityService.getVulnerabilities()
+            return VulnerabilityService.getVulnerabilities()
             .then((data) => {
                 this.vulnerabilities = data.data.datas
+                if (this.vulnerabilityId) {
+                    const current = this.vulnerabilities.find(vuln => vuln._id === this.vulnerabilityId);
+                    if (current) this.currentVulnerability = this.$_.cloneDeep(current);
+                }
                 this.loading = false
             })
             .catch((err) => {
@@ -453,6 +465,7 @@ export default {
             this.vulnerabilityId = row._id;
             this.relationCandidateLocale = this.languages.find(l => l.locale !== this.currentLanguage)?.locale || '';
             this.relationCandidateVuln = '';
+            this.translationTargetLocale = this.missingTranslationLanguageOptions[0]?.locale || '';
             if (this.UserService.isAllowed('vulnerabilities:update'))
                 this.getVulnUpdates(this.vulnerabilityId);
         },
@@ -853,7 +866,9 @@ export default {
             this.translatingRelated = true;
             VulnerabilityService.autoTranslateRelated(this.vulnerabilityId)
             .then((data) => {
-                this.getVulnerabilities();
+                this.getVulnerabilities().then(() => {
+                    this.translationTargetLocale = this.missingTranslationLanguageOptions[0]?.locale || '';
+                });
                 this.getTranslationGroups();
                 const result = data.data.datas || {};
                 Notify.create({
@@ -867,6 +882,31 @@ export default {
             })
             .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
             .finally(() => { this.translatingRelated = false; })
+        },
+
+        autoTranslateLocale: function() {
+            if (!this.translationTargetLocale) return;
+            this.translatingLocale = true;
+            VulnerabilityService.autoTranslateLocale(this.vulnerabilityId, {
+                sourceLocale: this.currentLanguage,
+                targetLocale: this.translationTargetLocale
+            })
+            .then((data) => {
+                this.getVulnerabilities();
+                this.getTranslationGroups();
+                const result = data.data.datas || {};
+                Notify.create({
+                    message: result.failed
+                        ? $t('vulnerabilityAutoTranslatePartial', {count: result.updated || 0, failed: result.failed})
+                        : $t('vulnerabilityLocaleAutoTranslateDone', {count: result.updated || 0}),
+                    color: result.failed ? 'warning' : 'positive',
+                    textColor: result.failed ? 'dark' : 'white',
+                    position: 'top-right'
+                })
+                if (!result.failed) this.translationTargetLocale = '';
+            })
+            .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
+            .finally(() => { this.translatingLocale = false; })
         },
 
         openMatchingDialog: function() {

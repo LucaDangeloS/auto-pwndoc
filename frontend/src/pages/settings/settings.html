@@ -1105,6 +1105,32 @@
                 </q-card-section>
             </q-expansion-item>
 
+            <!-- Vulnerability Translation -->
+            <q-expansion-item
+                :label="$t('aiPromptSectionVulnerabilityTranslation')"
+                :caption="$t('aiPromptSectionVulnerabilityTranslationCaption')"
+                icon="translate"
+                header-class="text-weight-medium"
+                :disable="!canEdit || !settings.ai.enabled"
+            >
+                <q-card-section class="q-col-gutter-md row q-pt-sm">
+                    <div class="col-12">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('vulnerabilityTranslationSystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input
+                            v-model="settings.ai.private.vulnerabilityTranslationSystemPrompt"
+                            outlined
+                            type="textarea"
+                            autogrow
+                            :disable="!canEdit || !settings.ai.enabled"
+                            :hint="vulnerabilityTranslationPromptHint"
+                        />
+                    </div>
+                </q-card-section>
+            </q-expansion-item>
+
             <!-- Per-field prompt overrides -->
             <q-separator />
             <q-card-section>

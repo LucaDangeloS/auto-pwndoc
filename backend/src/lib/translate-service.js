@@ -26,9 +26,26 @@ const LOCALE_NAMES = {
     'uk': 'Ukrainian'
 };
 
+const DEFAULT_TRANSLATION_SYSTEM_PROMPT = `You are a professional technical translator specializing in cybersecurity penetration test reports.
+Translate HTML content from {fromLanguage} to {toLanguage}.
+
+Rules:
+- Preserve ALL HTML tags exactly as-is (do not modify, add, or remove any tags)
+- Only translate the visible text content between tags
+- Maintain the same technical terminology and security jargon in {toLanguage}
+- Do NOT translate code snippets, commands, URLs, file paths, or technical identifiers
+- Do NOT wrap the output in markdown code fences or add any extra markup
+- Output only the translated HTML fragment`;
+
 function localeName(locale) {
     var base = locale.split('-')[0].toLowerCase();
     return LOCALE_NAMES[locale] || LOCALE_NAMES[base] || locale;
+}
+
+function fillTemplate(template, vars) {
+    return template.replace(/\{(\w+)\}/g, function(_, key) {
+        return vars[key] !== undefined ? vars[key] : '';
+    });
 }
 
 function ensureV1(url) {
@@ -107,22 +124,27 @@ function stripFences(text) {
         .trim();
 }
 
-async function translateField(chatModel, html, fieldName, fromLocale, toLocale) {
+function buildTranslationSystemPrompt(aiSettings, fieldName, fromLocale, toLocale) {
+    var priv = aiSettings && aiSettings.private ? aiSettings.private : {};
+    var fromName = localeName(fromLocale);
+    var toName = localeName(toLocale);
+    var template = priv.vulnerabilityTranslationSystemPrompt || DEFAULT_TRANSLATION_SYSTEM_PROMPT;
+
+    return fillTemplate(template, {
+        fieldName: fieldName,
+        fromLocale: fromLocale,
+        toLocale: toLocale,
+        fromLanguage: fromName,
+        toLanguage: toName
+    });
+}
+
+async function translateField(chatModel, html, fieldName, fromLocale, toLocale, aiSettings) {
     if (!html || !html.trim()) return html;
 
     var fromName = localeName(fromLocale);
     var toName = localeName(toLocale);
-
-    var systemPrompt = `You are a professional technical translator specializing in cybersecurity penetration test reports.
-Translate HTML content from ${fromName} to ${toName}.
-
-Rules:
-- Preserve ALL HTML tags exactly as-is (do not modify, add, or remove any tags)
-- Only translate the visible text content between tags
-- Maintain the same technical terminology and security jargon in ${toName}
-- Do NOT translate code snippets, commands, URLs, file paths, or technical identifiers
-- Do NOT wrap the output in markdown code fences or add any extra markup
-- Output only the translated HTML fragment`;
+    var systemPrompt = buildTranslationSystemPrompt(aiSettings, fieldName, fromLocale, toLocale);
 
     var userPrompt = `Translate this "${fieldName}" field from ${fromName} to ${toName}:
 
@@ -156,16 +178,16 @@ async function translateVulnerability(vuln, aiSettings) {
         try {
             var translatedDetail = { locale: targetLocale };
 
-            translatedDetail.title = await translateField(chatModel, sourceDetail.title, 'title', fromLocale, targetLocale);
+            translatedDetail.title = await translateField(chatModel, sourceDetail.title, 'title', fromLocale, targetLocale, aiSettings);
 
             if (sourceDetail.description) {
-                translatedDetail.description = await translateField(chatModel, sourceDetail.description, 'description', fromLocale, targetLocale);
+                translatedDetail.description = await translateField(chatModel, sourceDetail.description, 'description', fromLocale, targetLocale, aiSettings);
             }
             if (sourceDetail.observation) {
-                translatedDetail.observation = await translateField(chatModel, sourceDetail.observation, 'observation', fromLocale, targetLocale);
+                translatedDetail.observation = await translateField(chatModel, sourceDetail.observation, 'observation', fromLocale, targetLocale, aiSettings);
             }
             if (sourceDetail.remediation) {
-                translatedDetail.remediation = await translateField(chatModel, sourceDetail.remediation, 'remediation', fromLocale, targetLocale);
+                translatedDetail.remediation = await translateField(chatModel, sourceDetail.remediation, 'remediation', fromLocale, targetLocale, aiSettings);
             }
             if (sourceDetail.references && sourceDetail.references.length) {
                 translatedDetail.references = sourceDetail.references;
@@ -204,21 +226,21 @@ async function translateVulnerabilityUpdate(vuln, aiSettings) {
             var existingIndex = vuln.details.findIndex(d => d.locale === targetLocale);
             var translatedDetail = existingIndex >= 0 ? vuln.details[existingIndex].toObject() : { locale: targetLocale };
 
-            translatedDetail.title = await translateField(chatModel, sourceDetail.title, 'title', fromLocale, targetLocale);
+            translatedDetail.title = await translateField(chatModel, sourceDetail.title, 'title', fromLocale, targetLocale, aiSettings);
 
             if (sourceDetail.description !== undefined) {
                 translatedDetail.description = sourceDetail.description
-                    ? await translateField(chatModel, sourceDetail.description, 'description', fromLocale, targetLocale)
+                    ? await translateField(chatModel, sourceDetail.description, 'description', fromLocale, targetLocale, aiSettings)
                     : sourceDetail.description;
             }
             if (sourceDetail.observation !== undefined) {
                 translatedDetail.observation = sourceDetail.observation
-                    ? await translateField(chatModel, sourceDetail.observation, 'observation', fromLocale, targetLocale)
+                    ? await translateField(chatModel, sourceDetail.observation, 'observation', fromLocale, targetLocale, aiSettings)
                     : sourceDetail.observation;
             }
             if (sourceDetail.remediation !== undefined) {
                 translatedDetail.remediation = sourceDetail.remediation
-                    ? await translateField(chatModel, sourceDetail.remediation, 'remediation', fromLocale, targetLocale)
+                    ? await translateField(chatModel, sourceDetail.remediation, 'remediation', fromLocale, targetLocale, aiSettings)
                     : sourceDetail.remediation;
             }
             if (sourceDetail.references !== undefined) {
@@ -250,20 +272,20 @@ async function translateDetail(sourceDetail, fromLocale, toLocale, aiSettings) {
     var chatModel = buildChatModel(aiSettings);
     var translatedDetail = { locale: toLocale };
 
-    translatedDetail.title = await translateField(chatModel, sourceDetail.title, 'title', fromLocale, toLocale);
+    translatedDetail.title = await translateField(chatModel, sourceDetail.title, 'title', fromLocale, toLocale, aiSettings);
     if (sourceDetail.description !== undefined) {
         translatedDetail.description = sourceDetail.description
-            ? await translateField(chatModel, sourceDetail.description, 'description', fromLocale, toLocale)
+            ? await translateField(chatModel, sourceDetail.description, 'description', fromLocale, toLocale, aiSettings)
             : sourceDetail.description;
     }
     if (sourceDetail.observation !== undefined) {
         translatedDetail.observation = sourceDetail.observation
-            ? await translateField(chatModel, sourceDetail.observation, 'observation', fromLocale, toLocale)
+            ? await translateField(chatModel, sourceDetail.observation, 'observation', fromLocale, toLocale, aiSettings)
             : sourceDetail.observation;
     }
     if (sourceDetail.remediation !== undefined) {
         translatedDetail.remediation = sourceDetail.remediation
-            ? await translateField(chatModel, sourceDetail.remediation, 'remediation', fromLocale, toLocale)
+            ? await translateField(chatModel, sourceDetail.remediation, 'remediation', fromLocale, toLocale, aiSettings)
             : sourceDetail.remediation;
     }
     if (sourceDetail.references !== undefined) translatedDetail.references = sourceDetail.references;
@@ -272,4 +294,9 @@ async function translateDetail(sourceDetail, fromLocale, toLocale, aiSettings) {
     return translatedDetail;
 }
 
-module.exports = { translateVulnerability, translateVulnerabilityUpdate, translateDetail };
+module.exports = {
+    translateVulnerability,
+    translateVulnerabilityUpdate,
+    translateDetail,
+    _buildTranslationSystemPrompt: buildTranslationSystemPrompt
+};

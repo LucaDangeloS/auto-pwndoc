@@ -3,6 +3,7 @@ module.exports = function () {
   var utils = require("../src/lib/utils")
   var chartGenerator = require("../src/lib/chart-generator")
   var reportGenerator = require("../src/lib/report-generator")
+  var translateService = require("../src/lib/translate-service")
 
   describe('Lib functions Suite Tests', () => {
 
@@ -67,6 +68,25 @@ module.exports = function () {
         expect(xml).toContain('<a:srgbClr val="4A86E8"/>')
         expect(xml).toContain('<c:v>Informational</c:v>')
         expect(xml).toContain('<c:v>5</c:v>')
+      })
+    })
+
+    describe('vulnerability translation prompt tests', () => {
+      it('uses configurable vulnerability translation system prompt tags', () => {
+        var prompt = translateService._buildTranslationSystemPrompt({
+          private: {
+            vulnerabilityTranslationSystemPrompt: 'Translate {fieldName} from {fromLanguage}/{fromLocale} to {toLanguage}/{toLocale}.'
+          }
+        }, 'description', 'en', 'es')
+
+        expect(prompt).toEqual('Translate description from English/en to Spanish/es.')
+      })
+
+      it('falls back to the built-in vulnerability translation prompt', () => {
+        var prompt = translateService._buildTranslationSystemPrompt({ private: {} }, 'title', 'en', 'de')
+
+        expect(prompt).toContain('professional technical translator')
+        expect(prompt).toContain('from English to German')
       })
     })
 

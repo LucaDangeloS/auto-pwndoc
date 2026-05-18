@@ -441,6 +441,26 @@
                         <div class="col-12 col-md-2 flex items-center"><q-toggle v-model="showMappedRelationCandidates" :label="$t('showMapped')" /></div>
                         <div class="col-12 col-md-2 flex items-center"><q-btn color="secondary" unelevated no-caps :label="$t('relateTranslation')" :disable="!relationCandidateVuln" @click="relateSelectedVulnerability" /></div>
                     </div>
+                    <q-separator v-if="UserService.isAllowed('vulnerabilities:update')" class="q-my-md" />
+                    <div v-if="UserService.isAllowed('vulnerabilities:update')" class="row q-col-gutter-md items-center">
+                        <div class="col-12 col-md-5">
+                            <div class="text-subtitle2 text-weight-medium">{{$t('missingLanguageTranslation')}}</div>
+                            <div class="text-caption text-grey-7">{{$t('missingLanguageTranslationHint')}}</div>
+                        </div>
+                        <q-select class="col-12 col-md-4" :label="$t('language')" v-model="translationTargetLocale" :options="missingTranslationLanguageOptions" option-value="locale" option-label="language" map-options emit-value outlined :disable="missingTranslationLanguageOptions.length === 0" />
+                        <div class="col-12 col-md-3 flex items-center">
+                            <q-btn
+                                color="secondary"
+                                unelevated
+                                no-caps
+                                icon="translate"
+                                :label="$t('autoTranslateLanguage')"
+                                :loading="translatingLocale"
+                                :disable="!translationTargetLocale || missingTranslationLanguageOptions.length === 0"
+                                @click="autoTranslateLocale"
+                            />
+                        </div>
+                    </div>
                 </q-card-section>
             </q-card>
         </q-card-section>

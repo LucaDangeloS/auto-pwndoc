@@ -16,6 +16,7 @@ module.exports = function(request, app) {
         "fillProofsSystemPrompt": "",
         "executiveSummarySystemPrompt": "",
         "severitySummarySystemPrompt": "",
+        "vulnerabilityTranslationSystemPrompt": "",
         "field_description_generateSystemPrompt": "",
         "field_description_completeSystemPrompt": "",
         "field_description_rewriteSystemPrompt": "",

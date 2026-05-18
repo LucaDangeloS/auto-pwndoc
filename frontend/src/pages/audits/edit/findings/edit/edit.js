@@ -71,6 +71,7 @@ export default {
       _baselining: false,
       // _fetchDone: true once Promise.all has resolved; used by onEditorReady
       _fetchDone: false,
+      deleting: false,
       AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
       similarVulnModalOpen: false,
       similarVulnResults: [],
@@ -135,6 +136,11 @@ export default {
   },
 
   beforeRouteLeave(to, from, next) {
+    if (this.deleting) {
+      next();
+      return;
+    }
+
     // Only sync editors if they are fully initialised — avoids flushing
     // empty strings from editors that haven't connected yet.
     if (!this.loading) Utils.syncEditors(this.$refs);
@@ -165,6 +171,11 @@ export default {
   },
 
   beforeRouteUpdate(to, from, next) {
+    if (this.deleting) {
+      next();
+      return;
+    }
+
     if (!this.loading) Utils.syncEditors(this.$refs);
 
     if (this.loading) {
@@ -242,6 +253,9 @@ export default {
         .catch((err) => {
           console.error('Error loading finding data:', err);
           this.loading = false;
+          if (err.response && err.response.status === 404) {
+            this.redirectToAvailableFinding();
+          }
         });
     },
 
@@ -333,6 +347,19 @@ export default {
         ok: { label: $t('btn.confirm'), color: 'negative' },
         cancel: { label: $t('btn.cancel'), color: 'white' },
       }).onOk(() => {
+        const generalPath = `/audits/${this.auditId}/general`;
+        const findings = (this.audit && this.audit.findings) || [];
+        const currentIndex = findings.findIndex(e => e._id === this.findingId);
+        let fallbackFinding = null;
+
+        if (currentIndex !== -1) {
+          fallbackFinding = findings[currentIndex + 1] || findings[currentIndex - 1] || null;
+        } else {
+          fallbackFinding = findings.find(e => e._id !== this.findingId) || null;
+        }
+
+        const nextPath = fallbackFinding ? `/audits/${this.auditId}/findings/${fallbackFinding._id}` : generalPath;
+        this.deleting = true;
         AuditService.deleteFinding(this.auditId, this.findingId)
           .then(() => {
             Notify.create({
@@ -344,23 +371,12 @@ export default {
             // Mark as clean so beforeRouteLeave lets navigation through
             this.findingOrig = this.$_.cloneDeep(this.finding);
             this.needSave = false;
-            const generalPath = `/audits/${this.auditId}/general`;
-            const findings = this.$parent.audit.findings || [];
-            const currentIndex = findings.findIndex(e => e._id === this.findingId);
-            let fallbackFinding = null;
-
-            if (currentIndex !== -1) {
-              fallbackFinding = findings[currentIndex + 1] || findings[currentIndex - 1] || null;
-            } else {
-              fallbackFinding = findings.find(e => e._id !== this.findingId) || null;
-            }
-
-            const nextPath = fallbackFinding ? `/audits/${this.auditId}/findings/${fallbackFinding._id}` : generalPath;
             this.$router.push(nextPath).catch(() => {
               if (nextPath !== generalPath) this.$router.push(generalPath);
             });
           })
           .catch((err) => {
+            this.deleting = false;
             Notify.create({
               message: err.response.data.datas,
               color: 'negative',
@@ -368,6 +384,20 @@ export default {
               position: 'top-right',
             });
           });
+      });
+    },
+
+    redirectToAvailableFinding() {
+      const generalPath = `/audits/${this.auditId}/general`;
+      const findings = (this.audit && this.audit.findings) || [];
+      const fallbackFinding = findings.find(e => e._id !== this.findingId) || null;
+      const nextPath = fallbackFinding ? `/audits/${this.auditId}/findings/${fallbackFinding._id}` : generalPath;
+
+      this.deleting = true;
+      this.findingOrig = this.$_.cloneDeep(this.finding);
+      this.needSave = false;
+      this.$router.push(nextPath).catch(() => {
+        if (nextPath !== generalPath) this.$router.push(generalPath);
       });
     },
 

@@ -1,6 +1,6 @@
 <template>
 <div class="row q-col-gutter-sm taxonomy-picker">
-  <div class="col-md-3 col-12">
+  <div class="col-md-6 col-12">
     <q-select
       outlined dense
       :label="$t('type')"
@@ -14,7 +14,7 @@
       :disable="readonly"
     />
   </div>
-  <div class="col-md-3 col-12">
+  <div class="col-md-6 col-12">
     <q-select
       outlined dense
       :label="$t('category')"
@@ -28,7 +28,7 @@
       :disable="readonly || !current.type"
     />
   </div>
-  <div class="col-md-3 col-12">
+  <div class="col-md-6 col-12">
     <q-select
       outlined dense
       :label="$t('subcategory')"
@@ -42,7 +42,7 @@
       :disable="readonly || !current.category"
     />
   </div>
-  <div class="col-md-3 col-12">
+  <div class="col-md-6 col-12">
     <q-select
       outlined dense
       :label="$t('code')"

@@ -3,7 +3,7 @@
     <q-card class="ai-diff-modal column no-wrap">
       <q-bar class="bg-purple text-white">
         <q-icon name="auto_awesome" />
-        <span class="q-ml-sm text-body1">{{ $t('aiReviewTitle') }}</span>
+        <span class="q-ml-sm text-body1">{{ currentTitle }}</span>
         <q-space />
         <q-btn dense flat icon="close" @click="show = false">
           <q-tooltip>{{ $t('btn.close') }}</q-tooltip>
@@ -11,6 +11,23 @@
       </q-bar>
 
       <div class="q-pa-md column no-wrap col" style="min-height:0">
+        <q-tabs
+          v-if="reviewItems.length > 1"
+          :model-value="activeReviewId"
+          dense
+          align="left"
+          class="ai-diff-tabs q-mb-sm"
+          @update:model-value="setActiveReview"
+        >
+          <q-tab
+            v-for="item in reviewItems"
+            :key="item.id"
+            :name="item.id"
+            :label="item.title || $t('aiReviewTitle')"
+            no-caps
+          />
+        </q-tabs>
+
         <div class="text-caption text-grey-7 q-mb-md">{{ $t('aiReviewHint') }}</div>
 
         <div class="row q-col-gutter-md col" style="min-height:0">
@@ -88,8 +105,10 @@ export default defineComponent({
 
   props: {
     modelValue: { type: Boolean, default: false },
+    title: { type: String, default: '' },
     previousHtml: { type: String, default: '' },
     proposedHtml: { type: String, default: '' },
+    reviews: { type: Array, default: () => [] },
   },
 
   emits: ['update:modelValue', 'apply', 'regenerate'],
@@ -97,6 +116,8 @@ export default defineComponent({
   data() {
     return {
       editedHtml: '',
+      editedHtmlById: {},
+      activeReviewId: '',
     };
   },
 
@@ -106,39 +127,92 @@ export default defineComponent({
       set(v) { this.$emit('update:modelValue', v); }
     },
     displayPreviousSafe() {
-      const html = this.previousHtml;
+      const html = this.currentPreviousHtml;
       if (!html) return `<em class="text-grey-5">${this.$t('empty')}</em>`;
       return sanitizeHtml(html);
+    },
+    reviewItems() {
+      return Array.isArray(this.reviews) ? this.reviews : [];
+    },
+    isMultiReview() {
+      return this.reviewItems.length > 0;
+    },
+    currentReview() {
+      if (!this.isMultiReview) return null;
+      return this.reviewItems.find(item => item.id === this.activeReviewId) || this.reviewItems[0] || null;
+    },
+    currentPreviousHtml() {
+      return this.currentReview ? (this.currentReview.previousHtml || '') : this.previousHtml;
+    },
+    currentProposedHtml() {
+      return this.currentReview ? (this.currentReview.proposedHtml || '') : this.proposedHtml;
+    },
+    currentTitle() {
+      return (this.currentReview && this.currentReview.title) || this.title || this.$t('aiReviewTitle');
     },
   },
 
   watch: {
     modelValue(v) {
-      if (v) this.setEditedHtml(this.proposedHtml || '');
+      if (v) this.ensureActiveReview();
     },
     proposedHtml(value) {
-      if (this.show) this.setEditedHtml(value || '');
+      if (this.show && !this.isMultiReview) this.setEditedHtml(value || '');
+    },
+    reviews: {
+      deep: true,
+      handler() {
+        if (this.show) this.ensureActiveReview();
+      },
     },
   },
 
   methods: {
-    setEditedHtml(value) {
+    ensureActiveReview() {
+      if (this.isMultiReview) {
+        if (!this.reviewItems.some(item => item.id === this.activeReviewId)) {
+          this.activeReviewId = this.reviewItems[0].id;
+        }
+        const current = this.currentReview;
+        if (current && this.editedHtmlById[current.id] === undefined) {
+          this.setEditedHtml(current.proposedHtml || '', current.id);
+        } else if (current) {
+          this.setEditedHtml(this.editedHtmlById[current.id] || '', current.id);
+        }
+      } else {
+        this.activeReviewId = '';
+        this.setEditedHtml(this.proposedHtml || '');
+      }
+    },
+    setActiveReview(id) {
+      this.updateEditedHtml();
+      this.activeReviewId = id;
+      const value = this.editedHtmlById[id] !== undefined
+        ? this.editedHtmlById[id]
+        : ((this.currentReview && this.currentReview.proposedHtml) || '');
+      this.setEditedHtml(value, id);
+    },
+    setEditedHtml(value, id = null) {
       const safe = sanitizeHtml(value || '');
       this.editedHtml = safe;
+      if (id) this.editedHtmlById = { ...this.editedHtmlById, [id]: safe };
       this.$nextTick(() => {
         if (this.$refs.proposedEditor) this.$refs.proposedEditor.innerHTML = safe;
       });
     },
     updateEditedHtml() {
       this.editedHtml = this.$refs.proposedEditor ? this.$refs.proposedEditor.innerHTML : '';
+      if (this.currentReview) {
+        this.editedHtmlById = { ...this.editedHtmlById, [this.currentReview.id]: this.editedHtml };
+      }
     },
     apply() {
       this.updateEditedHtml();
-      this.$emit('apply', sanitizeHtml(this.editedHtml));
-      this.show = false;
+      this.$emit('apply', sanitizeHtml(this.editedHtml), this.currentReview);
+      if (!this.isMultiReview || this.reviewItems.length <= 1) this.show = false;
     },
     regenerate() {
-      this.$emit('regenerate');
+      this.$emit('regenerate', this.currentReview);
     },
   },
 });
@@ -171,6 +245,10 @@ export default defineComponent({
   outline-offset: 1px;
 }
 
+.ai-diff-tabs {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
 @media (max-width: 600px) {
   .ai-diff-modal {
     width: calc(100vw - 16px);
@@ -188,6 +266,10 @@ export default defineComponent({
   .ai-diff-pane-editable {
     background: rgba(156, 39, 176, 0.12);
     border-color: rgba(156, 39, 176, 0.3);
+  }
+
+  .ai-diff-tabs {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
   }
 }
 </style>

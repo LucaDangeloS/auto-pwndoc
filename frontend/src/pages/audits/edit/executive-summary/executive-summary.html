@@ -179,9 +179,9 @@
   </div>
 
   <ai-diff-modal
-    v-model="aiReview.open"
-    :previous-html="aiReview.previousHtml"
-    :proposed-html="aiReview.proposedHtml"
+    :model-value="aiReviewOpen"
+    :reviews="aiReviews"
+    @update:model-value="setAiReviewOpen"
     @apply="applyAiReview"
     @regenerate="regenerateAi"
   />

@@ -148,6 +148,7 @@ const SettingSchema = new Schema({
         fillProofsSystemPrompt: { type: String, default: '' },
         executiveSummarySystemPrompt: { type: String, default: '' },
         severitySummarySystemPrompt: { type: String, default: '' },
+        vulnerabilityTranslationSystemPrompt: { type: String, default: '' },
         field_description_generateSystemPrompt: { type: String, default: '' },
         field_description_completeSystemPrompt: { type: String, default: '' },
         field_description_rewriteSystemPrompt: { type: String, default: '' },

@@ -24,7 +24,7 @@
     >
       <div class="template-hint-tooltip">
         <div class="text-caption text-weight-medium q-mb-xs text-grey-4">{{ $t('templateHintLabel') }}</div>
-        <code class="template-hint-code">{{ templateVar }}</code>
+        <code class="template-hint-code">{{ displayTemplateVar }}</code>
         <div v-if="description" class="template-hint-description q-mt-sm">{{ description }}</div>
         <template v-if="examples.length">
           <div class="text-caption text-weight-medium q-mt-sm q-mb-xs text-grey-4">{{ $t('templateHintExamples') }}</div>
@@ -33,7 +33,7 @@
             :key="example"
             class="template-hint-code template-hint-example"
           >
-            {{ example }}
+            {{ displayTemplateValue(example) }}
           </code>
         </template>
       </div>
@@ -64,10 +64,25 @@ export default {
       default: () => []
     }
   },
+  computed: {
+    displayTemplateVar() {
+      return this.displayTemplateValue(this.templateVar)
+    }
+  },
   beforeUnmount() {
     this.cancelClose()
   },
   methods: {
+    displayTemplateValue(value) {
+      const trimmed = (value || '').trim()
+      if (!trimmed || trimmed.startsWith('{')) {
+        return trimmed
+      }
+      if (trimmed.includes('| convertHTML')) {
+        return `{@${trimmed}}`
+      }
+      return `{${trimmed}}`
+    },
     openHint() {
       this.cancelClose()
       this.isOpen = true

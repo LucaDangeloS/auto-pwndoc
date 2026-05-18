@@ -784,8 +784,6 @@
     severitySummaries: 'Severity Summaries',
     reportGraphTemplateHints: 'Report graph template hints',
     reportGraphTemplateHintsIntro: 'Use these placeholders in DOCX templates to render editable Word charts from the audit findings.',
-    reportFieldTemplateHints: 'Report field template hints',
-    reportFieldTemplateHintsIntro: 'Use these placeholders for the executive-summary text fields exposed to DOCX templates.',
     graphSeverityPie3D: '3D severity pie',
     graphSeverityPie3DUseCase: 'Shows the distribution of findings by severity. Optional parameters after the title set labels to value, percent, both, or none, then set number color and title color. Severity colors always come from app settings.',
     graphSeverityPie3DNamed: '3D severity pie with title',

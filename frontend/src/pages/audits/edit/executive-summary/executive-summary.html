@@ -25,7 +25,7 @@
         <q-card-section>
           <div class="row items-center q-mb-sm">
             <div class="text-subtitle1 text-weight-medium">{{$t('overallRisk')}}</div>
-            <template-hint template-var="audit.overall_risk" :description="$t('templateHintAuditAlias')" class="q-ml-sm" />
+            <template-hint template-var="{audit.overall_risk}" :description="$t('templateHintAuditAlias')" class="q-ml-sm" />
           </div>
           <q-select
             v-model="executiveSummary.overallRisk"
@@ -94,30 +94,6 @@
                   {{ example }}
                 </code>
               </template>
-            </div>
-          </q-card-section>
-        </q-expansion-item>
-      </q-card>
-
-      <!-- Report Field Template Hints -->
-      <q-card class="q-mb-md">
-        <q-expansion-item
-          icon="article"
-          :label="$t('reportFieldTemplateHints')"
-          :caption="$t('reportFieldTemplateHintsIntro')"
-          header-class="text-subtitle1 text-weight-medium"
-        >
-          <q-card-section class="q-pt-none">
-            <div
-              v-for="hint in fieldTemplateHints"
-              :key="hint.templateVar"
-              class="graph-template-row"
-          >
-              <div class="row items-center q-mb-xs">
-                <span class="text-weight-medium">{{ hint.title }}</span>
-              </div>
-              <div class="text-caption text-grey-7 q-mb-xs">{{ hint.useCase }}</div>
-              <code class="graph-template-code">{{ hint.templateVar }}</code>
             </div>
           </q-card-section>
         </q-expansion-item>

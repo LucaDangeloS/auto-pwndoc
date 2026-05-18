@@ -781,8 +781,6 @@
     severitySummaries: 'Resúmenes por severidad',
     reportGraphTemplateHints: 'Ayuda de gráficos para la plantilla',
     reportGraphTemplateHintsIntro: 'Usa estos marcadores en plantillas DOCX para renderizar gráficos editables de Word a partir de los hallazgos de la auditoría.',
-    reportFieldTemplateHints: 'Ayuda de campos para la plantilla',
-    reportFieldTemplateHintsIntro: 'Usa estos marcadores para los campos del resumen ejecutivo expuestos a las plantillas DOCX.',
     graphSeverityPie3D: 'Circular 3D por severidad',
     graphSeverityPie3DUseCase: 'Muestra la distribución de hallazgos por severidad. Los parámetros opcionales tras el título configuran etiquetas como valor, porcentaje, ambos o ninguna, y después el color del número y del título. Los colores de severidad salen siempre de la configuración.',
     graphSeverityPie3DNamed: 'Circular 3D por severidad con título',

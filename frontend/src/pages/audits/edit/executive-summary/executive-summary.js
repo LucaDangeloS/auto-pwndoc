@@ -150,46 +150,6 @@ export default {
             ];
         },
 
-        fieldTemplateHints() {
-            return [
-                {
-                    title: this.$t('overallRisk'),
-                    useCase: this.$t('templateHintAuditAlias'),
-                    templateVar: '{audit.overall_risk}'
-                },
-                {
-                    title: this.$t('executiveSummaryText'),
-                    useCase: this.$t('templateHintAuditHtmlAlias'),
-                    templateVar: '{@audit.executive_summary | convertHTML}'
-                },
-                {
-                    title: this.$t('severitySummaries'),
-                    useCase: this.$t('templateHintAuditHtmlAlias'),
-                    templateVar: '{@audit.critical_summary | convertHTML}'
-                },
-                {
-                    title: this.$t('severitySummaries'),
-                    useCase: this.$t('templateHintAuditHtmlAlias'),
-                    templateVar: '{@audit.high_summary | convertHTML}'
-                },
-                {
-                    title: this.$t('severitySummaries'),
-                    useCase: this.$t('templateHintAuditHtmlAlias'),
-                    templateVar: '{@audit.medium_summary | convertHTML}'
-                },
-                {
-                    title: this.$t('severitySummaries'),
-                    useCase: this.$t('templateHintAuditHtmlAlias'),
-                    templateVar: '{@audit.low_summary | convertHTML}'
-                },
-                {
-                    title: this.$t('severitySummaries'),
-                    useCase: this.$t('templateHintAuditHtmlAlias'),
-                    templateVar: '{@audit.informative_summary | convertHTML}'
-                }
-            ];
-        },
-
         findingsDigest() {
             return this.auditFindings
                 .map(f => this._findingDigestLine(f))

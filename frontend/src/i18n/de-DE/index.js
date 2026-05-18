@@ -779,8 +779,6 @@
     severitySummaries: 'Zusammenfassungen nach Schweregrad',
     reportGraphTemplateHints: 'Diagrammhinweise für Berichtsvorlagen',
     reportGraphTemplateHintsIntro: 'Verwenden Sie diese Platzhalter in DOCX-Vorlagen, um bearbeitbare Word-Diagramme aus den Audit-Befunden zu erzeugen.',
-    reportFieldTemplateHints: 'Feldhinweise für Berichtsvorlagen',
-    reportFieldTemplateHintsIntro: 'Verwenden Sie diese Platzhalter für die Felder der Zusammenfassung in DOCX-Vorlagen.',
     graphSeverityPie3D: '3D-Kreisdiagramm nach Schweregrad',
     graphSeverityPie3DUseCase: 'Zeigt die Verteilung der Befunde nach Schweregrad. Optionale Parameter nach dem Titel setzen Beschriftungen auf Wert, Prozent, beides oder keine und danach Zahlenfarbe und Titelfarbe. Schweregradfarben kommen immer aus den App-Einstellungen.',
     graphSeverityPie3DNamed: '3D-Kreisdiagramm mit Titel',

@@ -2,6 +2,7 @@
 
 const { ChatOpenAI, AzureChatOpenAI } = require('@langchain/openai');
 const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
+const OpenWebUIProvider = require('./openwebui-provider');
 
 const LOCALE_NAMES = {
     'en': 'English',
@@ -103,6 +104,15 @@ function buildChatModel(aiSettings) {
                 apiKey: apiKey || 'none',
                 configuration: { baseURL: ensureV1(apiUrl || 'http://localhost:11434') }
             });
+
+        case OpenWebUIProvider.PROVIDER:
+            return new ChatOpenAI(OpenWebUIProvider.chatModelOptions({
+                model,
+                temperature,
+                maxTokens,
+                apiUrl,
+                apiKey
+            }));
 
         case 'openai':
         default:

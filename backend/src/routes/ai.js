@@ -6,6 +6,7 @@ module.exports = function(app) {
     var aiService = require('../lib/ai-service');
     var embeddingService = require('../lib/embedding-service');
     var visionService = require('../lib/vision-service');
+    var OpenWebUIProvider = require('../lib/openwebui-provider');
     var Settings = require('mongoose').model('Settings');
 
     async function getAiSettings() {
@@ -196,10 +197,13 @@ module.exports = function(app) {
             function defaultUrl(p) {
                 if (p === 'openai') return 'https://api.openai.com/v1';
                 if (p === 'ollama') return 'http://ollama:11434/v1';
+                if (OpenWebUIProvider.isOpenWebUIProvider(p)) return OpenWebUIProvider.DEFAULT_BASE_URL;
                 return '';
             }
 
-            var baseUrl = ensureV1(apiUrl) || defaultUrl(provider);
+            var baseUrl = OpenWebUIProvider.isOpenWebUIProvider(provider)
+                ? OpenWebUIProvider.normalizeBaseUrl(apiUrl)
+                : ensureV1(apiUrl) || defaultUrl(provider);
             if (!baseUrl) {
                 return Response.Ok(res, { source: 'manual', models: [], note: 'Configure the API URL first.' });
             }
@@ -343,15 +347,23 @@ module.exports = function(app) {
                         azureOpenAIApiVersion: azure.apiVersion || '2024-06-01'
                     });
                 } else {
-                    chatModel = new ChatOpenAI({
-                        model,
-                        temperature: 0, maxTokens: 1024,
-                        apiKey: apiKey || (provider === 'ollama' ? 'ollama' : provider === 'anthropic' ? 'anthropic' : undefined),
-                        configuration: apiUrl ? { baseURL: ensureV1(apiUrl) }
-                            : provider === 'anthropic' ? { baseURL: 'https://api.anthropic.com/v1' }
-                            : provider === 'ollama' ? { baseURL: ensureV1('http://ollama:11434') }
-                            : {}
-                    });
+                    chatModel = OpenWebUIProvider.isOpenWebUIProvider(provider)
+                        ? new ChatOpenAI(OpenWebUIProvider.chatModelOptions({
+                            model,
+                            temperature: 0,
+                            maxTokens: 1024,
+                            apiUrl,
+                            apiKey
+                        }))
+                        : new ChatOpenAI({
+                            model,
+                            temperature: 0, maxTokens: 1024,
+                            apiKey: apiKey || (provider === 'ollama' ? 'ollama' : provider === 'anthropic' ? 'anthropic' : undefined),
+                            configuration: apiUrl ? { baseURL: ensureV1(apiUrl) }
+                                : provider === 'anthropic' ? { baseURL: 'https://api.anthropic.com/v1' }
+                                : provider === 'ollama' ? { baseURL: ensureV1('http://ollama:11434') }
+                                : {}
+                        });
                 }
 
                 const response = await chatModel.invoke([
@@ -399,6 +411,7 @@ module.exports = function(app) {
                 } else {
                     const baseUrl = normalizeUrl(rawUrl,
                         provider === 'ollama' ? 'http://ollama:11434' :
+                        provider === 'openwebui' ? OpenWebUIProvider.DEFAULT_BASE_URL :
                         provider === 'openai' ? 'https://api.openai.com/v1' : '');
                     embeddings = new OpenAIEmbeddings({
                         model,
@@ -452,15 +465,23 @@ module.exports = function(app) {
                         azureOpenAIApiVersion: azure.apiVersion || '2024-06-01'
                     });
                 } else {
-                    chatModel = new ChatOpenAI({
-                        model,
-                        temperature: 0, maxTokens: 1024,
-                        apiKey: apiKey || (provider === 'ollama' ? 'ollama' : provider === 'anthropic' ? 'anthropic' : undefined),
-                        configuration: apiUrl ? { baseURL: ensureV1(apiUrl) }
-                            : provider === 'anthropic' ? { baseURL: 'https://api.anthropic.com/v1' }
-                            : provider === 'ollama' ? { baseURL: ensureV1('http://ollama:11434') }
-                            : {}
-                    });
+                    chatModel = OpenWebUIProvider.isOpenWebUIProvider(provider)
+                        ? new ChatOpenAI(OpenWebUIProvider.chatModelOptions({
+                            model,
+                            temperature: 0,
+                            maxTokens: 1024,
+                            apiUrl,
+                            apiKey
+                        }))
+                        : new ChatOpenAI({
+                            model,
+                            temperature: 0, maxTokens: 1024,
+                            apiKey: apiKey || (provider === 'ollama' ? 'ollama' : provider === 'anthropic' ? 'anthropic' : undefined),
+                            configuration: apiUrl ? { baseURL: ensureV1(apiUrl) }
+                                : provider === 'anthropic' ? { baseURL: 'https://api.anthropic.com/v1' }
+                                : provider === 'ollama' ? { baseURL: ensureV1('http://ollama:11434') }
+                                : {}
+                        });
                 }
 
                 const response = await chatModel.invoke([

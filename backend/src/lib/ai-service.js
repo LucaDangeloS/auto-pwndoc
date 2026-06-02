@@ -2,6 +2,7 @@
 
 const { ChatOpenAI, AzureChatOpenAI } = require('@langchain/openai');
 const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
+const OpenWebUIProvider = require('./openwebui-provider');
 
 const DEFAULT_SYSTEM_PROMPTS = {
     generate: `You are a cybersecurity expert writing professional penetration test reports.
@@ -157,6 +158,15 @@ function buildChatModel(aiConfig) {
                 apiKey: apiKey || 'none',
                 configuration: { baseURL: ensureV1(apiUrl || 'http://localhost:11434') }
             });
+
+        case OpenWebUIProvider.PROVIDER:
+            return new ChatOpenAI(OpenWebUIProvider.chatModelOptions({
+                model,
+                temperature,
+                maxTokens,
+                apiUrl,
+                apiKey
+            }));
 
         case 'openai':
         default:

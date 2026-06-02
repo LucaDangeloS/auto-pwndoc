@@ -55,7 +55,7 @@ module.exports = function () {
             legendColor: '404040', legendSize: 11, legendPosition: 'r',
             dataLabelColor: 'FFFFFF', dataLabelSize: 11, dataLabelBold: true, dataLabelMode: 'value',
             borderEnabled: true, borderColor: 'D9E2F3', borderWidth: 1, plotAreaFill: 'none',
-            view3DRotX: 30, view3DRotY: 30, view3DPerspective: 30, view3DRightAngleAxes: false,
+            view3DRotX: 30, view3DRotY: 30, view3DPerspective: 30, view3DRightAngleAxes: false, pieExplosion: 12,
           }
         })
 
@@ -68,6 +68,8 @@ module.exports = function () {
         expect(xml).toContain('<a:srgbClr val="4A86E8"/>')
         expect(xml).toContain('<c:v>Informational</c:v>')
         expect(xml).toContain('<c:v>5</c:v>')
+        expect((xml.match(/<c:explosion val="12"\/>/g) || []).length).toEqual(5)
+        expect((xml.match(/<a:effectLst>/g) || []).length).toEqual(5)
       })
     })
 
@@ -91,6 +93,23 @@ module.exports = function () {
     })
 
     describe('report template normalization tests', () => {
+      it('allocates generated chart drawing IDs after existing template drawing IDs', () => {
+        var zip = new (require('pizzip'))()
+        zip.file('word/document.xml',
+          '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">' +
+            '<w:body>' +
+              '<w:p><w:r><w:drawing><wp:inline><wp:docPr id="10" name="Image 10"/></wp:inline></w:drawing></w:r></w:p>' +
+              '<w:p><w:r><w:drawing><wp:inline><wp:docPr id="42" name="Chart 42"/></wp:inline></w:drawing></w:r></w:p>' +
+            '</w:body>' +
+          '</w:document>'
+        )
+
+        reportGenerator._initializeChartDrawingDocPrIds(zip)
+
+        expect(reportGenerator._getNextChartDrawingDocPrId()).toEqual(43)
+        expect(reportGenerator._getNextChartDrawingDocPrId()).toEqual(44)
+      })
+
       it('removes accidental whitespace around raw DOCX tags', () => {
         var xml =
           '<w:document><w:body>' +

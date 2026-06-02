@@ -470,7 +470,8 @@ function shapeXml(theme) {
     const line = theme.borderEnabled && theme.borderWidth > 0
         ? `<a:ln w="${Math.round(theme.borderWidth * 12700)}"><a:solidFill><a:srgbClr val="${encodeHTMLEntities(theme.borderColor)}"/></a:solidFill></a:ln>`
         : '<a:ln><a:noFill/></a:ln>';
-    return `<c:spPr>${fill}${line}<a:effectLst/></c:spPr>`;
+    const effect = theme.borderEnabled && theme.borderWidth > 0 ? '' : '<a:effectLst/>';
+    return `<c:spPr>${fill}${line}${effect}</c:spPr>`;
 }
 
 function dataLabelFlags(mode) {
@@ -561,7 +562,9 @@ function pieSliceShapeXml(color) {
 chartGenerator.generatePie3DChart = function({ title, severities, theme }) {
     const labelsXml = severities.map((item, index) => `<c:pt idx="${index}"><c:v>${encodeHTMLEntities(item.label)}</c:v></c:pt>`).join('');
     const valuesXml = severities.map((item, index) => `<c:pt idx="${index}"><c:v>${encodeHTMLEntities(String(item.value))}</c:v></c:pt>`).join('');
-    const colorsXml = severities.map((item, index) => `<c:dPt><c:idx val="${index}"/>${pieSliceShapeXml(item.color)}</c:dPt>`).join('');
+    const explosion = Math.max(0, Math.min(100, Number(theme.pieExplosion) || 0));
+    const explosionXml = explosion > 0 ? `<c:explosion val="${encodeHTMLEntities(String(explosion))}"/>` : '';
+    const colorsXml = severities.map((item, index) => `<c:dPt><c:idx val="${index}"/>${explosionXml}${pieSliceShapeXml(item.color)}</c:dPt>`).join('');
     const dataLabelsXmlForPie = dataLabelsXml(
         severities,
         theme.dataLabelMode,

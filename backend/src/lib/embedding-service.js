@@ -55,6 +55,7 @@ function buildEmbeddings(aiSettings) {
             });
 
         case 'openai-compatible':
+        case 'openwebui':
             return new OpenAIEmbeddings({
                 model: model,
                 apiKey: apiKey || 'none',

@@ -37,7 +37,8 @@ const SettingSchema = new Schema({
                 view3DRotX: { type: Number, default: 30, min: -90, max: 90 },
                 view3DRotY: { type: Number, default: 30, min: 0, max: 359 },
                 view3DPerspective: { type: Number, default: 30, min: 0, max: 100 },
-                view3DRightAngleAxes: { type: Boolean, default: false }
+                view3DRightAngleAxes: { type: Boolean, default: false },
+                pieExplosion: { type: Number, default: 0, min: 0, max: 100 }
             },
             remediationColorsComplexity: {
                 lowColor: { type: String, default: "#4472c4", validate: [colorValidator, 'Invalid color'] },
@@ -91,13 +92,21 @@ const SettingSchema = new Schema({
       apiKey: { type: String, default: '' },
       apiKeyCreatedAt: { type: Date, default: null }
     },
+    api: {
+      keys: [{
+        name: { type: String, required: true },
+        key: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+        lastUsedAt: { type: Date, default: null }
+      }]
+    },
     ai: {
       enabled: { type: Boolean, default: false },
       embeddingEnabled: { type: Boolean, default: false },
       public: {
         provider: {
           type: String,
-          enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible'],
+          enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible', 'openwebui'],
           default: 'openai'
         },
         model: { type: String, default: 'gpt-4o' },
@@ -105,7 +114,7 @@ const SettingSchema = new Schema({
         maxTokens: { type: Number, default: 4096, min: 1, max: 128000 },
         embeddingProvider: {
           type: String,
-          enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible'],
+          enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible', 'openwebui'],
           default: 'openai'
         },
         embeddingModel: { type: String, default: 'text-embedding-3-small' },
@@ -169,7 +178,7 @@ const SettingSchema = new Schema({
       visionPublic: {
         visionProvider: {
           type: String,
-          enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible'],
+          enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible', 'openwebui'],
           default: 'openai'
         },
         visionModel: { type: String, default: 'gpt-4o' }

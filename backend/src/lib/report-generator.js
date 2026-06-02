@@ -24,6 +24,7 @@ var numberOfPie3DChart = 0
 var numberOfBarChart = 0
 var chartRelXml = ''
 var chartContentTypeXml = ''
+var nextChartDrawingDocPrId = 1
 var reportSettings
 var globalAbstractNumId = null // Global variable to share abstractNumId between all sections
 var abstractNumCreated = false // Flag to avoid creating abstractNum multiple times
@@ -51,6 +52,7 @@ const DEFAULT_CHART_THEME = {
     view3DRotY: 30,
     view3DPerspective: 30,
     view3DRightAngleAxes: false,
+    pieExplosion: 0,
 };
 
 function stripHash(color, fallback) {
@@ -84,6 +86,7 @@ async function generateDoc(audit) {
     numberOfBarChart = 0;
     chartRelXml = '';
     chartContentTypeXml = '';
+    nextChartDrawingDocPrId = 1;
 
     var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
@@ -98,6 +101,7 @@ async function generateDoc(audit) {
         });
     }
     normalizeRawTagParagraphs(zip);
+    initializeChartDrawingDocPrIds(zip);
 
     translate.setLocale(audit.language)
     $t = translate.translate
@@ -235,6 +239,28 @@ async function generateDoc(audit) {
     return buf;
 }
 exports.generateDoc = generateDoc;
+
+function initializeChartDrawingDocPrIds(docxZip) {
+    let maxDocPrId = 0;
+
+    Object.keys(docxZip.files).forEach(filePath => {
+        if (!/^word\/.*\.xml$/.test(filePath) || docxZip.files[filePath].dir) return;
+
+        const xml = docxZip.files[filePath].asText();
+        xml.replace(/<wp:docPr\b[^>]*\bid="(\d+)"/g, (match, id) => {
+            maxDocPrId = Math.max(maxDocPrId, parseInt(id, 10));
+            return match;
+        });
+    });
+
+    nextChartDrawingDocPrId = maxDocPrId + 1;
+}
+
+function getNextChartDrawingDocPrId() {
+    return nextChartDrawingDocPrId++;
+}
+exports._initializeChartDrawingDocPrIds = initializeChartDrawingDocPrIds;
+exports._getNextChartDrawingDocPrId = getNextChartDrawingDocPrId;
 
 function decodeXmlText(input) {
     return input
@@ -1054,6 +1080,7 @@ expressions.filters.pieChart = function(input, title, colorCrit, colorHigh, colo
 
     const piechartXmlPath = `word/charts/pieChart-${numberOfPieChart}-pwndoc.xml`;
     zip.file(piechartXmlPath, pieChartXML);
+    const chartDocPrId = getNextChartDrawingDocPrId();
 
     return `<w:p>
     <w:r>
@@ -1061,7 +1088,7 @@ expressions.filters.pieChart = function(input, title, colorCrit, colorHigh, colo
             <wp:inline distT="0" distB="0" distL="0" distR="0" wp14:anchorId="5CD9E55B" wp14:editId="2E40AF66">
                 <wp:extent cx="5486400" cy="3200400"/>
                 <wp:effectExtent l="0" t="0" r="0" b="0"/>
-                <wp:docPr id="1836246480" name="Piechart Severity"/>
+                <wp:docPr id="${chartDocPrId}" name="Piechart Severity"/>
                 <wp:cNvGraphicFramePr/>
                 <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
                     <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">
@@ -1106,19 +1133,17 @@ function normalizeChartLabelMode(mode, fallback) {
     return ['value', 'percent', 'both', 'none'].includes(normalized) ? normalized : fallback;
 }
 
-function chartThemeWithTemplateOverrides(labelMode, labelColor, titleColor) {
+function chartThemeWithTemplateOptions(labelMode) {
     const theme = getChartTheme(reportSettings);
     theme.dataLabelMode = normalizeChartLabelMode(labelMode, theme.dataLabelMode);
-    if (labelColor && typeof labelColor === 'string') theme.dataLabelColor = stripHash(labelColor, theme.dataLabelColor);
-    if (titleColor && typeof titleColor === 'string') theme.titleColor = stripHash(titleColor, theme.titleColor);
     return theme;
 }
 
 // Generate a native editable 3D pie chart for findings severity.
 // Example: {@findings | severityPie3D}
 // Example: {@findings | severityPie3D:'Risk distribution'}
-// Example: {@findings | severityPie3D:'Risk distribution':'both':'ffffff':'212121'}
-expressions.filters.severityPie3D = function(input, title, labelMode, labelColor, titleColor) {
+// Example: {@findings | severityPie3D:'Risk distribution':'both'}
+expressions.filters.severityPie3D = function(input, title, labelMode) {
     if (!input) return input;
 
     const counts = { Critical: 0, High: 0, Medium: 0, Low: 0, Informational: 0 };
@@ -1141,7 +1166,7 @@ expressions.filters.severityPie3D = function(input, title, labelMode, labelColor
     pie3DChartXML = chartGenerator.generatePie3DChart({
         title: title || $t('Vulnerabilities'),
         severities,
-        theme: chartThemeWithTemplateOverrides(labelMode, labelColor, titleColor),
+        theme: chartThemeWithTemplateOptions(labelMode),
     });
 
     numberOfPie3DChart += 1;
@@ -1156,6 +1181,7 @@ expressions.filters.severityPie3D = function(input, title, labelMode, labelColor
 
     const pie3DchartXmlPath = `word/charts/pie3DChart-${numberOfPie3DChart}-pwndoc.xml`;
     zip.file(pie3DchartXmlPath, pie3DChartXML);
+    const chartDocPrId = getNextChartDrawingDocPrId();
 
     return `<w:p>
     <w:r>
@@ -1163,7 +1189,7 @@ expressions.filters.severityPie3D = function(input, title, labelMode, labelColor
             <wp:inline distT="0" distB="0" distL="0" distR="0" wp14:anchorId="5CD9E55B" wp14:editId="2E40AF66">
                 <wp:extent cx="5486400" cy="3200400"/>
                 <wp:effectExtent l="0" t="0" r="0" b="0"/>
-                <wp:docPr id="1836246480" name="3D Piechart Severity"/>
+                <wp:docPr id="${chartDocPrId}" name="3D Piechart Severity"/>
                 <wp:cNvGraphicFramePr/>
                 <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
                     <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">
@@ -1179,24 +1205,20 @@ expressions.filters.severityPie3D = function(input, title, labelMode, labelColor
 }
 
 // Generate a bar chart for findings data
-// Example: {@findings | barChart:'field':'title':'labelMode':'numberColor':'titleColor'}
+// Example: {@findings | barChart:'field':'title':'labelMode'}
 // Example: {@findings | barChart:'vulnType':'My bar chart'}
-// Example: {@findings | barChart:'category':'Findings by type':'both':'ffffff':'212121'}
+// Example: {@findings | barChart:'category':'Findings by type':'both'}
 expressions.filters.barChart = function(input, field, title, barColor, labelColor, labelSize, dataLabelMode, dataLabelColor) {
     if(!input) return input;
     if(!field) return field;
     if(!title) title = "";
 
-    var titleColor = arguments.length > 8 ? arguments[8] : null;
     var axisLabelColor = "000000";
     var axisLabelSize = 1100;
     var labelModeArg = dataLabelMode;
-    var numberColorArg = dataLabelColor;
 
     if (normalizeChartLabelMode(barColor, null)) {
         labelModeArg = barColor;
-        numberColorArg = labelColor;
-        titleColor = labelSize;
     } else {
         axisLabelColor = labelColor || axisLabelColor;
         axisLabelSize = labelSize || axisLabelSize;
@@ -1250,7 +1272,7 @@ expressions.filters.barChart = function(input, field, title, barColor, labelColo
         index+=1;
     }
 
-    const theme = chartThemeWithTemplateOverrides(labelModeArg, numberColorArg, titleColor);
+    const theme = chartThemeWithTemplateOptions(labelModeArg);
     barChartXML = chartGenerator.generateBarChart(title, fallbackBarColor, legendXML, valueXML, axisLabelSize, axisLabelColor, barColors, {
         items: dataLabels,
         mode: theme.dataLabelMode,
@@ -1274,6 +1296,7 @@ expressions.filters.barChart = function(input, field, title, barColor, labelColo
     // Chart path
     const barchartXmlPath = `word/charts/barChart-${numberOfBarChart}-pwndoc.xml`;
     zip.file(barchartXmlPath, barChartXML);
+    const chartDocPrId = getNextChartDrawingDocPrId();
 
     return `<w:p>
     <w:r>
@@ -1281,7 +1304,7 @@ expressions.filters.barChart = function(input, field, title, barColor, labelColo
             <wp:inline distT="0" distB="0" distL="0" distR="0" wp14:anchorId="5CD9E55B" wp14:editId="2E40AF66">
                 <wp:extent cx="5486400" cy="3200400"/>
                 <wp:effectExtent l="0" t="0" r="0" b="0"/>
-                <wp:docPr id="1836246480" name="barChart type"/>
+                <wp:docPr id="${chartDocPrId}" name="barChart type"/>
                 <wp:cNvGraphicFramePr/>
                 <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
                     <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">

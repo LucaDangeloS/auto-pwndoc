@@ -116,8 +116,21 @@ class ACL {
     hasPermission (permission) {
         var Response = require('./httpResponse')
         var jwt = require('jsonwebtoken')
+        var apiKeyAuth = require('./api-key-auth')
 
         return (req, res, next) => {
+            var hasApiKey = req.headers['x-api-key'] ||
+                (req.headers['authorization'] && req.headers['authorization'].startsWith('Bearer '));
+
+            if (hasApiKey) {
+                return apiKeyAuth(req, res, () => {
+                    if (!req.decodedToken) return;
+                    if (permission === 'validtoken' || this.isAllowed(req.decodedToken.role, permission))
+                        return next();
+                    Response.Forbidden(res, 'Insufficient privileges');
+                });
+            }
+
             if (!req.cookies['token']) {
                 Response.Unauthorized(res, 'No token provided')
                 return;

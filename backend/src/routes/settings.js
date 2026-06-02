@@ -70,6 +70,53 @@ module.exports = function(app) {
         }
     });
 
+    app.get("/api/settings/api-keys", acl.hasPermission('settings:update'), async function(req, res) {
+        // #swagger.tags = ['Settings']
+        try {
+            var settings = await Settings.getAll();
+            var keys = (settings && settings.api && settings.api.keys) || [];
+            var safe = keys.map(k => ({
+                id: k._id,
+                name: k.name,
+                keyPrefix: k.key.substring(0, 8),
+                createdAt: k.createdAt,
+                lastUsedAt: k.lastUsedAt
+            }));
+            Response.Ok(res, safe);
+        }
+        catch (err) { Response.Internal(res, err); }
+    });
+
+    app.post("/api/settings/api-keys", acl.hasPermission('settings:update'), async function(req, res) {
+        // #swagger.tags = ['Settings']
+        try {
+            var name = req.body && req.body.name;
+            if (!name || !name.trim()) return Response.BadParameters(res, 'name is required');
+            var key = crypto.randomBytes(32).toString('hex');
+            var createdAt = new Date();
+            var result = await Settings.findOneAndUpdate(
+                {},
+                { $push: { 'api.keys': { name: name.trim(), key, createdAt, lastUsedAt: null } } },
+                { new: true, upsert: true }
+            );
+            var entry = result.api.keys[result.api.keys.length - 1];
+            Response.Ok(res, { id: entry._id, name: entry.name, key, createdAt: entry.createdAt });
+        }
+        catch (err) { Response.Internal(res, err); }
+    });
+
+    app.delete("/api/settings/api-keys/:id", acl.hasPermission('settings:update'), async function(req, res) {
+        // #swagger.tags = ['Settings']
+        try {
+            await Settings.findOneAndUpdate(
+                {},
+                { $pull: { 'api.keys': { _id: req.params.id } } }
+            );
+            Response.Ok(res, 'API key revoked');
+        }
+        catch (err) { Response.Internal(res, err); }
+    });
+
     app.get("/api/settings/export", acl.hasPermission("settings:read"), function(req, res) {
         // #swagger.tags = ['Settings']
 

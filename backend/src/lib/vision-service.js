@@ -2,6 +2,7 @@
 
 const { ChatOpenAI, AzureChatOpenAI } = require('@langchain/openai');
 const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
+const OpenWebUIProvider = require('./openwebui-provider');
 
 const DEFAULT_VISION_SYSTEM_PROMPT = `You are a cybersecurity expert analyzing proof-of-concept screenshots and evidence for a penetration test report.
 Examine all provided images and accompanying text carefully.
@@ -85,6 +86,15 @@ function buildVisionModel(aiSettings) {
                 apiKey: apiKey || 'none',
                 configuration: { baseURL: ensureV1(apiUrl || 'http://localhost:11434') }
             });
+
+        case OpenWebUIProvider.PROVIDER:
+            return new ChatOpenAI(OpenWebUIProvider.chatModelOptions({
+                model: model,
+                temperature: undefined,
+                maxTokens: undefined,
+                apiUrl: apiUrl,
+                apiKey: apiKey
+            }));
 
         case 'openai':
         default:

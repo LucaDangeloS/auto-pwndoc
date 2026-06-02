@@ -6,6 +6,8 @@ module.exports = function(app) {
     var config = require('../config/config.json')[process.env.NODE_ENV || 'dev'];
     var auth = require('../lib/auth');
     var mcpAuth = require('../lib/mcp-auth');
+    var CVSS31 = require('../lib/cvsscalc31');
+    var CVSS40 = require('../lib/cvsscalc40');
 
     var SERVER_INFO = {
         name: 'autopwndoc-mcp',
@@ -14,22 +16,55 @@ module.exports = function(app) {
 
     var PROTOCOL_VERSION = '2025-03-26';
 
+    var FINDING_FIELDS_DOC = `\
+Finding fields (all optional except title on create):
+  title                 (string, plain text) Vulnerability title.
+  description           (string, HTML) What the vulnerability is and how it was identified.
+  poc                   (string, HTML) Proof of concept — reproduction steps, tool output, payloads, screenshots. This is the primary evidence field; always populate it when documenting a finding.
+  observation           (string, HTML) Additional analyst notes or context. Leave blank unless the user explicitly asks for it.
+  remediation           (string, HTML) Recommended fix or mitigation.
+  references            (array of strings) URLs or identifiers such as CVEs, CWEs, or security advisories.
+  cvssv3                (string) CVSS 3.1 vector, e.g. "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H".
+  cvssv4                (string) CVSS 4.0 vector, e.g. "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N".
+  priority              (integer 1-4) Remediation priority: 1=Low 2=Medium 3=High 4=Urgent.
+  remediationComplexity (integer 1-3) Fix effort: 1=Low 2=Medium 3=High.
+  status                (integer) 0=Done/reviewed 1=Redacting/in-progress (default).
+  taxonomies            (array of {type, category, subcategory}) Vulnerability classification.
+
+HTML FORMAT — CRITICAL: description, poc, observation, and remediation are rendered as HTML in the final report. Always write them as valid HTML, never as Markdown. Use <p> for paragraphs, <strong>/<em> for emphasis, <pre><code> for code blocks, <ul>/<ol>/<li> for lists, <a href="..."> for links. Example: "<p>The endpoint does not validate input.</p><pre><code>GET /api?id=1 OR 1=1</code></pre>"`;
+
     function firstTaxonomy(row) {
         return (row && Array.isArray(row.taxonomies) && row.taxonomies[0]) || {};
+    }
+
+    function findingSeverity(finding) {
+        try {
+            if (finding.cvssv4) {
+                var r4 = CVSS40.calculateCVSSFromVector(finding.cvssv4);
+                if (r4 && r4.success) return { cvssScore: parseFloat(r4.baseMetricScore), severity: r4.baseSeverity };
+            }
+        } catch (_) {}
+        try {
+            if (finding.cvssv3) {
+                var r3 = CVSS31.calculateCVSSFromVector(finding.cvssv3);
+                if (r3 && r3.success) return { cvssScore: parseFloat(r3.baseMetricScore), severity: r3.baseSeverity };
+            }
+        } catch (_) {}
+        return { cvssScore: null, severity: 'N/A' };
     }
 
     var tools = [
         {
             name: 'list_audits',
-            description: 'List audits visible to the MCP service account. Optionally filter by finding title.',
+            description: 'List audits visible to the MCP service account. Optionally filter by finding title. Returns id, name, date, client, language, template, type, state, creator, and collaborators for each audit.',
             inputSchema: {
                 type: 'object',
-                properties: { findingTitle: { type: 'string' } }
+                properties: { findingTitle: { type: 'string', description: 'Return only audits that contain a finding whose title matches this substring.' } }
             }
         },
         {
             name: 'get_audit',
-            description: 'Get the full audit document, including populated metadata and findings.',
+            description: 'Get the full audit document including metadata and all findings. Each finding in the response includes a computed cvssScore (number) and severity (Critical/High/Medium/Low/None/N/A) alongside its raw CVSS vectors, so you can scan findings by title and severity without extra calls. Text fields (description, poc, etc.) are present but can be large — use get_all_findings or get_finding when you need to work with finding content.',
             inputSchema: {
                 type: 'object',
                 required: ['auditId'],
@@ -65,7 +100,7 @@ module.exports = function(app) {
         },
         {
             name: 'list_findings',
-            description: 'List findings inside an audit.',
+            description: 'List all findings in an audit with a concise summary per finding: id, title, severity label, CVSS score, CVSS vectors, status, priority, remediationComplexity, and taxonomies. Text content fields (description, poc, observation, remediation) are intentionally omitted. Call get_finding for a single finding\'s full content, or get_all_findings to retrieve every finding\'s complete fields at once.',
             inputSchema: {
                 type: 'object',
                 required: ['auditId'],
@@ -74,7 +109,7 @@ module.exports = function(app) {
         },
         {
             name: 'get_finding',
-            description: 'Get one finding from an audit.',
+            description: 'Get one finding with all its fields, including the HTML-formatted text fields (description, poc, observation, remediation), references, CVSS vectors, taxonomy, status, and custom fields. The poc field holds proof-of-concept evidence and reproduction steps. Call this before updating a finding to inspect its current state.',
             inputSchema: {
                 type: 'object',
                 required: ['auditId', 'findingId'],
@@ -82,26 +117,35 @@ module.exports = function(app) {
             }
         },
         {
+            name: 'get_all_findings',
+            description: 'Get every finding in an audit with complete field detail — same shape as get_finding, for all findings at once. Use this instead of calling get_finding in a loop. Ideal for bulk review, generating summaries, or deciding what to update across multiple findings.',
+            inputSchema: {
+                type: 'object',
+                required: ['auditId'],
+                properties: { auditId: { type: 'string' } }
+            }
+        },
+        {
             name: 'create_finding',
-            description: 'Create a finding in an audit. The fields object must include title.',
+            description: `Create a new finding (vulnerability) in an audit. The fields object must include title.\n\n${FINDING_FIELDS_DOC}`,
             inputSchema: {
                 type: 'object',
                 required: ['auditId', 'fields'],
-                properties: { auditId: { type: 'string' }, fields: { type: 'object' } }
+                properties: { auditId: { type: 'string' }, fields: { type: 'object', description: 'Finding fields. Must include title. See tool description for all available fields and the HTML format requirement.' } }
             }
         },
         {
             name: 'update_finding',
-            description: 'Update any editable field of a finding.',
+            description: `Update any editable field of a finding. Only the fields provided are changed; omitted fields are left as-is. Call get_finding first to see the current state.\n\n${FINDING_FIELDS_DOC}`,
             inputSchema: {
                 type: 'object',
                 required: ['auditId', 'findingId', 'fields'],
-                properties: { auditId: { type: 'string' }, findingId: { type: 'string' }, fields: { type: 'object' } }
+                properties: { auditId: { type: 'string' }, findingId: { type: 'string' }, fields: { type: 'object', description: 'Fields to update. See tool description for all available fields and the HTML format requirement.' } }
             }
         },
         {
             name: 'delete_finding',
-            description: 'Delete a finding from an audit.',
+            description: 'Permanently delete a finding from an audit.',
             inputSchema: {
                 type: 'object',
                 required: ['auditId', 'findingId'],
@@ -110,7 +154,7 @@ module.exports = function(app) {
         },
         {
             name: 'list_vulnerabilities',
-            description: 'List known vulnerabilities. Provide locale for flattened locale-specific results. Optional query filters titles and text.',
+            description: 'List known vulnerabilities from the vulnerability database. Provide locale (e.g. "en-US") for locale-specific flattened details including title, description, and remediation. Optional query filters by title or text substring.',
             inputSchema: {
                 type: 'object',
                 properties: { locale: { type: 'string' }, query: { type: 'string' } }
@@ -118,20 +162,20 @@ module.exports = function(app) {
         },
         {
             name: 'search_similar_vulnerabilities',
-            description: 'Search the known vulnerability database semantically using the embedding index.',
+            description: 'Semantic search over the vulnerability database using the embedding index (requires an embedding model configured in Settings). Returns matching vulnerabilities with similarity scores. Use this to find relevant library entries before creating or populating a finding.',
             inputSchema: {
                 type: 'object',
                 required: ['query'],
-                properties: { query: { type: 'string' }, locale: { type: 'string' } }
+                properties: { query: { type: 'string', description: 'Natural language description of the vulnerability to search for.' }, locale: { type: 'string' } }
             }
         },
         {
             name: 'apply_vulnerability_to_finding',
-            description: 'Overwrite a finding with fields from a known vulnerability detail in the selected locale.',
+            description: 'Overwrite a finding\'s fields (title, description, poc, observation, remediation, references, taxonomies, CVSS) with data from a known vulnerability in the library, in the specified locale. Use search_similar_vulnerabilities or list_vulnerabilities to find the vulnerability id first.',
             inputSchema: {
                 type: 'object',
                 required: ['auditId', 'findingId', 'vulnerabilityId'],
-                properties: { auditId: { type: 'string' }, findingId: { type: 'string' }, vulnerabilityId: { type: 'string' }, locale: { type: 'string' } }
+                properties: { auditId: { type: 'string' }, findingId: { type: 'string' }, vulnerabilityId: { type: 'string' }, locale: { type: 'string', description: 'Locale to use, e.g. "en-US". Defaults to the first available locale.' } }
             }
         }
     ];
@@ -218,7 +262,11 @@ module.exports = function(app) {
             return internalRequest('GET', '/api/audits' + encodeQuery({ findingTitle: args.findingTitle }));
         }
         if (name === 'get_audit') {
-            return internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId));
+            var audit = await internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId));
+            if (audit && Array.isArray(audit.findings)) {
+                audit.findings = audit.findings.map(f => Object.assign({}, f, findingSeverity(f)));
+            }
+            return audit;
         }
         if (name === 'update_audit_general') {
             return internalRequest('PUT', '/api/audits/' + encodeURIComponent(args.auditId) + '/general', args.fields || {});
@@ -233,22 +281,28 @@ module.exports = function(app) {
             var audit = await internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId));
             return (audit.findings || []).map(finding => {
                 var taxonomy = firstTaxonomy(finding);
+                var sev = findingSeverity(finding);
                 return {
                     _id: finding._id,
-                    id: finding.id,
                     identifier: finding.identifier,
                     title: finding.title,
-                    taxonomies: finding.taxonomies || [],
-                    vulnType: taxonomy.category || '',
-                    category: taxonomy.type || '',
-                    priority: finding.priority,
-                    remediationComplexity: finding.remediationComplexity,
+                    severity: sev.severity,
+                    cvssScore: sev.cvssScore,
                     cvssv3: finding.cvssv3,
                     cvssv4: finding.cvssv4,
+                    taxonomies: finding.taxonomies || [],
+                    category: taxonomy.type || '',
+                    vulnType: taxonomy.category || '',
+                    priority: finding.priority,
+                    remediationComplexity: finding.remediationComplexity,
                     status: finding.status,
                     retestPassed: finding.retestPassed
                 };
             });
+        }
+        if (name === 'get_all_findings') {
+            var audit = await internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId));
+            return (audit.findings || []).map(f => Object.assign({}, f, findingSeverity(f)));
         }
         if (name === 'get_finding') {
             return internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId));

@@ -351,6 +351,7 @@ const STEPS = [
                             view3DRotY: 30,
                             view3DPerspective: 30,
                             view3DRightAngleAxes: false,
+                            pieExplosion: 0,
                         },
                     },
                 }
@@ -757,6 +758,19 @@ const STEPS = [
                 { $set: { 'report.public.chartTheme.dataLabelMode': 'percent' } }
             );
             console.log(`[migration] default-severity-chart-labels-to-percent: ${result.modifiedCount} settings documents updated`);
+        },
+    },
+    // Step 20: Add pie chart explosion setting
+    {
+        id: 20,
+        name: 'add-chart-pie-explosion-setting',
+        async run(_srcDb, dstDb) {
+            const col = dstDb.collection('settings');
+            const result = await col.updateMany(
+                { 'report.public.chartTheme.pieExplosion': { $exists: false } },
+                { $set: { 'report.public.chartTheme.pieExplosion': 0 } }
+            );
+            console.log(`[migration] add-chart-pie-explosion-setting: ${result.modifiedCount} settings documents updated`);
         },
     },
 

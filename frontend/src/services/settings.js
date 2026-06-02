@@ -27,5 +27,17 @@ export default {
 
   clearMcpKey() {
     return api.delete(`settings/mcp/key`)
+  },
+
+  listApiKeys() {
+    return api.get(`settings/api-keys`)
+  },
+
+  createApiKey(name) {
+    return api.post(`settings/api-keys`, { name })
+  },
+
+  deleteApiKey(id) {
+    return api.delete(`settings/api-keys/${id}`)
   }
 }

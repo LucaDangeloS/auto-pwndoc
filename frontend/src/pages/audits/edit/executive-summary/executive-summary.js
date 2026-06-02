@@ -116,9 +116,9 @@ export default {
                     useCase: this.$t('graphSeverityPie3DUseCase'),
                     templateVar: '{@findings | severityPie3D}',
                     examples: [
-                        "{@findings | severityPie3D:'Risk distribution':'value':'ffffff':'212121'}",
-                        "{@findings | severityPie3D:'Risk distribution':'percent':'212121':'212121'}",
-                        "{@findings | severityPie3D:'Risk distribution':'both':'ffffff':'212121'}"
+                        "{@findings | severityPie3D:'Risk distribution':'value'}",
+                        "{@findings | severityPie3D:'Risk distribution':'percent'}",
+                        "{@findings | severityPie3D:'Risk distribution':'both'}"
                     ]
                 },
                 {
@@ -126,7 +126,7 @@ export default {
                     useCase: this.$t('graphSeverityPie3DNamedUseCase'),
                     templateVar: "{@findings | severityPie3D:'Risk distribution'}",
                     examples: [
-                        "{@findings | severityPie3D:'Distribución de riesgo':'both':'000000':'212121'}"
+                        "{@findings | severityPie3D:'Distribución de riesgo':'both'}"
                     ]
                 },
                 {
@@ -134,9 +134,9 @@ export default {
                     useCase: this.$t('graphFindingsByTypeUseCase'),
                     templateVar: "{@findings | barChart:'category':'Findings by type'}",
                     examples: [
-                        "{@findings | barChart:'category':'Findings by type':'value':'ffffff':'212121'}",
-                        "{@findings | barChart:'category':'Findings by type':'percent':'212121':'212121'}",
-                        "{@findings | barChart:'category':'Findings by type':'both':'ffffff':'212121'}"
+                        "{@findings | barChart:'category':'Findings by type':'value'}",
+                        "{@findings | barChart:'category':'Findings by type':'percent'}",
+                        "{@findings | barChart:'category':'Findings by type':'both'}"
                     ]
                 },
                 {
@@ -144,7 +144,7 @@ export default {
                     useCase: this.$t('graphFindingsBySeverityUseCase'),
                     templateVar: "{@findings | barChart:'cvss.baseSeverity':'Findings by severity'}",
                     examples: [
-                        "{@findings | barChart:'cvss.baseSeverity':'Findings by severity':'both':'ffffff':'212121'}"
+                        "{@findings | barChart:'cvss.baseSeverity':'Findings by severity':'both'}"
                     ]
                 }
             ];

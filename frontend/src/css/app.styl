@@ -124,6 +124,81 @@
 [id^="section-"]
     scroll-margin-top: 16px
 
+.settings-color-input .q-field__append
+    padding-left: 8px
+
+.settings-color-swatch
+    display: inline-block
+    width: 28px
+    height: 28px
+    min-height: 28px
+    border: 1px solid $slate400
+    border-radius: 50%
+    background: var(--settings-color)
+    vertical-align: middle
+
+.settings-color-swatch--disabled
+    cursor: not-allowed !important
+    opacity: 0.45
+
+.settings-color-picker-panel,
+.settings-color-picker-panel .q-color-picker
+    width: 260px
+
+.body--dark .settings-color-swatch
+    border-color: $slate600
+
+.settings-review-section
+    overflow: hidden
+
+.settings-review-copy
+    max-width: 100%
+    white-space: normal
+    overflow-wrap: anywhere
+    line-height: 1.55
+
+.settings-review-toggle
+    border: 1px solid rgba(100, 116, 139, 0.3)
+    border-radius: 10px
+    overflow: hidden
+    margin: 0
+
+    .q-btn
+        min-height: 38px
+        white-space: normal
+        line-height: 1.25
+        padding: 8px 14px
+
+.settings-review-controls
+    display: flex
+    align-items: flex-start
+    gap: 20px
+    flex-wrap: wrap
+
+.settings-review-enable
+    min-height: 56px
+    display: flex
+    align-items: center
+
+.settings-review-number
+    width: 180px
+    max-width: 100%
+
+@media (max-width: 599px)
+    .settings-review-toggle
+        display: flex
+        flex-direction: column
+
+        .q-btn
+            width: 100%
+
+    .settings-review-controls
+        flex-direction: column
+        gap: 12px
+
+    .settings-review-number
+        width: 100%
+
 // Settings page side navigation
 .settings-nav
     position: sticky

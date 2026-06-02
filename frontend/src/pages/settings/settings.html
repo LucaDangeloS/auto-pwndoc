@@ -122,11 +122,18 @@
                         <q-item-section class="col-md-2">
                             <q-toggle :label="$t('btn.enable')" v-model="settings.report.private.imageBorder" />
                         </q-item-section>
-                        <q-item-section class="col-md-1">
-                            <input :disabled="!settings.report.private.imageBorder" type="color" id="colorpicker" v-model="settings.report.private.imageBorderColor" />
-                        </q-item-section>
-                        <q-item-section class="col-md-2">
-                            <label :disabled="!settings.report.private.imageBorder" for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.private.imageBorderColor}}</label>
+                        <q-item-section class="col-md-4 col-12">
+                            <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.private.imageBorderColor" outlined :disable="!canEdit || !settings.report.private.imageBorder" maxlength="7" spellcheck="false">
+                                <template v-slot:append>
+                                    <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit || !settings.report.private.imageBorder }" :style="colorSwatchStyle(settings.report.private.imageBorderColor)" role="button" tabindex="0" :aria-label="$t('currentColor')">
+                                        <q-popup-proxy v-if="canEdit && settings.report.private.imageBorder" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                            <div class="settings-color-picker-panel">
+                                                <q-color v-model="settings.report.private.imageBorderColor" format-model="hex" no-header no-footer />
+                                            </div>
+                                        </q-popup-proxy>
+                                    </span>
+                                </template>
+                            </q-input>
                         </q-item-section>
                     </q-item>
                 </q-card-section>
@@ -141,55 +148,90 @@
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('critical')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.cvssColors.criticalColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.cvssColors.criticalColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.cvssColors.criticalColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.cvssColors.criticalColor)" role="button" tabindex="0" :aria-label="$t('critical')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.cvssColors.criticalColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                         <q-item>
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('high')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.cvssColors.highColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.cvssColors.highColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.cvssColors.highColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.cvssColors.highColor)" role="button" tabindex="0" :aria-label="$t('high')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.cvssColors.highColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                         <q-item>
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('medium')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.cvssColors.mediumColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.cvssColors.mediumColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.cvssColors.mediumColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.cvssColors.mediumColor)" role="button" tabindex="0" :aria-label="$t('medium')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.cvssColors.mediumColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                         <q-item>
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('low')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.cvssColors.lowColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.cvssColors.lowColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.cvssColors.lowColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.cvssColors.lowColor)" role="button" tabindex="0" :aria-label="$t('low')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.cvssColors.lowColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                         <q-item>
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('informational')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.cvssColors.noneColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.cvssColors.noneColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.cvssColors.noneColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.cvssColors.noneColor)" role="button" tabindex="0" :aria-label="$t('informational')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.cvssColors.noneColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                     </q-list>
@@ -206,33 +248,54 @@
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('complex')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.remediationColorsComplexity.highColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.remediationColorsComplexity.highColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.remediationColorsComplexity.highColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.remediationColorsComplexity.highColor)" role="button" tabindex="0" :aria-label="$t('complex')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.remediationColorsComplexity.highColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                         <q-item>
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('medium')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.remediationColorsComplexity.mediumColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.remediationColorsComplexity.mediumColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.remediationColorsComplexity.mediumColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.remediationColorsComplexity.mediumColor)" role="button" tabindex="0" :aria-label="$t('medium')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.remediationColorsComplexity.mediumColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                         <q-item>
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('easy')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.remediationColorsComplexity.lowColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.remediationColorsComplexity.lowColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.remediationColorsComplexity.lowColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.remediationColorsComplexity.lowColor)" role="button" tabindex="0" :aria-label="$t('easy')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.remediationColorsComplexity.lowColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                     </q-list>
@@ -250,44 +313,72 @@
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('urgent')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.remediationColorsPriority.urgentColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.remediationColorsPriority.urgentColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.remediationColorsPriority.urgentColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.remediationColorsPriority.urgentColor)" role="button" tabindex="0" :aria-label="$t('urgent')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.remediationColorsPriority.urgentColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                         <q-item>
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('high')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.remediationColorsPriority.highColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.remediationColorsPriority.highColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.remediationColorsPriority.highColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.remediationColorsPriority.highColor)" role="button" tabindex="0" :aria-label="$t('high')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.remediationColorsPriority.highColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                         <q-item>
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('medium')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.remediationColorsPriority.mediumColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.remediationColorsPriority.mediumColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.remediationColorsPriority.mediumColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.remediationColorsPriority.mediumColor)" role="button" tabindex="0" :aria-label="$t('medium')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.remediationColorsPriority.mediumColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                         <q-item>
                             <q-item-section class="col-md-2">
                                 <label class="vertical-center">{{$t('low')}} : </label>
                             </q-item-section>
-                            <q-item-section class="col-md-1">
-                                <input type="color" id="colorpicker" v-model="settings.report.public.remediationColorsPriority.lowColor"/>
-                            </q-item-section>
-                            <q-item-section class="col-md-2">
-                                <label for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.public.remediationColorsPriority.lowColor}}</label>
+                            <q-item-section class="col-md-4 col-12">
+                                <q-input class="settings-color-input" :label="$t('currentColor')" v-model="settings.report.public.remediationColorsPriority.lowColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.remediationColorsPriority.lowColor)" role="button" tabindex="0" :aria-label="$t('low')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.remediationColorsPriority.lowColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
                             </q-item-section>
                         </q-item>
                     </q-list>
@@ -323,26 +414,102 @@
                     <br/>
                     <div class="text-grey-8">{{$t('chartThemeDescription')}}</div>
                     <br/>
-                    <div class="row q-col-gutter-md">
-                        <q-input class="col-12 col-md-3" :label="$t('titleColor')" v-model="settings.report.public.chartTheme.titleColor" type="color" outlined :disable="!canEdit" />
-                        <q-input class="col-12 col-md-3" :label="$t('titleSize')" v-model.number="settings.report.public.chartTheme.titleSize" type="number" :min="6" :max="72" outlined :disable="!canEdit" />
-                        <q-toggle class="col-12 col-md-3" :label="$t('titleBold')" v-model="settings.report.public.chartTheme.titleBold" :disable="!canEdit" />
-                        <q-select class="col-12 col-md-3" :label="$t('legendPosition')" v-model="settings.report.public.chartTheme.legendPosition" :options="chartLegendPositionOptions" map-options emit-value options-sanitize outlined :disable="!canEdit" />
-                        <q-input class="col-12 col-md-3" :label="$t('legendColor')" v-model="settings.report.public.chartTheme.legendColor" type="color" outlined :disable="!canEdit" />
-                        <q-input class="col-12 col-md-3" :label="$t('legendSize')" v-model.number="settings.report.public.chartTheme.legendSize" type="number" :min="6" :max="36" outlined :disable="!canEdit" />
-                        <q-select class="col-12 col-md-3" :label="$t('dataLabelMode')" v-model="settings.report.public.chartTheme.dataLabelMode" :options="chartDataLabelModeOptions" map-options emit-value options-sanitize outlined :disable="!canEdit" />
-                        <q-input class="col-12 col-md-3" :label="$t('dataLabelColor')" v-model="settings.report.public.chartTheme.dataLabelColor" type="color" outlined :disable="!canEdit" />
-                        <q-input class="col-12 col-md-3" :label="$t('dataLabelSize')" v-model.number="settings.report.public.chartTheme.dataLabelSize" type="number" :min="6" :max="36" outlined :disable="!canEdit" />
-                        <q-toggle class="col-12 col-md-3" :label="$t('dataLabelBold')" v-model="settings.report.public.chartTheme.dataLabelBold" :disable="!canEdit" />
-                        <q-toggle class="col-12 col-md-3" :label="$t('borderEnabled')" v-model="settings.report.public.chartTheme.borderEnabled" :disable="!canEdit" />
-                        <q-input class="col-12 col-md-3" :label="$t('borderColor')" v-model="settings.report.public.chartTheme.borderColor" type="color" outlined :disable="!canEdit || !settings.report.public.chartTheme.borderEnabled" />
-                        <q-input class="col-12 col-md-3" :label="$t('borderWidth')" v-model.number="settings.report.public.chartTheme.borderWidth" type="number" :min="0" :max="6" outlined :disable="!canEdit || !settings.report.public.chartTheme.borderEnabled" />
-                        <q-toggle class="col-12 col-md-3" :label="$t('plotAreaFillNone')" v-model="settings.report.public.chartTheme.plotAreaFill" true-value="none" false-value="#ffffff" :disable="!canEdit" />
-                        <q-input v-if="settings.report.public.chartTheme.plotAreaFill !== 'none'" class="col-12 col-md-3" :label="$t('plotAreaFill')" v-model="settings.report.public.chartTheme.plotAreaFill" type="color" outlined :disable="!canEdit" />
-                        <q-input class="col-12 col-md-3" :label="$t('view3DRotX')" v-model.number="settings.report.public.chartTheme.view3DRotX" type="number" :min="-90" :max="90" outlined :disable="!canEdit" />
-                        <q-input class="col-12 col-md-3" :label="$t('view3DRotY')" v-model.number="settings.report.public.chartTheme.view3DRotY" type="number" :min="0" :max="359" outlined :disable="!canEdit" />
-                        <q-input class="col-12 col-md-3" :label="$t('view3DPerspective')" v-model.number="settings.report.public.chartTheme.view3DPerspective" type="number" :min="0" :max="100" outlined :disable="!canEdit" />
-                        <q-toggle class="col-12 col-md-3" :label="$t('view3DRightAngleAxes')" v-model="settings.report.public.chartTheme.view3DRightAngleAxes" :disable="!canEdit" />
+                    <div class="column q-gutter-lg">
+                        <div>
+                            <div class="text-subtitle2 q-mb-sm">{{$t('chartTitleOptions')}}</div>
+                            <div class="row q-col-gutter-md">
+                                <q-input class="col-12 col-md-4 settings-color-input" :label="$t('titleColor')" v-model="settings.report.public.chartTheme.titleColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.chartTheme.titleColor)" role="button" tabindex="0" :aria-label="$t('titleColor')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.chartTheme.titleColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
+                                <q-input class="col-12 col-md-4" :label="$t('titleSize')" v-model.number="settings.report.public.chartTheme.titleSize" type="number" :min="6" :max="72" outlined :disable="!canEdit" />
+                                <q-toggle class="col-12 col-md-4" :label="$t('titleBold')" v-model="settings.report.public.chartTheme.titleBold" :disable="!canEdit" />
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-subtitle2 q-mb-sm">{{$t('chartLegendOptions')}}</div>
+                            <div class="row q-col-gutter-md">
+                                <q-select class="col-12 col-md-4" :label="$t('legendPosition')" v-model="settings.report.public.chartTheme.legendPosition" :options="chartLegendPositionOptions" map-options emit-value options-sanitize outlined :disable="!canEdit" />
+                                <q-input class="col-12 col-md-4 settings-color-input" :label="$t('legendColor')" v-model="settings.report.public.chartTheme.legendColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.chartTheme.legendColor)" role="button" tabindex="0" :aria-label="$t('legendColor')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.chartTheme.legendColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
+                                <q-input class="col-12 col-md-4" :label="$t('legendSize')" v-model.number="settings.report.public.chartTheme.legendSize" type="number" :min="6" :max="36" outlined :disable="!canEdit" />
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-subtitle2 q-mb-sm">{{$t('chartDataLabelOptions')}}</div>
+                            <div class="row q-col-gutter-md">
+                                <q-select class="col-12 col-md-3" :label="$t('dataLabelMode')" v-model="settings.report.public.chartTheme.dataLabelMode" :options="chartDataLabelModeOptions" map-options emit-value options-sanitize outlined :disable="!canEdit" />
+                                <q-input class="col-12 col-md-3 settings-color-input" :label="$t('dataLabelColor')" v-model="settings.report.public.chartTheme.dataLabelColor" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.chartTheme.dataLabelColor)" role="button" tabindex="0" :aria-label="$t('dataLabelColor')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.chartTheme.dataLabelColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
+                                <q-input class="col-12 col-md-3" :label="$t('dataLabelSize')" v-model.number="settings.report.public.chartTheme.dataLabelSize" type="number" :min="6" :max="36" outlined :disable="!canEdit" />
+                                <q-toggle class="col-12 col-md-3" :label="$t('dataLabelBold')" v-model="settings.report.public.chartTheme.dataLabelBold" :disable="!canEdit" />
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-subtitle2 q-mb-sm">{{$t('chartBorderOptions')}}</div>
+                            <div class="row q-col-gutter-md">
+                                <q-toggle class="col-12 col-md-3" :label="$t('borderEnabled')" v-model="settings.report.public.chartTheme.borderEnabled" :disable="!canEdit" />
+                                <q-input class="col-12 col-md-3 settings-color-input" :label="$t('borderColor')" v-model="settings.report.public.chartTheme.borderColor" outlined :disable="!canEdit || !settings.report.public.chartTheme.borderEnabled" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit || !settings.report.public.chartTheme.borderEnabled }" :style="colorSwatchStyle(settings.report.public.chartTheme.borderColor)" role="button" tabindex="0" :aria-label="$t('borderColor')">
+                                            <q-popup-proxy v-if="canEdit && settings.report.public.chartTheme.borderEnabled" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.chartTheme.borderColor" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
+                                <q-input class="col-12 col-md-3" :label="$t('borderWidth')" v-model.number="settings.report.public.chartTheme.borderWidth" type="number" :min="0" :max="6" outlined :disable="!canEdit || !settings.report.public.chartTheme.borderEnabled" />
+                                <q-toggle class="col-12 col-md-3" :label="$t('plotAreaFillNone')" v-model="settings.report.public.chartTheme.plotAreaFill" true-value="none" false-value="#ffffff" :disable="!canEdit" />
+                                <q-input v-if="settings.report.public.chartTheme.plotAreaFill !== 'none'" class="col-12 col-md-3 settings-color-input" :label="$t('plotAreaFill')" v-model="settings.report.public.chartTheme.plotAreaFill" outlined :disable="!canEdit" maxlength="7" spellcheck="false">
+                                    <template v-slot:append>
+                                        <span class="settings-color-swatch cursor-pointer" :class="{ 'settings-color-swatch--disabled': !canEdit }" :style="colorSwatchStyle(settings.report.public.chartTheme.plotAreaFill)" role="button" tabindex="0" :aria-label="$t('plotAreaFill')">
+                                            <q-popup-proxy v-if="canEdit" transition-show="scale" transition-hide="scale" anchor="bottom right" self="top right">
+                                                <div class="settings-color-picker-panel">
+                                                    <q-color v-model="settings.report.public.chartTheme.plotAreaFill" format-model="hex" no-header no-footer />
+                                                </div>
+                                            </q-popup-proxy>
+                                        </span>
+                                    </template>
+                                </q-input>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-subtitle2 q-mb-sm">{{$t('chart3DOptions')}}</div>
+                            <div class="row q-col-gutter-md">
+                                <q-input class="col-12 col-md-3" :label="$t('view3DRotX')" v-model.number="settings.report.public.chartTheme.view3DRotX" type="number" :min="-90" :max="90" outlined :disable="!canEdit" />
+                                <q-input class="col-12 col-md-3" :label="$t('view3DRotY')" v-model.number="settings.report.public.chartTheme.view3DRotY" type="number" :min="0" :max="359" outlined :disable="!canEdit" />
+                                <q-input class="col-12 col-md-3" :label="$t('view3DPerspective')" v-model.number="settings.report.public.chartTheme.view3DPerspective" type="number" :min="0" :max="100" outlined :disable="!canEdit" />
+                                <q-input class="col-12 col-md-3" :label="$t('pieExplosion')" v-model.number="settings.report.public.chartTheme.pieExplosion" type="number" :min="0" :max="100" outlined :disable="!canEdit" />
+                                <q-toggle class="col-12 col-md-3" :label="$t('view3DRightAngleAxes')" v-model="settings.report.public.chartTheme.view3DRightAngleAxes" :disable="!canEdit" />
+                            </div>
+                        </div>
                     </div>
                 </q-card-section>
             </div>
@@ -351,10 +518,10 @@
         <q-card id="section-reviews" v-if="UserService.isAllowed('settings:read')" class="q-my-lg">
             <q-card-section class="q-py-none bg-blue-grey-5 text-white">
                 <q-item style="padding:0px;">
-                    <q-item-section class="col-11">
+                    <q-item-section>
                         <div class="text-h6">{{$t('reviews')}}</div>
                     </q-item-section>
-                    <q-item-section class="col-md-1 items-center" >
+                    <q-item-section side>
                         <q-toggle
                             color="primary"
                             keep-color
@@ -365,25 +532,23 @@
                 </q-item>
             </q-card-section>
             <q-separator />
-            <q-card-section>
-                <div class="text-bold">{{$t('auditUpdateAfterApproval')}}</div>
-                <br/>
-                <div class="text-grey-8">
+            <q-card-section class="settings-review-section">
+                <div class="text-bold q-mb-md">{{$t('auditUpdateAfterApproval')}}</div>
+                <div class="text-grey-8 settings-review-copy">
                     {{$t('changeApproveBehaviorIfAuditUpdated')}}
                 </div>
             </q-card-section>
-            <q-card-section>
+            <q-card-section class="settings-review-section">
                 <q-btn-toggle
                     :disable="!canEdit || !settings.reviews.enabled"
                     v-model="settings.reviews.private.removeApprovalsUponUpdate"
-                    class="toggleButton full-width"
+                    class="settings-review-toggle full-width"
                     no-caps
                     rounded
                     unelevated
                     toggle-color="primary"
                     color="transparent"
                     text-color="grey-6"
-                    style="border: 1px solid rgba(100,116,139,0.3); border-radius: 10px; overflow: hidden;"
                     :options="[
                     {label: $t('removeAllPriorApprovals'), value: true},
                     {label: $t('keepAllPriorApprovals'), value: false}
@@ -391,14 +556,13 @@
                 />
             </q-card-section>
             <q-separator />
-            <q-card-section>
-                <div class="text-bold">{{$t('mandatoryReview')}}</div>
-                <br/>
-                <div class="text-grey-8" v-html="$t('mandatoryReviewInfo')"></div>
+            <q-card-section class="settings-review-section">
+                <div class="text-bold q-mb-md">{{$t('mandatoryReview')}}</div>
+                <div class="text-grey-8 settings-review-copy" v-html="$t('mandatoryReviewInfo')"></div>
             </q-card-section>
-            <q-card-section>
-                <div class="row items-center q-col-gutter-md">
-                    <div class="col-auto">
+            <q-card-section class="settings-review-section">
+                <div class="settings-review-controls">
+                    <div class="settings-review-enable">
                         <q-toggle
                             :label="$t('btn.enable')"
                             v-model="settings.reviews.public.mandatoryReview"
@@ -407,16 +571,15 @@
                             :disable="!canEdit || !settings.reviews.enabled"
                         />
                     </div>
-                    <div class="col-sm-auto">
+                    <div class="settings-review-number">
                         <q-input
                             v-model.number="settings.reviews.public.minReviewers"
                             type="number"
                             :disable="!canEdit || !settings.reviews.enabled"
-                            filled
+                            outlined
                             :min="1"
                             :max="99"
                             :hint="$t('minimalNumberOfReviewers')"
-                            style="max-width: 140px"
                         />
                     </div>
                 </div>
@@ -457,7 +620,7 @@
                     @update:model-value="applyDefaultUrlIfEmpty('generation')"
                 />
                 <q-input
-                    v-if="settings.ai.public.provider === 'openai-compatible'"
+                    v-if="['openai-compatible', 'openwebui'].includes(settings.ai.public.provider)"
                     class="col-12 col-md-4"
                     :label="$t('aiModel')"
                     v-model="settings.ai.public.model"
@@ -588,7 +751,7 @@
                     @update:model-value="applyDefaultUrlIfEmpty('embedding')"
                 />
                 <q-input
-                    v-if="settings.ai.public.embeddingProvider === 'openai-compatible'"
+                    v-if="['openai-compatible', 'openwebui'].includes(settings.ai.public.embeddingProvider)"
                     class="col-12 col-md-4"
                     :label="$t('aiEmbeddingModel')"
                     v-model="settings.ai.public.embeddingModel"
@@ -787,7 +950,7 @@
                     @update:model-value="applyDefaultUrlIfEmpty('vision')"
                 />
                 <q-input
-                    v-if="settings.ai.visionPublic.visionProvider === 'openai-compatible'"
+                    v-if="['openai-compatible', 'openwebui'].includes(settings.ai.visionPublic.visionProvider)"
                     class="col-12 col-md-4"
                     :label="$t('aiVisionModel')"
                     v-model="settings.ai.visionPublic.visionModel"
@@ -1172,6 +1335,97 @@
 
         </q-card>
 
+        <q-card id="section-api" v-if="UserService.isAllowed('settings:update')" class="q-my-lg">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section>
+                        <div class="text-h6">{{$t('apiSettings')}}</div>
+                    </q-item-section>
+                </q-item>
+            </q-card-section>
+
+            <q-card-section>
+                <div class="text-bold">{{$t('apiKeysTitle')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('apiKeysDescription')}}</div>
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section>
+                <div class="row items-center q-col-gutter-md">
+                    <div class="col-12 col-md">
+                        <q-input
+                            :label="$t('apiKeyName')"
+                            v-model="apiKeyName"
+                            outlined
+                            dense
+                            hide-bottom-space
+                        />
+                    </div>
+                    <div class="col-12 col-md-auto">
+                        <q-btn
+                            color="primary"
+                            no-caps
+                            icon="add"
+                            :label="$t('apiKeyCreate')"
+                            :loading="apiKeyCreating"
+                            @click="createApiKey"
+                        />
+                    </div>
+                </div>
+                <div class="text-caption text-grey-6 q-mt-xs q-mb-md">{{$t('apiKeyNameHint')}}</div>
+
+                <q-banner v-if="newlyCreatedKey" class="bg-warning q-mb-md" rounded>
+                    <template v-slot:avatar>
+                        <q-icon name="warning" color="dark" />
+                    </template>
+                    <div class="text-bold text-dark q-mb-xs">{{$t('apiKeyOnceWarning')}}</div>
+                    <div class="row items-center q-col-gutter-sm">
+                        <div class="col">
+                            <div
+                                class="q-px-sm q-py-xs text-caption"
+                                style="font-family:monospace; word-break:break-all; user-select:all; background:rgba(255,255,255,0.9); color:#1d1d1d; border-radius:4px; border:1px solid rgba(0,0,0,0.15);"
+                            >{{ newlyCreatedKey }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <q-btn flat round dense icon="content_copy" color="dark" @click="copyText(newlyCreatedKey)">
+                                <q-tooltip>{{$t('mcpCopyConfig')}}</q-tooltip>
+                            </q-btn>
+                        </div>
+                    </div>
+                </q-banner>
+
+                <div v-if="apiKeys.length === 0" class="text-grey-6 text-caption q-py-sm">
+                    {{$t('apiKeyNoKeys')}}
+                </div>
+                <q-list v-else bordered separator class="rounded-borders">
+                    <q-item v-for="k in apiKeys" :key="k.id">
+                        <q-item-section>
+                            <q-item-label>{{k.name}}</q-item-label>
+                            <q-item-label caption>
+                                {{$t('apiKeyPrefix')}}: {{k.keyPrefix}}...
+                                &nbsp;·&nbsp;
+                                {{$t('apiKeyCreatedAt')}}: {{new Date(k.createdAt).toLocaleDateString()}}
+                                &nbsp;·&nbsp;
+                                {{k.lastUsedAt ? $t('apiKeyLastUsed') + ': ' + new Date(k.lastUsedAt).toLocaleString() : $t('apiKeyNeverUsed')}}
+                            </q-item-label>
+                        </q-item-section>
+                        <q-item-section side>
+                            <q-btn
+                                flat round dense
+                                icon="delete"
+                                color="negative"
+                                :aria-label="$t('apiKeyRevoke')"
+                                @click="revokeApiKey(k.id)"
+                            >
+                                <q-tooltip>{{$t('apiKeyRevoke')}}</q-tooltip>
+                            </q-btn>
+                        </q-item-section>
+                    </q-item>
+                </q-list>
+            </q-card-section>
+        </q-card>
+
         <q-card id="section-mcp" v-if="UserService.isAllowed('settings:read')" class="q-my-lg">
             <q-card-section class="q-py-none bg-blue-grey-5 text-white">
                 <q-item style="padding:0px;">
@@ -1187,6 +1441,25 @@
             <q-card-section>
                 <div class="text-bold">{{$t('mcpServer')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('mcpServerDescription')}}</div>
+            </q-card-section>
+            <q-card-section>
+                <div class="row items-center q-col-gutter-md">
+                    <div class="col-12 col-md">
+                        <q-input
+                            :label="$t('mcpServerUrl')"
+                            :model-value="mcpEndpointUrl"
+                            outlined
+                            readonly
+                            hide-bottom-space
+                        >
+                            <template v-slot:append>
+                                <q-btn flat round dense size="sm" icon="content_copy" :aria-label="$t('mcpCopyConfig')" @click="copyText(mcpEndpointUrl)">
+                                    <q-tooltip>{{ $t('mcpCopyConfig') }}</q-tooltip>
+                                </q-btn>
+                            </template>
+                        </q-input>
+                    </div>
+                </div>
             </q-card-section>
 
             <q-separator />

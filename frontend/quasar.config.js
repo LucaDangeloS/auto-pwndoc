@@ -114,6 +114,7 @@ export default function (ctx) {
         'QCardSection',
         'QCheckbox',
         'QChip',
+        'QColor',
         'QDate',
         'QDialog',
         'QDrawer',

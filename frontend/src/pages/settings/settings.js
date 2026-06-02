@@ -159,6 +159,7 @@ const DEFAULT_CHART_THEME = {
     view3DRotY: 30,
     view3DPerspective: 30,
     view3DRightAngleAxes: false,
+    pieExplosion: 0,
 };
 
 export default {
@@ -190,9 +191,14 @@ export default {
                 { id: 'section-reports', label: 'reports' },
                 { id: 'section-reviews', label: 'reviews' },
                 { id: 'section-ai', label: 'aiSettings' },
+                { id: 'section-api', label: 'apiSettings' },
                 { id: 'section-mcp', label: 'mcpSettings' },
                 { id: 'section-actions', label: 'saveSettings' }
             ],
+            apiKeys: [],
+            apiKeyName: '',
+            apiKeyCreating: false,
+            newlyCreatedKey: null,
             DEFAULT_PROMPTS,
             promptTags: ['{language}','{fieldName}','{findingTitle}','{similarVulnsBlock}','{text}','{auditName}','{severity}','{findingsDigest}','{visionSummary}','{imageRefsBlock}','{vulnDescription}','{fromLanguage}','{toLanguage}','{fromLocale}','{toLocale}'],
             vulnerabilityTranslationPromptHint: 'Tags: {fieldName}, {fromLanguage}, {toLanguage}, {fromLocale}, {toLocale}. User prompt is fixed.',
@@ -240,7 +246,8 @@ export default {
                 { label: 'Anthropic', value: 'anthropic' },
                 { label: 'Ollama', value: 'ollama' },
                 { label: 'Azure OpenAI', value: 'azure-openai' },
-                { label: 'OpenAI Compatible', value: 'openai-compatible' }
+                { label: 'OpenAI Compatible', value: 'openai-compatible' },
+                { label: 'OpenWebUI', value: 'openwebui' }
             ],
             aiFieldPromptFields: [
                 { key: 'description',    labelKey: 'fieldDescription',    icon: 'description' },
@@ -276,7 +283,8 @@ export default {
                 'anthropic': 'https://api.anthropic.com/v1',
                 'ollama': 'http://localhost:11434',
                 'azure-openai': 'https://<instance>.openai.azure.com',
-                'openai-compatible': 'http://<host>:<port>'
+                'openai-compatible': 'http://<host>:<port>',
+                'openwebui': 'http://<host>:3000/api'
             };
             return defaults[this.settings.ai.public.provider] || '';
         },
@@ -286,7 +294,8 @@ export default {
                 'anthropic': '',
                 'ollama': 'http://localhost:11434',
                 'azure-openai': 'https://<instance>.openai.azure.com',
-                'openai-compatible': 'http://<host>:<port>'
+                'openai-compatible': 'http://<host>:<port>',
+                'openwebui': 'http://<host>:3000/api'
             };
             return defaults[this.settings.ai.public.embeddingProvider] || '';
         },
@@ -296,7 +305,8 @@ export default {
                 'anthropic': 'https://api.anthropic.com/v1',
                 'ollama': 'http://localhost:11434',
                 'azure-openai': 'https://<instance>.openai.azure.com',
-                'openai-compatible': 'http://<host>:<port>'
+                'openai-compatible': 'http://<host>:<port>',
+                'openwebui': 'http://<host>:3000/api'
             };
             return defaults[(this.settings.ai.visionPublic && this.settings.ai.visionPublic.visionProvider) || 'openai'] || '';
         },
@@ -396,6 +406,10 @@ export default {
         },
 
         getSettings: function() {
+            SettingsService.listApiKeys()
+            .then(res => { this.apiKeys = res.data.datas || []; })
+            .catch(() => {});
+
             SettingsService.getSettings()
             .then((data) => {
                 this.settings = this.$_.merge(
@@ -469,6 +483,10 @@ export default {
 
         resetPromptToDefault: function(promptKey) {
             this.settings.ai.private[promptKey] = DEFAULT_PROMPTS[promptKey] || '';
+        },
+
+        colorSwatchStyle: function(value) {
+            return { '--settings-color': value || '#ffffff' };
         },
 
         importSettings: function(file) {
@@ -695,6 +713,47 @@ export default {
                 .catch((err) => {
                     notifyError(err);
                 });
+            });
+        },
+
+        createApiKey: function() {
+            if (!this.apiKeyName.trim()) {
+                Notify.create({ message: $t('apiKeyNameRequired'), color: 'warning', position: 'top-right' });
+                return;
+            }
+            this.apiKeyCreating = true;
+            SettingsService.createApiKey(this.apiKeyName.trim())
+            .then((res) => {
+                var created = res.data.datas;
+                this.newlyCreatedKey = created.key;
+                this.apiKeys.push({
+                    id: created.id,
+                    name: created.name,
+                    keyPrefix: created.key.substring(0, 8),
+                    createdAt: created.createdAt,
+                    lastUsedAt: null
+                });
+                this.apiKeyName = '';
+                notifySuccess('apiKeyCreated');
+            })
+            .catch((err) => { notifyError(err); })
+            .finally(() => { this.apiKeyCreating = false; });
+        },
+
+        revokeApiKey: function(id) {
+            Dialog.create({
+                title: $t('apiKeyRevoke'),
+                message: $t('apiKeyRevokeConfirm'),
+                ok: { label: $t('apiKeyRevoke'), color: 'negative', unelevated: true, noCaps: true },
+                cancel: { label: $t('btn.cancel'), color: 'grey-7', flat: true, noCaps: true }
+            }).onOk(() => {
+                SettingsService.deleteApiKey(id)
+                .then(() => {
+                    this.apiKeys = this.apiKeys.filter(k => k.id !== id);
+                    if (this.newlyCreatedKey) this.newlyCreatedKey = null;
+                    notifySuccess('apiKeyRevoked');
+                })
+                .catch((err) => { notifyError(err); });
             });
         },
 

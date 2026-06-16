@@ -67,6 +67,12 @@ export default {
             dtLanguage: "",
             currentDetailsIndex: 0,
             vulnerabilityId: '',
+            // Item 2: when the edit modal is open, switching the language selector
+            // to a locale that lives in a linked (related-translation) vulnerability
+            // loads that document. These flags scope/guard that behavior.
+            editModalActive: false,
+            suppressLanguageWatch: false,
+            currentVulnerabilitySnapshot: '',
             vulnUpdates: [],
             currentUpdate: '',
             currentUpdateLocale: '',
@@ -125,14 +131,8 @@ export default {
 
     watch: {
         currentLanguage: function(val, oldVal) {
-            this.setCurrentDetails();
-            if (this.relationCandidateLocale === val || !this.relationLanguageOptions.some(lang => lang.locale === this.relationCandidateLocale)) {
-                this.relationCandidateLocale = this.relationLanguageOptions[0]?.locale || '';
-                this.relationCandidateVuln = '';
-            }
-            if (!this.translationTargetLocale || !this.missingTranslationLanguageOptions.some(lang => lang.locale === this.translationTargetLocale)) {
-                this.translationTargetLocale = this.missingTranslationLanguageOptions[0]?.locale || '';
-            }
+            if (this.suppressLanguageWatch) return;
+            this.resolveLanguageSelection(val, oldVal);
         }
     },
 
@@ -173,6 +173,21 @@ export default {
         },
         currentTranslationMembers: function() {
             return this.currentTranslationGroup ? (this.currentTranslationGroup.members || []).filter(member => member.locale !== this.currentLanguage) : [];
+        },
+        // Key of the single most recently edited member across the whole group,
+        // so the "Last edited" badge marks only that one (not every member that
+        // was ever edited).
+        mostRecentlyEditedMemberKey: function() {
+            const group = this.currentTranslationGroup;
+            if (!group || !Array.isArray(group.members)) return null;
+            let best = null;
+            group.members.forEach(member => {
+                if (!member.lastEditedAt) return;
+                const time = new Date(member.lastEditedAt).getTime();
+                if (!Number.isFinite(time)) return;
+                if (!best || time > best.time) best = {time, key: this.memberVulnId(member) + member.locale};
+            });
+            return best ? best.key : null;
         },
         relationLanguageOptions: function() {
             return this.languages.filter(lang => lang.locale !== this.currentLanguage);
@@ -458,6 +473,7 @@ export default {
         },
 
         clone: function(row) {
+            this.suppressLanguageWatch = true;
             this.cleanCurrentVulnerability();
             this.currentVulnerability = this.$_.cloneDeep(row)
             this.setCurrentDetails();
@@ -466,8 +482,108 @@ export default {
             this.relationCandidateLocale = this.languages.find(l => l.locale !== this.currentLanguage)?.locale || '';
             this.relationCandidateVuln = '';
             this.translationTargetLocale = this.missingTranslationLanguageOptions[0]?.locale || '';
+            this.$nextTick(() => { this.suppressLanguageWatch = false; });
             if (this.UserService.isAllowed('vulnerabilities:update'))
                 this.getVulnUpdates(this.vulnerabilityId);
+        },
+
+        editModalShow: function() {
+            this.editModalActive = true;
+            // Capture the dirty-check baseline only after the modal is shown and
+            // the editors have re-serialized their HTML, so the linked-translation
+            // prompt fires on genuine user edits, not on load-time normalization.
+            this.$nextTick(() => { this.snapshotCurrentVulnerability(); });
+        },
+
+        editModalHide: function() {
+            this.editModalActive = false;
+            this.cleanCurrentVulnerability();
+        },
+
+        // Item 2: route a language-selector change. In the edit modal, if the
+        // chosen locale lives in a linked translation (separate document) rather
+        // than in the current one, load that document so its content is shown.
+        resolveLanguageSelection: function(newLocale, oldLocale) {
+            var localDetail = (this.currentVulnerability.details || []).find(d => d.locale === newLocale && d.title);
+            if (localDetail) {
+                this.setCurrentDetails();
+                this.afterLanguageResolved();
+                return;
+            }
+
+            var related = this.editModalActive ? this.findRelatedVulnerabilityForLocale(newLocale) : null;
+            if (related) {
+                if (this.hasUnsavedVulnerabilityChanges()) {
+                    Dialog.create({
+                        title: $t('msg.confirmLanguageSwitchTitle'),
+                        message: $t('msg.confirmLanguageSwitchMessage'),
+                        ok: {label: $t('btn.confirm'), color: 'primary'},
+                        cancel: {label: $t('btn.cancel'), color: 'white'}
+                    })
+                    .onOk(() => this.loadRelatedVulnerability(related, newLocale))
+                    .onCancel(() => this.setLanguageSilently(oldLocale));
+                    return;
+                }
+                this.loadRelatedVulnerability(related, newLocale);
+                return;
+            }
+
+            this.setCurrentDetails();
+            this.afterLanguageResolved();
+        },
+
+        findRelatedVulnerabilityForLocale: function(locale) {
+            var group = this.currentTranslationGroup;
+            if (!group) return null;
+            var member = (group.members || []).find(m => m.locale === locale && this.memberVulnId(m) !== this.vulnerabilityId);
+            if (!member) return null;
+            return this.vulnerabilities.find(v => v._id === this.memberVulnId(member)) || null;
+        },
+
+        loadRelatedVulnerability: function(vuln, locale) {
+            this.vulnerabilityId = vuln._id;
+            this.currentVulnerability = this.$_.cloneDeep(vuln);
+            this.setLanguageSilently(locale);
+            this.setCurrentDetails();
+            this.afterLanguageResolved();
+            // Re-baseline after the editors re-render the loaded translation, so a
+            // subsequent language switch is not falsely flagged as dirty.
+            this.$nextTick(() => { this.snapshotCurrentVulnerability(); });
+            if (this.UserService.isAllowed('vulnerabilities:update'))
+                this.getVulnUpdates(this.vulnerabilityId);
+        },
+
+        setLanguageSilently: function(locale) {
+            this.suppressLanguageWatch = true;
+            this.currentLanguage = locale;
+            this.$nextTick(() => { this.suppressLanguageWatch = false; });
+        },
+
+        snapshotCurrentVulnerability: function() {
+            try {
+                this.currentVulnerabilitySnapshot = JSON.stringify(this.vulnerabilityPayload(this.currentVulnerability));
+            } catch (_) {
+                this.currentVulnerabilitySnapshot = '';
+            }
+        },
+
+        hasUnsavedVulnerabilityChanges: function() {
+            if (!this.currentVulnerabilitySnapshot) return false;
+            try {
+                return JSON.stringify(this.vulnerabilityPayload(this.currentVulnerability)) !== this.currentVulnerabilitySnapshot;
+            } catch (_) {
+                return false;
+            }
+        },
+
+        afterLanguageResolved: function() {
+            if (this.relationCandidateLocale === this.currentLanguage || !this.relationLanguageOptions.some(lang => lang.locale === this.relationCandidateLocale)) {
+                this.relationCandidateLocale = this.relationLanguageOptions[0]?.locale || '';
+                this.relationCandidateVuln = '';
+            }
+            if (!this.translationTargetLocale || !this.missingTranslationLanguageOptions.some(lang => lang.locale === this.translationTargetLocale)) {
+                this.translationTargetLocale = this.missingTranslationLanguageOptions[0]?.locale || '';
+            }
         },
 
         editChangeCategory: function(category) {
@@ -519,6 +635,8 @@ export default {
         },  
 
         cleanCurrentVulnerability: function() {
+            this.suppressLanguageWatch = true;
+            this.currentVulnerabilitySnapshot = '';
             this.cleanErrors();
             this.currentVulnerability.cvssv3 = '';
             this.currentVulnerability.cvssv4 = '';
@@ -541,6 +659,7 @@ export default {
             }
 
             this.setCurrentDetails();
+            this.$nextTick(() => { this.suppressLanguageWatch = false; });
         },
 
         // Create detail if locale doesn't exist else set the currentDetailIndex
@@ -715,6 +834,11 @@ export default {
         memberLastEditedLabel: function(member) {
             if (!member || !member.lastEditedAt) return '-';
             return new Date(member.lastEditedAt).toLocaleString();
+        },
+
+        isMostRecentlyEdited: function(member) {
+            if (!member || !member.lastEditedAt) return false;
+            return this.mostRecentlyEditedMemberKey === (this.memberVulnId(member) + member.locale);
         },
 
         translationStatusLabel: function(member) {

@@ -324,7 +324,7 @@
     </q-card>
 </q-dialog>
 
-<q-dialog v-if="languages.length > 0" ref="editModal" maximized position="right" :persistent="UserService.isAllowed('vulnerabilities:update')" @hide="cleanCurrentVulnerability()">
+<q-dialog v-if="languages.length > 0" ref="editModal" maximized position="right" :persistent="UserService.isAllowed('vulnerabilities:update')" @show="editModalShow()" @hide="editModalHide()">
     <q-card :style="($q.screen.gt.lg)?'width: 50vw':'width:1000px'">
         <q-bar class="bg-fixed-primary text-white">
             <div class="q-toolbar-title">
@@ -420,7 +420,7 @@
                                 <q-item-label>
                                     <span class="text-weight-medium">{{ languageLabel(member.locale) }}</span>
                                     <q-badge v-if="member.isSource" color="secondary" class="q-ml-sm">{{$t('sourceVersion')}}</q-badge>
-                                    <q-badge v-if="member.lastEditedAt" outline color="primary" class="q-ml-sm">{{$t('lastEdited')}}</q-badge>
+                                    <q-badge v-if="isMostRecentlyEdited(member)" outline color="primary" class="q-ml-sm">{{$t('lastEdited')}}</q-badge>
                                     <q-badge :color="translationStatusColor(member)" class="q-ml-sm">{{ translationStatusLabel(member) }}</q-badge>
                                 </q-item-label>
                                 <q-item-label caption>{{ memberTitle(member) }}</q-item-label>
@@ -976,7 +976,7 @@
             <div class="text-body2 q-mb-md">{{$t('automaticVulnerabilityMatchingWarning')}}</div>
             <div class="row q-col-gutter-md">
                 <q-select class="col-12 col-md-6" v-model="matchingScope" :label="$t('matchingScope')" :options="[{label: $t('unmappedOnly'), value: 'unmapped'}, {label: $t('allVulnerabilities'), value: 'all'}]" emit-value map-options outlined :disable="matchingStatus.inProgress" />
-                <q-input class="col-12 col-md-6" type="number" v-model.number="matchingThreshold" :label="$t('matchingThreshold')" outlined :disable="matchingStatus.inProgress" />
+                <q-input class="col-12 col-md-6" type="number" step="0.1" min="0" v-model.number="matchingThreshold" :label="$t('matchingThreshold')" :hint="$t('matchingThresholdHint')" outlined :disable="matchingStatus.inProgress" />
             </div>
             <div v-if="matchingStatus.inProgress || matchingStatus.total > 0" class="q-mt-md">
                 <div class="text-caption q-mb-xs">{{$t('matchingProgress', {processed: matchingStatus.processed, total: matchingStatus.total})}}</div>

@@ -4,6 +4,8 @@ module.exports = function () {
   var chartGenerator = require("../src/lib/chart-generator")
   var reportGenerator = require("../src/lib/report-generator")
   var translateService = require("../src/lib/translate-service")
+  var aiService = require("../src/lib/ai-service")
+  var visionService = require("../src/lib/vision-service")
 
   describe('Lib functions Suite Tests', () => {
 
@@ -89,6 +91,119 @@ module.exports = function () {
 
         expect(prompt).toContain('professional technical translator')
         expect(prompt).toContain('from English to German')
+      })
+    })
+
+    describe('AI prompt context tests', () => {
+      it('converts rich finding content to bounded text without image data', () => {
+        var context = aiService._htmlToContextText(
+          '<p>Observed response</p><img src="data:image/png;base64,SECRET" alt="ignore"><p>confirmed.</p>',
+          200
+        )
+
+        expect(context).toEqual('Observed response [IMAGE 1 OMITTED] confirmed.')
+        expect(context).not.toContain('SECRET')
+        expect(context).not.toContain('data:image')
+      })
+
+      it('marks truncated AI context', () => {
+        var context = aiService._htmlToContextText(`<p>${'a'.repeat(100)}</p>`, 40)
+
+        expect(context.length).toBeLessThanOrEqual(40)
+        expect(context).toContain('[TRUNCATED]')
+      })
+
+      it('preserves executive digest line structure', () => {
+        var digest = aiService._truncateMultilineContext(
+          '- [High] Finding one\n  Description: First issue\n- [Low] Finding two',
+          500
+        )
+
+        expect(digest.split('\n')).toHaveLength(3)
+        expect(digest).toContain('Description: First issue')
+      })
+
+      it('only requests optional PoC vision when the active prompt uses its tag', () => {
+        expect(aiService._promptUsesVariable(
+          'Use the supplied proof cautiously.',
+          'Proof: {findingPoc}',
+          'findingPocVision'
+        )).toEqual(false)
+
+        expect(aiService._promptUsesVariable(
+          'Use this visual analysis: {findingPocVision}',
+          'Proof: {findingPoc}',
+          'findingPocVision'
+        )).toEqual(true)
+      })
+
+      it('interpolates finding and audit context tags', () => {
+        var rendered = aiService._fillTemplate(
+          '{findingDescription}|{findingPoc}|{findingPocVision}|{auditContext}',
+          {
+            findingDescription: 'Description',
+            findingPoc: 'Proof',
+            findingPocVision: 'Vision',
+            auditContext: 'External assessment'
+          }
+        )
+
+        expect(rendered).toEqual('Description|Proof|Vision|External assessment')
+      })
+    })
+
+    describe('vision anonymization tests', () => {
+      it('appends the configured anonymization prompt only when enabled', () => {
+        expect(visionService.buildVisionSystemContent({
+          visionSystemPrompt: 'Analyze the evidence.',
+          visionAnonymizeLlm: false,
+          visionAnonymizationPrompt: 'Hide all targets.'
+        })).toEqual('Analyze the evidence.')
+
+        expect(visionService.buildVisionSystemContent({
+          visionSystemPrompt: 'Analyze the evidence.',
+          visionAnonymizeLlm: true,
+          visionAnonymizationPrompt: 'Hide all targets.'
+        })).toEqual('Analyze the evidence.\n\nHide all targets.')
+      })
+
+      it('applies configurable regex rules in order', () => {
+        var result = visionService.anonymizeWithRegex(
+          'Contact admin@example.com using token secret-123.',
+          [
+            { name: 'email', pattern: '[A-Za-z]+@[A-Za-z.]+', flags: 'g', replacement: '[EMAIL]', enabled: true },
+            { name: 'token', pattern: 'secret-[0-9]+', flags: 'g', replacement: '[TOKEN]', enabled: true }
+          ]
+        )
+
+        expect(result).toEqual('Contact [EMAIL] using token [TOKEN].')
+      })
+
+      it('skips disabled regex rules', () => {
+        var result = visionService.anonymizeWithRegex(
+          '192.168.1.10',
+          [{ name: 'IP', pattern: '\\d+(?:\\.\\d+){3}', flags: 'g', replacement: '[IP]', enabled: false }]
+        )
+
+        expect(result).toEqual('192.168.1.10')
+      })
+
+      it('redacts full URLs and standalone IP addresses with the default rules', () => {
+        var result = visionService.anonymizeWithRegex(
+          'Open https://192.168.1.10:8443/admin?q=test#result, then contact 10.0.0.5, ::1 and 2001:db8::42.'
+        )
+
+        expect(result).toEqual(
+          'Open [URL_REDACTED], then contact [IP_REDACTED], [IP_REDACTED] and [IP_REDACTED].'
+        )
+      })
+
+      it('validates malformed regex rules', () => {
+        var errors = visionService.validateRegexRules([
+          { name: 'broken', pattern: '[', flags: 'gg', replacement: '[X]', enabled: true }
+        ])
+
+        expect(errors.length).toBeGreaterThanOrEqual(2)
       })
     })
 

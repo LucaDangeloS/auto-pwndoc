@@ -137,7 +137,7 @@
                       v-on:ready="onEditorReady"
                       idUnique="basiceditor_description"
                       fieldName="description"
-                      :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
+                      :aiContext="findingAiContext()"
                       noSync
                       :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
@@ -161,7 +161,7 @@
                       v-model="finding.observation"
                       idUnique="basiceditor_observation"
                       fieldName="observation"
-                      :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
+                      :aiContext="findingAiContext()"
                       noSync
                       :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
@@ -230,7 +230,7 @@
                       v-model="finding.poc"
                       idUnique="basiceditor_poc"
                       fieldName="poc"
-                      :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
+                      :aiContext="findingAiContext()"
                       noSync
                       :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
@@ -292,7 +292,7 @@
                       v-model="finding.retestEvidence"
                       idUnique="basiceditor_retestEvidence"
                       fieldName="retestEvidence"
-                      :aiContext="{ findingTitle: finding.title, locale: localAudit && localAudit.language }"
+                      :aiContext="findingAiContext(localAudit)"
                       noSync
                       :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />
@@ -410,7 +410,7 @@
                       v-model="finding.remediation"
                       idUnique="basiceditor_remediation"
                       fieldName="remediation"
-                      :aiContext="{ findingTitle: finding.title, locale: audit && audit.language }"
+                      :aiContext="findingAiContext()"
                       noSync
                       :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />

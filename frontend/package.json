@@ -9,7 +9,7 @@
   "scripts": {
     "build": "export NODE_OPTIONS=--openssl-legacy-provider && quasar build",
     "dev": "export NODE_OPTIONS=--openssl-legacy-provider && quasar dev",
-    "test": "quasar --version && npm --version && echo \"No test specified\" && exit 0"
+    "test": "npm run build && node src/tests/settings-render.test.cjs"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",

@@ -18,9 +18,9 @@ Produce a structured analysis with:
 
 Output plain text only. Do not use markdown headers or code fences.`;
 
-const ANONYMIZE_INSTRUCTION = `
-IMPORTANT: You must anonymize all sensitive information in your output. Replace the following with [REDACTED]:
+const DEFAULT_VISION_ANONYMIZATION_PROMPT = `IMPORTANT: You must anonymize all sensitive information in your output. Replace the following with [REDACTED]:
 - IP addresses (e.g. 192.168.1.1, 10.0.0.1)
+- URLs, including schemes, ports, paths, query strings, and fragments
 - Domain names and hostnames (e.g. example.com, server01.internal)
 - Email addresses
 - Usernames and account names
@@ -28,17 +28,13 @@ IMPORTANT: You must anonymize all sensitive information in your output. Replace 
 - API keys or tokens
 - Company or product names that could identify the target`;
 
-const REGEX_PATTERNS = [
-    // IPv4
-    { pattern: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g, replacement: '[IP_REDACTED]' },
-    // IPv6
-    { pattern: /\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b/g, replacement: '[IP_REDACTED]' },
-    // Email addresses
-    { pattern: /\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/g, replacement: '[EMAIL_REDACTED]' },
-    // Domain names (basic heuristic: word.word patterns that look like FQDNs)
-    { pattern: /\b(?:[a-zA-Z0-9\-]+\.){2,}[a-zA-Z]{2,}\b/g, replacement: '[DOMAIN_REDACTED]' },
-    // Common hostname patterns like server01, host-name
-    { pattern: /\b(?:server|host|dc|ad|ws|pc|laptop|desktop|node|worker|master|slave|db|sql|web|app|api|proxy|vpn|fw|firewall|router|switch|lb)\d*[-\w]*/gi, replacement: '[HOST_REDACTED]' }
+const DEFAULT_REGEX_RULES = [
+    { name: 'URLs', pattern: '\\b(?:(?:https?|ftp):\\/\\/|www\\.)[A-Za-z0-9._~:/?#\\[\\]@!$&\'()*+,;=%-]*[A-Za-z0-9_~/#\\]=%-]', flags: 'gi', replacement: '[URL_REDACTED]', enabled: true },
+    { name: 'IPv4 addresses', pattern: '\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b', flags: 'g', replacement: '[IP_REDACTED]', enabled: true },
+    { name: 'IPv6 addresses', pattern: '(?<![0-9A-Fa-f:])(?:(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,5}(?::[0-9A-Fa-f]{1,4}){1,2}|(?:[0-9A-Fa-f]{1,4}:){1,4}(?::[0-9A-Fa-f]{1,4}){1,3}|(?:[0-9A-Fa-f]{1,4}:){1,3}(?::[0-9A-Fa-f]{1,4}){1,4}|(?:[0-9A-Fa-f]{1,4}:){1,2}(?::[0-9A-Fa-f]{1,4}){1,5}|[0-9A-Fa-f]{1,4}:(?:(?::[0-9A-Fa-f]{1,4}){1,6})|:(?:(?::[0-9A-Fa-f]{1,4}){1,7}|:))(?![0-9A-Fa-f:])', flags: 'g', replacement: '[IP_REDACTED]', enabled: true },
+    { name: 'Email addresses', pattern: '\\b[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}\\b', flags: 'g', replacement: '[EMAIL_REDACTED]', enabled: true },
+    { name: 'Domain names', pattern: '\\b(?:[a-zA-Z0-9\\-]+\\.){2,}[a-zA-Z]{2,}\\b', flags: 'g', replacement: '[DOMAIN_REDACTED]', enabled: true },
+    { name: 'Common hostnames', pattern: '\\b(?:server|host|dc|ad|ws|pc|laptop|desktop|node|worker|master|slave|db|sql|web|app|api|proxy|vpn|fw|firewall|router|switch|lb)\\d*[-\\w]*', flags: 'gi', replacement: '[HOST_REDACTED]', enabled: true }
 ];
 
 function ensureV1(url) {
@@ -154,10 +150,59 @@ async function fetchImageBase64(imageId) {
     return img.value;
 }
 
-function anonymizeWithRegex(text) {
+function compileRegexRule(rule) {
+    const flags = (rule.flags || '').includes('g') ? rule.flags : `${rule.flags || ''}g`;
+    return new RegExp(rule.pattern, flags);
+}
+
+function buildVisionSystemContent(privateSettings = {}) {
+    const analysisPrompt = privateSettings.visionSystemPrompt || DEFAULT_VISION_SYSTEM_PROMPT;
+    if (!privateSettings.visionAnonymizeLlm) return analysisPrompt;
+
+    const anonymizationPrompt =
+        privateSettings.visionAnonymizationPrompt || DEFAULT_VISION_ANONYMIZATION_PROMPT;
+    return `${analysisPrompt}\n\n${anonymizationPrompt}`;
+}
+
+function validateRegexRules(rules) {
+    if (!Array.isArray(rules)) return ['Regex rules must be an array'];
+
+    const errors = [];
+    rules.forEach((rule, index) => {
+        if (!rule || typeof rule !== 'object') {
+            errors.push(`Rule ${index + 1} must be an object`);
+            return;
+        }
+        if (!rule.name || typeof rule.name !== 'string' || rule.name.length > 120) {
+            errors.push(`Rule ${index + 1} requires a name of at most 120 characters`);
+        }
+        if (!rule.pattern || typeof rule.pattern !== 'string' || rule.pattern.length > 1000) {
+            errors.push(`Rule ${index + 1} requires a pattern of at most 1000 characters`);
+        }
+        if (typeof rule.replacement !== 'string' || rule.replacement.length > 200) {
+            errors.push(`Rule ${index + 1} requires a replacement of at most 200 characters`);
+        }
+        if (!/^[gimsuy]*$/.test(rule.flags || '') || new Set(rule.flags || '').size !== (rule.flags || '').length) {
+            errors.push(`Rule ${index + 1} has invalid or duplicate flags`);
+        }
+        try {
+            compileRegexRule(rule);
+        } catch (err) {
+            errors.push(`Rule ${index + 1} has an invalid regular expression: ${err.message}`);
+        }
+    });
+    return errors;
+}
+
+function anonymizeWithRegex(text, rules = DEFAULT_REGEX_RULES) {
     let result = text;
-    for (const { pattern, replacement } of REGEX_PATTERNS) {
-        result = result.replace(pattern, replacement);
+    for (const rule of rules) {
+        if (!rule || rule.enabled === false) continue;
+        try {
+            result = result.replace(compileRegexRule(rule), rule.replacement);
+        } catch (err) {
+            console.error(`[Vision] Invalid anonymization regex "${rule.name || 'unnamed'}":`, err.message);
+        }
     }
     return result;
 }
@@ -191,12 +236,14 @@ async function analyzeProofs(pocHtml, aiSettings) {
     const priv = aiSettings.private || {};
     const anonymizeLlm = priv.visionAnonymizeLlm || false;
     const anonymizeRegex = priv.visionAnonymizeRegex || false;
+    const anonymizeRegexRules = Array.isArray(priv.visionAnonymizeRegexRules)
+        ? priv.visionAnonymizeRegexRules
+        : DEFAULT_REGEX_RULES;
 
-    const customSystemPrompt = priv.visionSystemPrompt || '';
-    let systemContent = customSystemPrompt || DEFAULT_VISION_SYSTEM_PROMPT;
-    if (anonymizeLlm) {
-        systemContent += ANONYMIZE_INSTRUCTION;
-    }
+    const systemContent = buildVisionSystemContent({
+        ...priv,
+        visionAnonymizeLlm: anonymizeLlm
+    });
 
     const messageContent = [];
 
@@ -236,7 +283,7 @@ async function analyzeProofs(pocHtml, aiSettings) {
     let rawOutput = (response.content || '').toString().trim();
 
     if (anonymizeRegex) {
-        rawOutput = anonymizeWithRegex(rawOutput);
+        rawOutput = anonymizeWithRegex(rawOutput, anonymizeRegexRules);
     }
 
     const imageDescriptions = [];
@@ -254,4 +301,13 @@ async function analyzeProofs(pocHtml, aiSettings) {
     return { visionSummary: rawOutput, imageDescriptions };
 }
 
-module.exports = { analyzeProofs, parseProofHtml, anonymizeWithRegex };
+module.exports = {
+    analyzeProofs,
+    parseProofHtml,
+    anonymizeWithRegex,
+    validateRegexRules,
+    buildVisionSystemContent,
+    DEFAULT_REGEX_RULES,
+    DEFAULT_VISION_SYSTEM_PROMPT,
+    DEFAULT_VISION_ANONYMIZATION_PROMPT
+};

@@ -297,16 +297,27 @@ export default {
         _findingDigestLine(f) {
             const { severity, score } = this._findingSeverityAndScore(f);
             const scoreStr = score !== null && score !== undefined && score !== '' ? ` (CVSS: ${score})` : '';
-            return `- [${severity}${scoreStr}] ${f.title || $t('untitled')}`;
+            const description = this._plainText(f.description).slice(0, 800);
+            const descriptionLine = description ? `\n  Description: ${description}` : '';
+            return `- [${severity}${scoreStr}] ${f.title || $t('untitled')}${descriptionLine}`;
+        },
+
+        _plainText(html) {
+            if (!html) return '';
+            const container = document.createElement('div');
+            container.innerHTML = html;
+            return (container.textContent || '').replace(/\s+/g, ' ').trim();
         },
 
         aiContextFor(severity) {
             return {
                 auditName: this.auditName,
                 severity,
+                overallRisk: this.executiveSummary.overallRisk || '',
                 findingsDigest: this.findingsForSeverity(severity)
                     .map(f => this._findingDigestLine(f))
                     .join('\n'),
+                auditContext: this.audit?.summary || '',
                 locale: this.audit?.language || 'en-GB',
             };
         },
@@ -314,7 +325,9 @@ export default {
         aiContextSummary() {
             return {
                 auditName: this.auditName,
+                overallRisk: this.executiveSummary.overallRisk || '',
                 findingsDigest: this.findingsDigest,
+                auditContext: this.audit?.summary || '',
                 locale: this.audit?.language || 'en-GB',
             };
         },

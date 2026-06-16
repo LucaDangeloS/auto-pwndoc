@@ -1895,6 +1895,7 @@ async function prepAuditData(data, settings) {
 
 
     result.language = data.language || "undefined"
+    result.summary = data.summary || ""
     result.scope = data.scope.toObject() || []
     result.is_retest = data.isRetest === true
 
@@ -1907,6 +1908,7 @@ async function prepAuditData(data, settings) {
     result.low_summary = await splitHTMLParagraphs(execSummary.lowSummary || '')
     result.informative_summary = await splitHTMLParagraphs(execSummary.informativeSummary || '')
     result.audit = {
+        summary: result.summary,
         is_retest: result.is_retest,
         overall_risk: result.overall_risk,
         executive_summary: execSummary.summary || '',

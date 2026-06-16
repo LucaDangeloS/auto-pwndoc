@@ -38,6 +38,7 @@ export default {
                 date: "",
                 date_start: "",
                 date_end: "",
+                summary: "",
                 scope: [],
                 language: "",
                 template: "",

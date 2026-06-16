@@ -773,6 +773,84 @@ const STEPS = [
             console.log(`[migration] add-chart-pie-explosion-setting: ${result.modifiedCount} settings documents updated`);
         },
     },
+    // Step 21: Add configurable vision anonymization regex rules
+    {
+        id: 21,
+        name: 'add-vision-anonymization-regex-rules',
+        async run(_srcDb, dstDb) {
+            const col = dstDb.collection('settings');
+            const rules = [
+                { name: 'IPv4 addresses', pattern: '\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b', flags: 'g', replacement: '[IP_REDACTED]', enabled: true },
+                { name: 'IPv6 addresses', pattern: '\\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\\b', flags: 'g', replacement: '[IP_REDACTED]', enabled: true },
+                { name: 'Email addresses', pattern: '\\b[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}\\b', flags: 'g', replacement: '[EMAIL_REDACTED]', enabled: true },
+                { name: 'Domain names', pattern: '\\b(?:[a-zA-Z0-9\\-]+\\.){2,}[a-zA-Z]{2,}\\b', flags: 'g', replacement: '[DOMAIN_REDACTED]', enabled: true },
+                { name: 'Common hostnames', pattern: '\\b(?:server|host|dc|ad|ws|pc|laptop|desktop|node|worker|master|slave|db|sql|web|app|api|proxy|vpn|fw|firewall|router|switch|lb)\\d*[-\\w]*', flags: 'gi', replacement: '[HOST_REDACTED]', enabled: true }
+            ];
+            const result = await col.updateMany(
+                { 'ai.private.visionAnonymizeRegexRules': { $exists: false } },
+                { $set: { 'ai.private.visionAnonymizeRegexRules': rules } }
+            );
+            console.log(`[migration] add-vision-anonymization-regex-rules: ${result.modifiedCount} settings documents updated`);
+        },
+    },
+    // Step 22: Extend default vision anonymization to full URLs and compressed IPv6
+    {
+        id: 22,
+        name: 'extend-vision-anonymization-network-rules',
+        async run(_srcDb, dstDb) {
+            const col = dstDb.collection('settings');
+            const urlRule = {
+                name: 'URLs',
+                pattern: '\\b(?:(?:https?|ftp):\\/\\/|www\\.)[A-Za-z0-9._~:/?#\\[\\]@!$&\'()*+,;=%-]*[A-Za-z0-9_~/#\\]=%-]',
+                flags: 'gi',
+                replacement: '[URL_REDACTED]',
+                enabled: true
+            };
+            const oldIpv6Pattern = '\\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\\b';
+            const ipv6Pattern = '(?<![0-9A-Fa-f:])(?:(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,5}(?::[0-9A-Fa-f]{1,4}){1,2}|(?:[0-9A-Fa-f]{1,4}:){1,4}(?::[0-9A-Fa-f]{1,4}){1,3}|(?:[0-9A-Fa-f]{1,4}:){1,3}(?::[0-9A-Fa-f]{1,4}){1,4}|(?:[0-9A-Fa-f]{1,4}:){1,2}(?::[0-9A-Fa-f]{1,4}){1,5}|[0-9A-Fa-f]{1,4}:(?:(?::[0-9A-Fa-f]{1,4}){1,6})|:(?:(?::[0-9A-Fa-f]{1,4}){1,7}|:))(?![0-9A-Fa-f:])';
+
+            const urlResult = await col.updateMany(
+                { 'ai.private.visionAnonymizeRegexRules': { $not: { $elemMatch: { name: 'URLs' } } } },
+                { $push: { 'ai.private.visionAnonymizeRegexRules': { $each: [urlRule], $position: 0 } } }
+            );
+            const ipv6Result = await col.updateMany(
+                {
+                    'ai.private.visionAnonymizeRegexRules': {
+                        $elemMatch: { name: 'IPv6 addresses', pattern: oldIpv6Pattern }
+                    }
+                },
+                { $set: { 'ai.private.visionAnonymizeRegexRules.$[rule].pattern': ipv6Pattern } },
+                { arrayFilters: [{ 'rule.name': 'IPv6 addresses', 'rule.pattern': oldIpv6Pattern }] }
+            );
+
+            console.log(
+                `[migration] extend-vision-anonymization-network-rules: ` +
+                `${urlResult.modifiedCount} URL rules added, ${ipv6Result.modifiedCount} IPv6 rules updated`
+            );
+        },
+    },
+    // Step 23: Make the vision LLM anonymization instruction configurable
+    {
+        id: 23,
+        name: 'add-vision-anonymization-prompt',
+        async run(_srcDb, dstDb) {
+            const col = dstDb.collection('settings');
+            const prompt = `IMPORTANT: You must anonymize all sensitive information in your output. Replace the following with [REDACTED]:
+- IP addresses (e.g. 192.168.1.1, 10.0.0.1)
+- URLs, including schemes, ports, paths, query strings, and fragments
+- Domain names and hostnames (e.g. example.com, server01.internal)
+- Email addresses
+- Usernames and account names
+- Passwords or credentials
+- API keys or tokens
+- Company or product names that could identify the target`;
+            const result = await col.updateMany(
+                { 'ai.private.visionAnonymizationPrompt': { $exists: false } },
+                { $set: { 'ai.private.visionAnonymizationPrompt': prompt } }
+            );
+            console.log(`[migration] add-vision-anonymization-prompt: ${result.modifiedCount} settings documents updated`);
+        },
+    },
 
 ];
 

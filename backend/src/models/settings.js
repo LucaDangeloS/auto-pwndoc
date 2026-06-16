@@ -147,7 +147,22 @@ const SettingSchema = new Schema({
         },
         visionSystemPrompt: { type: String, default: '' },
         visionAnonymizeLlm: { type: Boolean, default: false },
+        visionAnonymizationPrompt: {
+          type: String,
+          default: () => require('../lib/vision-service').DEFAULT_VISION_ANONYMIZATION_PROMPT
+        },
         visionAnonymizeRegex: { type: Boolean, default: false },
+        visionAnonymizeRegexRules: {
+          type: [{
+            _id: false,
+            name: { type: String, required: true, maxlength: 120 },
+            pattern: { type: String, required: true, maxlength: 1000 },
+            flags: { type: String, default: 'g', maxlength: 10 },
+            replacement: { type: String, required: true, maxlength: 200 },
+            enabled: { type: Boolean, default: true }
+          }],
+          default: () => require('../lib/vision-service').DEFAULT_REGEX_RULES.map(rule => ({ ...rule }))
+        },
         generateSystemPrompt: { type: String, default: '' },
         generateUserPrompt: { type: String, default: '' },
         completeSystemPrompt: { type: String, default: '' },

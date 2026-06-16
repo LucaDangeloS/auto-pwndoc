@@ -65,6 +65,23 @@
                 </div>
             </q-card-section>
 
+            <q-card-section>
+                <q-input
+                    v-model="audit.summary"
+                    :label="$t('aiAuditContext')"
+                    :hint="$t('aiAuditContextHint')"
+                    type="textarea"
+                    autogrow
+                    outlined
+                    stack-label
+                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                >
+                    <template #append>
+                        <template-hint template-var="summary" :description="$t('templateHintAuditRoot')" />
+                    </template>
+                </q-input>
+            </q-card-section>
+
             <q-card-section></q-card-section>
 
             <q-card-section>

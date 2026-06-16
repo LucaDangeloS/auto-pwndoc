@@ -218,6 +218,18 @@ export default {
   },
 
   methods: {
+    findingAiContext(auditOverride = null) {
+      const audit = auditOverride || this.audit || this.localAudit || {};
+      return {
+        findingTitle: this.finding.title,
+        findingDescription: this.finding.description,
+        findingPoc: this.finding.poc,
+        auditContext: audit.summary || '',
+        auditName: audit.name || '',
+        locale: audit.language || '',
+      };
+    },
+
     _listener(e) {
       if (
         (window.navigator.platform.match('Mac') ? e.metaKey : e.ctrlKey) &&
@@ -592,6 +604,8 @@ export default {
           findingTitle: result.title || this.finding.title,
           locale,
           vulnDescription: result.description || '',
+          findingDescription: result.description || this.finding.description || '',
+          findingPoc: this.finding.poc || '',
           visionSummary: this.proofVisionSummary,
           imageDescriptions: this.proofImageDescriptions,
         },

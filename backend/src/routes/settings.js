@@ -3,6 +3,7 @@ module.exports = function(app) {
     var acl = require('../lib/auth').acl;
     var Settings = require('mongoose').model('Settings');
     var crypto = require('crypto');
+    var visionService = require('../lib/vision-service');
 
     function withRuntimeSettings(settings) {
         var result = settings && settings.toObject ? settings.toObject() : settings;
@@ -30,6 +31,15 @@ module.exports = function(app) {
 
     app.put("/api/settings", acl.hasPermission('settings:update'), function(req, res) {
         // #swagger.tags = ['Settings']
+
+        var regexRules = req.body && req.body.ai && req.body.ai.private &&
+            req.body.ai.private.visionAnonymizeRegexRules;
+        if (regexRules !== undefined) {
+            var regexErrors = visionService.validateRegexRules(regexRules);
+            if (regexErrors.length > 0) {
+                return Response.BadParameters(res, regexErrors.join('; '));
+            }
+        }
 
         Settings.update(req.body)
         .then(msg => Response.Ok(res, msg))

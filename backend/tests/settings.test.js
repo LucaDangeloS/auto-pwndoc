@@ -60,6 +60,25 @@ module.exports = function(request, app) {
         "matchThreshold": 0.35,
       }
 
+      const defaultVisionRegexRules = [
+        { "name": "URLs", "pattern": "\\b(?:(?:https?|ftp):\\/\\/|www\\.)[A-Za-z0-9._~:/?#\\[\\]@!$&'()*+,;=%-]*[A-Za-z0-9_~/#\\]=%-]", "flags": "gi", "replacement": "[URL_REDACTED]", "enabled": true },
+        { "name": "IPv4 addresses", "pattern": "\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b", "flags": "g", "replacement": "[IP_REDACTED]", "enabled": true },
+        { "name": "IPv6 addresses", "pattern": "(?<![0-9A-Fa-f:])(?:(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,5}(?::[0-9A-Fa-f]{1,4}){1,2}|(?:[0-9A-Fa-f]{1,4}:){1,4}(?::[0-9A-Fa-f]{1,4}){1,3}|(?:[0-9A-Fa-f]{1,4}:){1,3}(?::[0-9A-Fa-f]{1,4}){1,4}|(?:[0-9A-Fa-f]{1,4}:){1,2}(?::[0-9A-Fa-f]{1,4}){1,5}|[0-9A-Fa-f]{1,4}:(?:(?::[0-9A-Fa-f]{1,4}){1,6})|:(?:(?::[0-9A-Fa-f]{1,4}){1,7}|:))(?![0-9A-Fa-f:])", "flags": "g", "replacement": "[IP_REDACTED]", "enabled": true },
+        { "name": "Email addresses", "pattern": "\\b[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}\\b", "flags": "g", "replacement": "[EMAIL_REDACTED]", "enabled": true },
+        { "name": "Domain names", "pattern": "\\b(?:[a-zA-Z0-9\\-]+\\.){2,}[a-zA-Z]{2,}\\b", "flags": "g", "replacement": "[DOMAIN_REDACTED]", "enabled": true },
+        { "name": "Common hostnames", "pattern": "\\b(?:server|host|dc|ad|ws|pc|laptop|desktop|node|worker|master|slave|db|sql|web|app|api|proxy|vpn|fw|firewall|router|switch|lb)\\d*[-\\w]*", "flags": "gi", "replacement": "[HOST_REDACTED]", "enabled": true },
+      ]
+
+      const defaultVisionAnonymizationPrompt = `IMPORTANT: You must anonymize all sensitive information in your output. Replace the following with [REDACTED]:
+- IP addresses (e.g. 192.168.1.1, 10.0.0.1)
+- URLs, including schemes, ports, paths, query strings, and fragments
+- Domain names and hostnames (e.g. example.com, server01.internal)
+- Email addresses
+- Usernames and account names
+- Passwords or credentials
+- API keys or tokens
+- Company or product names that could identify the target`
+
       const defaultPublicSettings = {
         "report": {
             "enabled": true,
@@ -214,7 +233,9 @@ module.exports = function(request, app) {
             },
             "visionSystemPrompt": "",
             "visionAnonymizeLlm": false,
+            "visionAnonymizationPrompt": defaultVisionAnonymizationPrompt,
             "visionAnonymizeRegex": false,
+            "visionAnonymizeRegexRules": defaultVisionRegexRules,
             ...defaultAiPrivatePrompts,
           },
           "visionEnabled": false,
@@ -338,7 +359,9 @@ module.exports = function(request, app) {
               },
               "visionSystemPrompt": "",
               "visionAnonymizeLlm": false,
+              "visionAnonymizationPrompt": defaultVisionAnonymizationPrompt,
               "visionAnonymizeRegex": false,
+              "visionAnonymizeRegexRules": defaultVisionRegexRules,
               ...defaultAiPrivatePrompts,
             },
             "visionEnabled": false,

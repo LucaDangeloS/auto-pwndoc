@@ -44,6 +44,10 @@ export default {
   createFinding: function(auditId, finding) {
     return  api.post(`audits/${auditId}/findings`, finding)
   },
+
+  importFindings: function(auditId, payload) {
+    return  api.post(`audits/${auditId}/findings/import`, payload)
+  },
   
   getFinding: function(auditId, findingId) {
     return  api.get(`audits/${auditId}/findings/${findingId}`)

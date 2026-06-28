@@ -29,6 +29,14 @@
               outlined
             />
             <q-space />
+            <q-btn
+              color="secondary"
+              icon="fa fa-file-import"
+              :label="$t('btn.importFindings')"
+              no-caps
+              @click="openImportDialog"
+              class="q-mr-md"
+            />
             <q-input
               v-model="findingTitle"
               :label="$t('title')"
@@ -184,5 +192,60 @@
         </q-table>
       </div>
     </div>
+
+    <!-- Import scanner report dialog -->
+    <q-dialog v-model="importDialog">
+      <q-card style="min-width: 480px">
+        <q-card-section>
+          <div class="text-h6">{{ $t('importFindingsTitle') }}</div>
+        </q-card-section>
+        <q-card-section class="q-gutter-md">
+          <q-select
+            v-model="importTool"
+            :options="importToolOptions"
+            :label="$t('importTool')"
+            emit-value
+            map-options
+            outlined
+            dense
+          />
+          <q-file
+            v-model="importFile"
+            :label="$t('importFile')"
+            accept=".xml,.csv"
+            outlined
+            dense
+            clearable
+          >
+            <template v-slot:prepend>
+              <q-icon name="attach_file" />
+            </template>
+          </q-file>
+          <q-toggle v-model="importOptions.groupByVuln" :label="$t('importGroupByVuln')" />
+          <q-toggle v-model="importOptions.includePoc" :label="$t('importIncludePoc')" />
+          <q-toggle
+            v-if="importTool === 'openvas'"
+            v-model="importOptions.skipInformational"
+            :label="$t('importSkipInformational')"
+          />
+          <q-toggle
+            v-if="importTool === 'burp'"
+            v-model="importOptions.skipFalsePositives"
+            :label="$t('importSkipFalsePositives')"
+          />
+          <div class="text-caption text-grey-7">{{ $t('importCvssHint') }}</div>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat :label="$t('btn.cancel')" color="primary" v-close-popup />
+          <q-btn
+            :label="$t('btn.importFindings')"
+            color="secondary"
+            :loading="importing"
+            :disable="!importFile"
+            @click="importFindings"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </div>
 </template>

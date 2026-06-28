@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<get_reports_response status="200" status_text="OK">
+  <report id="abc">
+    <report id="abc">
+      <results start="1" max="100">
+        <result id="r1">
+          <name>SSL/TLS: Deprecated TLSv1.0 Protocol Detection</name>
+          <host>10.0.0.5<hostname>web01.example.com</hostname></host>
+          <port>443/tcp</port>
+          <nvt oid="1.3.6.1.4.1.25623.1.0.117274">
+            <name>SSL/TLS: Deprecated TLSv1.0 Protocol Detection</name>
+            <family>SSL and TLS</family>
+            <cvss_base>4.3</cvss_base>
+            <tags>summary=The remote service supports TLSv1.0.|insight=TLSv1.0 has known weaknesses.|impact=An attacker may decrypt traffic.|affected=Services supporting TLSv1.0.|solution=Disable TLSv1.0.|solution_type=Mitigation|vuldetect=Check supported protocols.|cvss_base_vector=AV:N/AC:M/Au:N/C:P/I:N/A:N</tags>
+            <refs>
+              <ref type="cve" id="CVE-2011-3389"/>
+              <ref type="url" id="https://example.org/tls"/>
+            </refs>
+          </nvt>
+          <threat>Medium</threat>
+          <severity>4.3</severity>
+          <qod><value>98</value></qod>
+          <description>It was possible to establish a TLSv1.0 connection.</description>
+        </result>
+        <result id="r2">
+          <name>SSL/TLS: Deprecated TLSv1.0 Protocol Detection</name>
+          <host>10.0.0.6<hostname>web02.example.com</hostname></host>
+          <port>443/tcp</port>
+          <nvt oid="1.3.6.1.4.1.25623.1.0.117274">
+            <name>SSL/TLS: Deprecated TLSv1.0 Protocol Detection</name>
+            <cvss_base>4.3</cvss_base>
+            <tags>summary=The remote service supports TLSv1.0.|solution=Disable TLSv1.0.|cvss_base_vector=AV:N/AC:M/Au:N/C:P/I:N/A:N</tags>
+          </nvt>
+          <threat>Medium</threat>
+          <severity>4.3</severity>
+          <qod><value>98</value></qod>
+          <description>It was possible to establish a TLSv1.0 connection.</description>
+        </result>
+        <result id="r3">
+          <name>CGI Scanning Consolidation</name>
+          <host>10.0.0.5</host>
+          <port>general/tcp</port>
+          <nvt oid="1.3.6.1.4.1.25623.1.0.111038">
+            <name>CGI Scanning Consolidation</name>
+            <cvss_base>0.0</cvss_base>
+            <tags>summary=Informational log entry.</tags>
+          </nvt>
+          <threat>Log</threat>
+          <severity>0.0</severity>
+          <qod><value>80</value></qod>
+          <description>Log message.</description>
+        </result>
+      </results>
+    </report>
+  </report>
+</get_reports_response>

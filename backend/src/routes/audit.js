@@ -304,8 +304,8 @@ module.exports = function(app, io) {
         if (req.body.remediationComplexity) finding.remediationComplexity = req.body.remediationComplexity;
         if (req.body.priority) finding.priority = req.body.priority;
         if (req.body.references) finding.references = req.body.references;
-        if (req.body.cvssv3) finding.cvssv3 = req.body.cvssv3;
-        if (req.body.cvssv4) finding.cvssv4 = req.body.cvssv4;
+        if (!_.isNil(req.body.cvssv3)) finding.cvssv3 = req.body.cvssv3;
+        if (!_.isNil(req.body.cvssv4)) finding.cvssv4 = req.body.cvssv4;
         if (req.body.poc) finding.poc = req.body.poc;
         if (req.body.retestEvidence) finding.retestEvidence = req.body.retestEvidence;
         if (req.body.retestPassed !== undefined) finding.retestPassed = req.body.retestPassed;
@@ -322,6 +322,53 @@ module.exports = function(app, io) {
         .then(msg => {
             io.to(req.params.auditId).emit('updateAudit');
             Response.Ok(res, msg)
+        })
+        .catch(err => Response.Internal(res, err))
+    });
+
+    // Import findings from a scanner report (OpenVAS / Burp Suite)
+    app.post("/api/audits/:auditId/findings/import", acl.hasPermission('audits:update'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        var importers = require('../lib/importers');
+
+        if (!req.body.tool || !importers.tools.includes(req.body.tool)) {
+            Response.BadParameters(res, 'Missing or invalid parameter: tool (' + importers.tools.join(', ') + ')');
+            return;
+        }
+        if (!req.body.content) {
+            Response.BadParameters(res, 'Missing required parameter: content');
+            return;
+        }
+
+        var settings = await Settings.getAll();
+        var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
+        if (settings.reviews.enabled && audit.state !== "EDIT") {
+            Response.Forbidden(res, "The audit is not in the EDIT state and therefore cannot be edited.");
+            return;
+        }
+
+        var drafts;
+        try {
+            drafts = importers.parseReport(req.body.tool, req.body.content, req.body.options || {});
+        } catch (err) {
+            Response.BadParameters(res, err.message || 'Failed to parse report');
+            return;
+        }
+
+        if (drafts.length === 0) {
+            Response.BadParameters(res, 'No findings could be parsed from the report');
+            return;
+        }
+
+        if (settings.reviews.enabled && settings.reviews.private.removeApprovalsUponUpdate) {
+            Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, { approvals: [] });
+        }
+
+        Audit.createFindings(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, drafts)
+        .then(count => {
+            io.to(req.params.auditId).emit('updateAudit');
+            Response.Ok(res, {message: 'Findings imported successfully', imported: count})
         })
         .catch(err => Response.Internal(res, err))
     });
@@ -355,8 +402,8 @@ module.exports = function(app, io) {
         if (req.body.remediationComplexity) finding.remediationComplexity = req.body.remediationComplexity;
         if (req.body.priority) finding.priority = req.body.priority;
         if (req.body.references) finding.references = req.body.references;
-        if (req.body.cvssv3) finding.cvssv3 = req.body.cvssv3;
-        if (req.body.cvssv4) finding.cvssv4 = req.body.cvssv4;
+        if (!_.isNil(req.body.cvssv3)) finding.cvssv3 = req.body.cvssv3;
+        if (!_.isNil(req.body.cvssv4)) finding.cvssv4 = req.body.cvssv4;
         if (!_.isNil(req.body.poc)) finding.poc = req.body.poc;
         if (!_.isNil(req.body.retestEvidence)) finding.retestEvidence = req.body.retestEvidence;
         if (req.body.retestPassed !== undefined) finding.retestPassed = req.body.retestPassed;

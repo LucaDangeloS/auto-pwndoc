@@ -457,6 +457,37 @@ AuditSchema.statics.createFinding = (isAdmin, auditId, userId, finding) => {
 })
 }
 
+// Create several findings at once (used by the scanner report import). Assigns
+// incremental identifiers, pushes them all, then sorts the audit a single time.
+AuditSchema.statics.createFindings = (isAdmin, auditId, userId, findings) => {
+    return new Promise((resolve, reject) => {
+        if (!Array.isArray(findings) || findings.length === 0) {
+            reject({fn: 'BadParameters', message: 'No findings to import'})
+            return
+        }
+        Audit.getLastFindingIdentifier(auditId)
+        .then(identifier => {
+            findings.forEach(finding => { finding.identifier = ++identifier })
+
+            var query = Audit.findByIdAndUpdate(auditId, {$push: {findings: {$each: findings}}})
+            if (!isAdmin)
+                query.or([{creator: userId}, {collaborators: userId}])
+            return query.exec()
+        })
+        .then(row => {
+            if (!row)
+                throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
+            return Audit.updateSortFindings(isAdmin, auditId, userId, null)
+        })
+        .then(() => {
+            resolve(findings.length)
+        })
+        .catch((err) => {
+            reject(err)
+        })
+    })
+}
+
 AuditSchema.statics.getLastFindingIdentifier = (auditId) => {
     return new Promise((resolve, reject) => {
         var query = Audit.aggregate([{ $match: {_id: new mongoose.Types.ObjectId(auditId)} }])

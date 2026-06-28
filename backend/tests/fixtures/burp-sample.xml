@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<issues burpVersion="2023.10" exportTime="Mon Jun 01 10:00:00 GMT 2026">
+  <issue>
+    <serialNumber>123</serialNumber>
+    <type>2097920</type>
+    <name>Cross-site scripting (reflected)</name>
+    <host ip="10.0.0.1">https://example.com</host>
+    <path>/search</path>
+    <location>/search [q parameter]</location>
+    <severity>High</severity>
+    <confidence>Certain</confidence>
+    <issueBackground><![CDATA[<p>Reflected XSS arises when input is echoed unsafely.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>Validate input and encode output.</p>]]></remediationBackground>
+    <references><![CDATA[<ul><li><a href="https://portswigger.net/web-security/cross-site-scripting">XSS</a></li></ul>]]></references>
+    <vulnerabilityClassifications><![CDATA[<ul><li><a href="https://cwe.mitre.org/data/definitions/79.html">CWE-79</a></li></ul>]]></vulnerabilityClassifications>
+    <issueDetail><![CDATA[<p>The value of the <b>q</b> parameter is reflected.</p>]]></issueDetail>
+    <requestresponse>
+      <request method="GET" base64="true">R0VUIC9zZWFyY2g/cT10ZXN0IEhUVFAvMS4x</request>
+      <response base64="true">SFRUUC8xLjEgMjAwIE9L</response>
+    </requestresponse>
+  </issue>
+  <issue>
+    <serialNumber>124</serialNumber>
+    <type>2097920</type>
+    <name>Cross-site scripting (reflected)</name>
+    <host ip="10.0.0.1">https://example.com</host>
+    <path>/profile</path>
+    <location>/profile [name parameter]</location>
+    <severity>High</severity>
+    <confidence>Firm</confidence>
+    <issueBackground><![CDATA[<p>Reflected XSS arises when input is echoed unsafely.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>Validate input and encode output.</p>]]></remediationBackground>
+    <issueDetail><![CDATA[<p>The value of the <b>name</b> parameter is reflected.</p>]]></issueDetail>
+    <requestresponse>
+      <request method="GET" base64="true">R0VUIC9wcm9maWxlP25hbWU9dGVzdCBIVFRQLzEuMQ==</request>
+      <response base64="true">SFRUUC8xLjEgMjAwIE9L</response>
+    </requestresponse>
+  </issue>
+  <issue>
+    <serialNumber>200</serialNumber>
+    <type>5243392</type>
+    <name>Frameable response (potential Clickjacking)</name>
+    <host ip="10.0.0.1">https://example.com</host>
+    <path>/</path>
+    <severity>Information</severity>
+    <confidence>Firm</confidence>
+    <issueBackground><![CDATA[<p>The response can be framed.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>Set X-Frame-Options.</p>]]></remediationBackground>
+  </issue>
+</issues>

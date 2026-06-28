@@ -94,7 +94,23 @@ export default {
                 approvals: []
             },
             htmlEncode: Utils.htmlEncode,
-            AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
+            AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
+
+            // Scanner report import
+            importDialog: false,
+            importing: false,
+            importTool: 'burp',
+            importFile: null,
+            importToolOptions: [
+                {label: 'Burp Suite (XML)', value: 'burp'},
+                {label: 'OpenVAS / Greenbone (XML / CSV)', value: 'openvas'}
+            ],
+            importOptions: {
+                groupByVuln: true,
+                includePoc: true,
+                skipInformational: true,
+                skipFalsePositives: true
+            }
         }
     },
 
@@ -237,6 +253,54 @@ export default {
           
           
 
+
+        openImportDialog: function() {
+            this.importFile = null;
+            this.importDialog = true;
+        },
+
+        importFindings: function() {
+            if (!this.importFile) return;
+            this.importing = true;
+            var reader = new FileReader();
+            reader.onload = (e) => {
+                var payload = {
+                    tool: this.importTool,
+                    content: e.target.result,
+                    options: this.importOptions
+                };
+                AuditService.importFindings(this.auditId, payload)
+                .then((data) => {
+                    this.importing = false;
+                    this.importDialog = false;
+                    Notify.create({
+                        message: $t('msg.findingsImportOk', {count: data.data.datas.imported}),
+                        color: 'positive',
+                        textColor: 'white',
+                        position: 'top-right'
+                    });
+                })
+                .catch((err) => {
+                    this.importing = false;
+                    Notify.create({
+                        message: (err.response && err.response.data && err.response.data.datas) || $t('err.importFailed'),
+                        color: 'negative',
+                        textColor: 'white',
+                        position: 'top-right'
+                    });
+                });
+            };
+            reader.onerror = () => {
+                this.importing = false;
+                Notify.create({
+                    message: $t('err.importFailed'),
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                });
+            };
+            reader.readAsText(this.importFile);
+        },
 
         addFindingFromVuln: function(vuln) {
             var finding = null;

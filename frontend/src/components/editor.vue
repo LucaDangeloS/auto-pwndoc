@@ -6,6 +6,12 @@
     class="editor full-width"
     :class="affixRelativeElement"
     :style="editable ? '' : 'border: 1px dashed lightgrey'"
+    @pointerdown.capture="_markUserActive"
+    @keydown.capture="_markUserActive"
+    @beforeinput.capture="_markUserActive"
+    @paste.capture="_markUserActive"
+    @cut.capture="_markUserActive"
+    @drop.capture="_markUserActive"
   >
   <div v-sticky sticky-offset="stickyConfig"  class="bg-white">
       <q-toolbar class="editor-toolbar">
@@ -910,10 +916,20 @@ export default defineComponent({
       extensions: extensionEditor ,
       onUpdate: ({editor}) => {
         setTimeout(() => updateMatch(editor))
-        if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
-           this.$emit('editorchange') // need save only if sync is done
+        this.countChange++
+        if (this._userActive && this.state && this.initialeDataUpdated) {
+          // The user has physically interacted with this editor, so a document
+          // change is a genuine edit.
+          this.$emit('editorchange')
         } else {
-          this.countChange++
+          // No real user interaction yet: this update is initial-seed / HTML
+          // canonicalisation / collab-sync noise. The collab doc is seeded from
+          // the stored HTML on open and TipTap/Yjs/highlight then re-serialise
+          // it; when the stored HTML is not already in the editor's canonical
+          // form (e.g. findings imported from OpenVAS/Burp) this fires several
+          // transactions. Keep the baseline counter in step so these are never
+          // reported as a user edit — independent of how long the load takes.
+          this.countChangeAfterUpdate = this.countChange
         }
         if (this.noSync) return;
         this.updateHTML();
@@ -1123,6 +1139,14 @@ export default defineComponent({
     },
     sleep(milliseconds) {
       return new Promise((resolve) => setTimeout(resolve, milliseconds));
+    },
+    _markUserActive() {
+      // A real pointer / keyboard / paste interaction inside the editor card.
+      // From now on, document changes are treated as genuine user edits. The
+      // initial seed and HTML canonicalisation never produce these DOM events,
+      // so findings (including imported ones) open clean no matter how long
+      // they take to load.
+      this._userActive = true;
     },
     importImage(files) {
       var file = files[0];

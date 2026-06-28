@@ -2,7 +2,7 @@
   <q-layout ref="layout" view="hHr LpR lFf" :class="$q.dark.isActive ? '' : 'home-background'">
     <q-header>
         <q-toolbar class="bg-fixed-primary">
-            <img src="logo_transparent.png" style="max-height:44px;" />
+            <img src="/logo_transparent.png" style="max-height:44px;" />
 
             <!-- Desktop nav: hidden on xs/sm -->
             <q-item class="gt-sm" to='/audits-archive' active-class="text-green">

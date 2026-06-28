@@ -17,8 +17,22 @@ export default {
         return api.get('ai/reindex-status', { signal })
     },
 
-    analyzeProofs(pocHtml, locale, signal) {
-        return api.post('ai/analyze-proofs', { pocHtml, locale }, { signal })
+    analyzeProofs(payload, signal) {
+        const body = typeof payload === 'string' ? { pocHtml: payload } : payload
+        return api.post('ai/analyze-proofs', body, { signal })
+    },
+
+    analyzeProofEvidence(payload, signal) {
+        const body = typeof payload === 'string' ? { pocHtml: payload } : payload
+        return api.post('ai/analyze-proof-evidence', body, { signal })
+    },
+
+    completeProofFields(payload, signal) {
+        return api.post('ai/complete-proof-fields', payload, { signal })
+    },
+
+    searchProofSimilar(payload, signal) {
+        return api.post('ai/search-proof-similar', payload, { signal })
     },
 
     testConnection(type, signal) {

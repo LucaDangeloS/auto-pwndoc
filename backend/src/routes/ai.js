@@ -8,11 +8,274 @@ module.exports = function(app) {
     var visionService = require('../lib/vision-service');
     var OpenWebUIProvider = require('../lib/openwebui-provider');
     var Settings = require('mongoose').model('Settings');
+    var CVSS40 = require('../lib/cvsscalc40');
 
     async function getAiSettings() {
         var settings = await Settings.getAll();
         if (!settings || !settings.ai) return null;
         return settings.toObject().ai;
+    }
+
+    async function generateProofField(fieldName, context, aiSettings) {
+        var result = await aiService.generate({
+            action: 'generate',
+            text: '',
+            fieldName,
+            context,
+            aiSettings
+        });
+        return result && result.html ? result.html : '';
+    }
+
+    var FIELD_LABELS = {
+        title: ['title', 'titulo', 'título', 'titel'],
+        description: ['description', 'descripcion', 'descripción', 'beschreibung'],
+        observation: ['observation', 'observacion', 'observación', 'beobachtung'],
+        remediation: ['remediation', 'remediacion', 'remediación', 'behebung', 'abhilfe'],
+        references: ['references', 'referencias', 'referenzen'],
+        cvssv3: ['cvss', 'cvss 3.1', 'cvssv3'],
+        cvssv4: ['cvss', 'cvss 4.0', 'cvssv4']
+    };
+
+    function htmlToPlainText(html) {
+        return (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function escapeRegExp(value) {
+        return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function stripMarkdownWrapping(value) {
+        var output = String(value || '').trim();
+        output = output.replace(/^```[ \t]*[a-z0-9_-]*[ \t]*\r?\n?/i, '').replace(/\n?[ \t]*```$/i, '').trim();
+        output = output.replace(/^\s{0,3}#{1,6}\s+/, '').trim();
+        output = output.replace(/^[-*•]\s+/, '').trim();
+        output = output.replace(/^>\s+/, '').trim();
+        output = output.replace(/^(\*\*|__|\*|_)+/, '').replace(/(\*\*|__|\*|_)+$/, '').trim();
+        return output.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+    }
+
+    function stripLeadingFieldLabel(value, fieldName) {
+        var labels = FIELD_LABELS[fieldName] || [fieldName];
+        var labelPattern = labels.map(escapeRegExp).join('|');
+        var output = String(value || '').trim();
+        var previous;
+        var markdownLabel = new RegExp(
+            '^\\s*(?:#{1,6}\\s*)?(?:[-*•]\\s*)?(?:\\*\\*|__|\\*|_)?\\s*(?:' + labelPattern + ')\\s*(?:\\*\\*|__|\\*|_)?\\s*[:：\\-–—]\\s*',
+            'i'
+        );
+        var htmlLabel = new RegExp(
+            '^\\s*(?:<p[^>]*>\\s*)?(?:<(?:strong|b|em|i)[^>]*>\\s*)?(?:' + labelPattern + ')\\s*[:：\\-–—]?\\s*(?:<\\/(?:strong|b|em|i)>\\s*)?',
+            'i'
+        );
+
+        do {
+            previous = output;
+            output = output.replace(markdownLabel, '').replace(htmlLabel, match => match.toLowerCase().includes('<p') ? '<p>' : '').trim();
+        } while (output && output !== previous);
+
+        return output;
+    }
+
+    function normalizeGeneratedProofField(fieldName, value) {
+        if (Array.isArray(value)) return value;
+        var output = stripLeadingFieldLabel(value, fieldName);
+        if (fieldName === 'title') {
+            return stripLeadingFieldLabel(stripMarkdownWrapping(htmlToPlainText(output)), fieldName);
+        }
+        if (fieldName === 'references') return normalizeReferences(output);
+        if (fieldName === 'cvssv3') return normalizeCvssVector(output, '3.1');
+        if (fieldName === 'cvssv4') return normalizeCvssVector(output, '4.0');
+        return output;
+    }
+
+    function isPlaceholderTitle(value) {
+        return !value || /^(placeholder|test|tbd|todo|untitled)(\s+\d+)?$/i.test(String(value).trim());
+    }
+
+    function isWeakExistingContent(value) {
+        var text = htmlToPlainText(value);
+        if (!text) return true;
+        if (/insufficient evidence|evidencia insuficiente|no se proporcion[oó] evidencia|no se proporcionaron evidencias|no se proporcionaron pruebas/i.test(text)) {
+            return true;
+        }
+        if (/^(placeholder|test|tbd|todo|untitled|n\/a|na|none|null|empty|description|descripci[oó]n|observaci[oó]n|remediaci[oó]n)(\s+\d+)?$/i.test(text)) {
+            return true;
+        }
+        return text.length < 20;
+    }
+
+    function existingFieldForContext(fieldName, value) {
+        if (fieldName === 'title') return isPlaceholderTitle(value) ? '' : value;
+        return isWeakExistingContent(value) ? '' : value;
+    }
+
+    function hasArrayContent(value) {
+        return Array.isArray(value) && value.some(item => htmlToPlainText(item));
+    }
+
+    function normalizeCvssVector(value, version) {
+        var text = htmlToPlainText(value);
+        var prefix = version === '4.0' ? 'CVSS:4.0/' : 'CVSS:3.1/';
+        var match = text.match(version === '4.0'
+            ? /CVSS:4\.0\/[A-Za-z0-9:\/._-]+/
+            : /CVSS:3\.1\/[A-Za-z0-9:\/._-]+/);
+        if (!match) return '';
+        var vector = match[0].replace(/[.,;:]+$/, '');
+        if (!vector.startsWith(prefix)) return '';
+        if (version === '4.0') {
+            try {
+                var parsed = CVSS40.calculateCVSSFromVector(vector);
+                return parsed && parsed.success ? vector : '';
+            } catch (_) {
+                return '';
+            }
+        }
+        return vector;
+    }
+
+    function parseCvss31Vector(vector) {
+        if (!vector || !vector.startsWith('CVSS:3.1/')) return null;
+        return vector.split('/').slice(1).reduce((acc, part) => {
+            var pieces = part.split(':');
+            if (pieces.length === 2) acc[pieces[0]] = pieces[1];
+            return acc;
+        }, {});
+    }
+
+    function cvss31ToCvss40Fallback(cvss31Vector) {
+        var metrics = parseCvss31Vector(cvss31Vector);
+        if (!metrics) return '';
+        var impact = value => ({ H: 'H', L: 'L', N: 'N' }[value] || 'N');
+        var scopeChanged = metrics.S === 'C';
+        var vector = [
+            'CVSS:4.0',
+            `AV:${metrics.AV || 'N'}`,
+            `AC:${metrics.AC || 'L'}`,
+            'AT:N',
+            `PR:${metrics.PR || 'N'}`,
+            `UI:${metrics.UI === 'R' ? 'A' : 'N'}`,
+            `VC:${impact(metrics.C)}`,
+            `VI:${impact(metrics.I)}`,
+            `VA:${impact(metrics.A)}`,
+            `SC:${scopeChanged ? impact(metrics.C) : 'N'}`,
+            `SI:${scopeChanged ? impact(metrics.I) : 'N'}`,
+            `SA:${scopeChanged ? impact(metrics.A) : 'N'}`
+        ].join('/');
+
+        try {
+            var parsed = CVSS40.calculateCVSSFromVector(vector);
+            return parsed && parsed.success ? vector : '';
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function normalizeReferences(value) {
+        var text = String(value || '');
+        var matches = text.match(/https?:\/\/[^\s<>"')\]]+/gi) || [];
+        return Array.from(new Set(matches.map(ref => ref.replace(/[.,;:]+$/, ''))));
+    }
+
+    async function generateProofFieldMaybe(fieldName, currentValue, context, aiSettings, overwriteFilledFields) {
+        if (overwriteFilledFields) return normalizeGeneratedProofField(fieldName, await generateProofField(fieldName, context, aiSettings));
+        if (fieldName === 'title') {
+            return isPlaceholderTitle(currentValue) ? normalizeGeneratedProofField(fieldName, await generateProofField(fieldName, context, aiSettings)) : currentValue;
+        }
+        if (fieldName === 'references') {
+            return hasArrayContent(currentValue) ? currentValue : normalizeGeneratedProofField(fieldName, await generateProofField(fieldName, context, aiSettings));
+        }
+        if (fieldName === 'cvssv3' || fieldName === 'cvssv4') {
+            return hasContent(currentValue) ? currentValue : normalizeGeneratedProofField(fieldName, await generateProofField(fieldName, context, aiSettings));
+        }
+        return isWeakExistingContent(currentValue) ? normalizeGeneratedProofField(fieldName, await generateProofField(fieldName, context, aiSettings)) : currentValue;
+    }
+
+    function hasContent(value) {
+        return Boolean(htmlToPlainText(value));
+    }
+
+    async function buildGeneratedProofResult({ pocHtml, locale, findingTitle, findingDescription, findingRemediation, findingReferences, findingCvssv3, findingCvssv4, auditContext, visionSummary, overwriteFilledFields }, aiSettings) {
+        var shouldOverwrite = overwriteFilledFields !== false;
+        var generationContext = {
+            findingTitle: existingFieldForContext('title', findingTitle) || '',
+            findingDescription: existingFieldForContext('description', findingDescription) || '',
+            findingPoc: pocHtml,
+            findingPocVision: visionSummary || '',
+            auditContext: auditContext || '',
+            proofCompletion: true,
+            locale: locale || 'en'
+        };
+
+        var generatedFields = await Promise.all([
+            generateProofFieldMaybe('title', findingTitle, generationContext, aiSettings, shouldOverwrite),
+            generateProofFieldMaybe('description', findingDescription, generationContext, aiSettings, shouldOverwrite),
+            generateProofFieldMaybe('remediation', findingRemediation, generationContext, aiSettings, shouldOverwrite),
+            generateProofFieldMaybe('references', findingReferences, generationContext, aiSettings, shouldOverwrite),
+            generateProofFieldMaybe('cvssv3', findingCvssv3, generationContext, aiSettings, shouldOverwrite),
+            generateProofFieldMaybe('cvssv4', findingCvssv4, generationContext, aiSettings, shouldOverwrite)
+        ]);
+        var references = Array.isArray(generatedFields[3]) ? generatedFields[3] : normalizeReferences(generatedFields[3]);
+        var cvssv3 = normalizeCvssVector(generatedFields[4], '3.1') || findingCvssv3 || '';
+        var cvssv4 = normalizeCvssVector(generatedFields[5], '4.0')
+            || normalizeCvssVector(findingCvssv4, '4.0')
+            || cvss31ToCvss40Fallback(cvssv3);
+
+        return {
+            vulnId: '__generated_from_proof__',
+            generatedFromProof: true,
+            distance: null,
+            title: htmlToPlainText(generatedFields[0]) || findingTitle || 'Generated from proof',
+            vulnType: '',
+            category: '',
+            taxonomies: [],
+            description: generatedFields[1],
+            remediation: generatedFields[2],
+            references,
+            cvssv3,
+            cvssv4
+        };
+    }
+
+    async function searchSimilarFromProof({ locale, findingTitle, findingDescription, visionSummary }, aiSettings) {
+        if (!aiSettings.embeddingEnabled || !visionSummary) return [];
+
+        var Vulnerability = require('mongoose').model('Vulnerability');
+        var searchQuery = [
+            findingTitle || '',
+            findingDescription || '',
+            visionSummary || ''
+        ].join('\n').trim();
+        var similar = await embeddingService.searchSimilar(
+            searchQuery || visionSummary,
+            locale || 'en',
+            aiSettings
+        );
+
+        var similarResults = await Promise.all(similar.map(async (r) => {
+            try {
+                var vuln = await Vulnerability.findById(r.vulnId).lean();
+                if (!vuln) return null;
+                var detail = (vuln.details || []).find(d => d.locale === (locale || 'en')) || {};
+                var taxonomy = (Array.isArray(vuln.taxonomies) && vuln.taxonomies[0]) || {};
+                return {
+                    vulnId: r.vulnId,
+                    distance: r.distance,
+                    title: detail.title || r.title || '',
+                    vulnType: taxonomy.category || '',
+                    category: taxonomy.type || '',
+                    taxonomies: vuln.taxonomies || [],
+                    description: detail.description || '',
+                    remediation: detail.remediation || '',
+                    references: vuln.references || [],
+                    cvssv3: vuln.cvssv3 || '',
+                    cvssv4: vuln.cvssv4 || ''
+                };
+            } catch (_) {
+                return null;
+            }
+        }));
+        return similarResults.filter(Boolean);
     }
 
     app.post('/api/ai/generate', acl.hasPermission('audits:read'), async function(req, res) {
@@ -248,62 +511,156 @@ module.exports = function(app) {
                 return Response.Forbidden(res, 'Vision features are not enabled');
             }
 
-            var { pocHtml, locale } = req.body;
+            var {
+                pocHtml,
+                locale,
+                findingTitle,
+                findingDescription,
+                findingRemediation,
+                findingReferences,
+                findingCvssv3,
+                findingCvssv4,
+                auditContext,
+                overwriteFilledFields
+            } = req.body;
 
             if (!pocHtml) {
                 return Response.BadParameters(res, 'pocHtml is required');
             }
 
             var visionResult = await visionService.analyzeProofs(pocHtml, aiSettings);
+            var generatedResult = null;
+            try {
+                generatedResult = await buildGeneratedProofResult({
+                    pocHtml,
+                    locale,
+                    findingTitle,
+                    findingDescription,
+                    findingRemediation,
+                    findingReferences,
+                    findingCvssv3,
+                    findingCvssv4,
+                    auditContext,
+                    visionSummary: visionResult.visionSummary,
+                    overwriteFilledFields
+                }, aiSettings);
+            } catch (genErr) {
+                console.error('[AI] Proof field generation failed:', genErr.message);
+            }
 
             var similarResults = [];
-            if (aiSettings.embeddingEnabled && visionResult.visionSummary) {
-                try {
-                    var Vulnerability = require('mongoose').model('Vulnerability');
-                    var similar = await embeddingService.searchSimilar(
-                        visionResult.visionSummary,
-                        locale || 'en',
-                        aiSettings
-                    );
-
-                    similarResults = await Promise.all(similar.map(async (r) => {
-                        try {
-                            var vuln = await Vulnerability.findById(r.vulnId).lean();
-                            if (!vuln) return null;
-                            var detail = (vuln.details || []).find(d => d.locale === (locale || 'en')) || {};
-                            var taxonomy = (Array.isArray(vuln.taxonomies) && vuln.taxonomies[0]) || {};
-                            return {
-                                vulnId: r.vulnId,
-                                distance: r.distance,
-                                title: detail.title || r.title || '',
-                                vulnType: taxonomy.category || '',
-                                category: taxonomy.type || '',
-                                taxonomies: vuln.taxonomies || [],
-                                description: detail.description || '',
-                                observation: detail.observation || '',
-                                remediation: detail.remediation || '',
-                                references: vuln.references || [],
-                                cvssv3: vuln.cvssv3 || '',
-                                cvssv4: vuln.cvssv4 || ''
-                            };
-                        } catch (_) {
-                            return null;
-                        }
-                    }));
-                    similarResults = similarResults.filter(Boolean);
-                } catch (embErr) {
-                    console.error('[AI] Embedding search after vision analysis failed:', embErr.message);
-                }
+            try {
+                similarResults = await searchSimilarFromProof({
+                    locale,
+                    findingTitle,
+                    findingDescription,
+                    visionSummary: visionResult.visionSummary
+                }, aiSettings);
+            } catch (embErr) {
+                console.error('[AI] Embedding search after vision analysis failed:', embErr.message);
             }
 
             return Response.Ok(res, {
                 visionSummary: visionResult.visionSummary,
                 imageDescriptions: visionResult.imageDescriptions,
+                generatedResult,
                 similarResults
             });
         } catch (err) {
             console.error('[AI] Proof analysis error:', err.message);
             return Response.Internal(res, err.message || 'Proof analysis failed');
+        }
+    });
+
+    app.post('/api/ai/analyze-proof-evidence', acl.hasPermission('audits:read'), async function(req, res) {
+        try {
+            var aiSettings = await getAiSettings();
+
+            if (!aiSettings || !aiSettings.enabled) {
+                return Response.Forbidden(res, 'AI features are not enabled');
+            }
+
+            if (!aiSettings.visionEnabled) {
+                return Response.Forbidden(res, 'Vision features are not enabled');
+            }
+
+            var { pocHtml } = req.body;
+            if (!pocHtml) {
+                return Response.BadParameters(res, 'pocHtml is required');
+            }
+
+            var visionResult = await visionService.analyzeProofs(pocHtml, aiSettings);
+            return Response.Ok(res, visionResult);
+        } catch (err) {
+            console.error('[AI] Proof evidence analysis error:', err.message);
+            return Response.Internal(res, err.message || 'Proof evidence analysis failed');
+        }
+    });
+
+    app.post('/api/ai/complete-proof-fields', acl.hasPermission('audits:read'), async function(req, res) {
+        try {
+            var aiSettings = await getAiSettings();
+
+            if (!aiSettings || !aiSettings.enabled) {
+                return Response.Forbidden(res, 'AI features are not enabled');
+            }
+
+            var {
+                pocHtml,
+                locale,
+                findingTitle,
+                findingDescription,
+                findingRemediation,
+                findingReferences,
+                findingCvssv3,
+                findingCvssv4,
+                auditContext,
+                visionSummary,
+                overwriteFilledFields
+            } = req.body;
+            if (!pocHtml) {
+                return Response.BadParameters(res, 'pocHtml is required');
+            }
+
+            var generatedResult = await buildGeneratedProofResult({
+                pocHtml,
+                locale,
+                findingTitle,
+                findingDescription,
+                findingRemediation,
+                findingReferences,
+                findingCvssv3,
+                findingCvssv4,
+                auditContext,
+                visionSummary,
+                overwriteFilledFields
+            }, aiSettings);
+            return Response.Ok(res, { generatedResult });
+        } catch (err) {
+            console.error('[AI] Proof field completion error:', err.message);
+            return Response.Internal(res, err.message || 'Proof field completion failed');
+        }
+    });
+
+    app.post('/api/ai/search-proof-similar', acl.hasPermission('audits:read'), async function(req, res) {
+        try {
+            var aiSettings = await getAiSettings();
+
+            if (!aiSettings || !aiSettings.enabled) {
+                return Response.Forbidden(res, 'AI features are not enabled');
+            }
+
+            var { locale, findingTitle, findingDescription, visionSummary } = req.body;
+            var similarResults = await searchSimilarFromProof({
+                locale,
+                findingTitle,
+                findingDescription,
+                visionSummary
+            }, aiSettings);
+            return Response.Ok(res, { similarResults });
+        } catch (err) {
+            console.error('[AI] Proof similarity search error:', err.message);
+            return Response.Internal(res, err.message || 'Proof similarity search failed');
         }
     });
 

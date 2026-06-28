@@ -66,9 +66,11 @@ export default {
       readyToSave: false,
       // needSave: structural dirty flag driven by _.isEqual(finding, findingOrig)
       needSave: false,
+      _hasUserEdited: false,
       // _baselining: suppresses the finding watcher during sync/snapshot operations
       // that mutate finding and findingOrig together (tab switches, initial load).
       _baselining: false,
+      _cleanBeforeTabTransition: true,
       // _fetchDone: true once Promise.all has resolved; used by onEditorReady
       _fetchDone: false,
       deleting: false,
@@ -80,11 +82,14 @@ export default {
       similarVulnIsProofMode: false,
       proofVisionSummary: '',
       proofImageDescriptions: [],
-      proofGeneratedPoc: '',
-      proofPocLoading: false,
+      proofOverwriteFilledFields: true,
+      proofCompletionSteps: {
+        analyze: 'pending',
+        generate: 'pending',
+        search: 'pending',
+      },
+      cvssCalculatorKey: 0,
       _similarController: null,
-      _proofPocController: null,
-      _proofPocSelectionToken: 0,
     };
   },
 
@@ -107,6 +112,7 @@ export default {
       deep: true,
       handler() {
         if (this.findingOrig === null || this._baselining) return;
+        if (!this._hasUserEdited) return;
         this.needSave = !this.$_.isEqual(this.finding, this.findingOrig);
       },
     },
@@ -143,7 +149,7 @@ export default {
 
     // Only sync editors if they are fully initialised — avoids flushing
     // empty strings from editors that haven't connected yet.
-    if (!this.loading) Utils.syncEditors(this.$refs);
+    if (!this.loading) this._syncEditorsForDirtyCheck();
 
     if (this.loading) {
       // Data still loading — block navigation to prevent saving an empty state.
@@ -176,7 +182,7 @@ export default {
       return;
     }
 
-    if (!this.loading) Utils.syncEditors(this.$refs);
+    if (!this.loading) this._syncEditorsForDirtyCheck();
 
     if (this.loading) {
       Notify.create({
@@ -249,6 +255,7 @@ export default {
       this.loading = true;
       this.findingOrig = null;
       this.needSave = false;
+      this._hasUserEdited = false;
 
       AuditService.getFinding(this.auditId, this.findingId)
         .then((data) => {
@@ -290,6 +297,7 @@ export default {
             // Update the baseline snapshot so dirty check resets to false
             this.findingOrig = this.$_.cloneDeep(this.finding);
             this.needSave = false;
+            this._hasUserEdited = false;
             Notify.create({
               message: $t('msg.findingUpdateOk'),
               color: 'positive',
@@ -314,19 +322,30 @@ export default {
       Utils.syncEditors(this.$refs);
     },
 
-    // Called when the description editor fires @ready — i.e. TipTap has
-    // connected to Hocuspocus, normalised the HTML, and is fully initialised.
-    // This is the correct moment to snapshot findingOrig, because the normalised
-    // HTML that TipTap produces is now in this.finding.description, so the
-    // baseline matches what the editor actually contains.
-    onEditorReady() {
+    markUserEdited() {
+      if (this.loading || this.findingOrig === null || this._baselining) return;
+      this._hasUserEdited = true;
+      this.needSave = !this.$_.isEqual(this.finding, this.findingOrig);
+    },
+
+    beforeTabTransition() {
+      this._cleanBeforeTabTransition = !this._syncEditorsForDirtyCheck();
+    },
+
+    onEditorReady(fieldName = null) {
       this.readyToSave = true;
       if (!this._fetchDone) return; // data not loaded yet — will be called again on next ready
       this._baselining = true;
       Utils.syncEditors(this.$refs);
       this.$nextTick(() => {
-        this.findingOrig = this.$_.cloneDeep(this.finding);
-        this.needSave = false;
+        if (fieldName && this.findingOrig) {
+          this.findingOrig[fieldName] = this.finding[fieldName];
+          this.needSave = this._hasUserEdited && !this.$_.isEqual(this.finding, this.findingOrig);
+        } else {
+          this.findingOrig = this.$_.cloneDeep(this.finding);
+          this.needSave = false;
+          this._hasUserEdited = false;
+        }
         this._baselining = false;
       });
     },
@@ -383,6 +402,7 @@ export default {
             // Mark as clean so beforeRouteLeave lets navigation through
             this.findingOrig = this.$_.cloneDeep(this.finding);
             this.needSave = false;
+            this._hasUserEdited = false;
             this.$router.push(nextPath).catch(() => {
               if (nextPath !== generalPath) this.$router.push(generalPath);
             });
@@ -408,6 +428,7 @@ export default {
       this.deleting = true;
       this.findingOrig = this.$_.cloneDeep(this.finding);
       this.needSave = false;
+      this._hasUserEdited = false;
       this.$router.push(nextPath).catch(() => {
         if (nextPath !== generalPath) this.$router.push(generalPath);
       });
@@ -445,19 +466,55 @@ export default {
       }
 
       this._baselining = false;
-      // Do a single authoritative recheck now that both finding and findingOrig
-      // are in sync. This correctly handles subsequent tab revisits too.
-      if (this.findingOrig !== null) {
-        this.needSave = !this.$_.isEqual(this.finding, this.findingOrig);
+      if (this.findingOrig !== null && this._cleanBeforeTabTransition) {
+        this.findingOrig = this.$_.cloneDeep(this.finding);
+        this.needSave = false;
+        this._hasUserEdited = false;
+      } else if (this.findingOrig !== null) {
+        // Do a single authoritative recheck now that both finding and findingOrig
+        // are in sync. This correctly handles subsequent tab revisits too.
+        this.needSave = this._hasUserEdited && !this.$_.isEqual(this.finding, this.findingOrig);
       }
+    },
+
+    _activeLazyEditorFields() {
+      if (this.selectedTab === 'proofs') return ['poc'];
+      if (this.selectedTab === 'retest') return ['retestEvidence'];
+      if (this.selectedTab === 'details') return ['scope', 'remediation'];
+      return [];
+    },
+
+    _rebaseIdleActiveEditor() {
+      if (!this.findingOrig) return;
+
+      this._activeLazyEditorFields().forEach((fieldName) => {
+        const ref = this.$refs[`basiceditor_${fieldName}`];
+        if (!ref || !ref.initialeDataUpdated) return;
+
+        if (ref.countChange === ref.countChangeAfterUpdate) {
+          this.findingOrig[fieldName] = this.finding[fieldName];
+        }
+      });
+    },
+
+    _syncEditorsForDirtyCheck() {
+      const wasDirty = this.needSave;
+      Utils.syncEditors(this.$refs);
+
+      if (!wasDirty || !this._hasUserEdited) {
+        this._rebaseIdleActiveEditor();
+      }
+
+      this.needSave = this._hasUserEdited && this.findingOrig !== null && !this.$_.isEqual(this.finding, this.findingOrig);
+      return this.needSave;
     },
 
     // Structural dirty check: sync editors first so HTML is flushed into
     // this.finding, then compare against the server baseline.
     unsavedChanges() {
       if (this.findingOrig === null) return false;
-      Utils.syncEditors(this.$refs);
-      return !this.$_.isEqual(this.finding, this.findingOrig);
+      if (!this._hasUserEdited) return false;
+      return this._syncEditorsForDirtyCheck();
     },
 
     _abortAllAi() {
@@ -465,12 +522,8 @@ export default {
         try { this._similarController.abort(); } catch (_) { /* noop */ }
         this._similarController = null;
       }
-      if (this._proofPocController) {
-        try { this._proofPocController.abort(); } catch (_) { /* noop */ }
-        this._proofPocController = null;
-      }
       this.similarVulnLoading = false;
-      this.proofPocLoading = false;
+      this._resetProofCompletionSteps();
     },
 
     cancelSimilarSearch() {
@@ -505,9 +558,9 @@ export default {
       this.similarVulnIsProofMode = false;
       this.proofVisionSummary = '';
       this.proofImageDescriptions = [];
-      this.proofGeneratedPoc = '';
-      this.similarVulnModalOpen = true;
       this._abortAllAi();
+      this.similarVulnLoading = true;
+      this.similarVulnModalOpen = true;
       this._similarController = new AbortController();
       AiService.searchSimilar(query, locale, this._similarController.signal)
         .then((data) => {
@@ -524,16 +577,21 @@ export default {
     },
 
     applySimilarVuln(payload) {
+      this.markUserEdited();
       // payload: { result, fields: ['description', ...] }
       const result = payload && payload.result ? payload.result : payload;
       const fields = (payload && Array.isArray(payload.fields)) ? payload.fields : [
-        'description', 'observation', 'remediation', 'references', 'cvssv3', 'cvssv4', 'poc'
+        'title', 'description', 'observation', 'remediation', 'references', 'cvssv3', 'cvssv4', 'poc'
       ];
+      const allowedFields = this.similarVulnIsProofMode
+        ? fields.filter(field => field !== 'observation')
+        : fields;
       const apply = (key) => {
-        if (!fields.includes(key)) return;
+        if (!allowedFields.includes(key)) return;
         if (result[key] === undefined) return;
         this.finding[key] = result[key];
       };
+      apply('title');
       apply('description');
       apply('observation');
       apply('remediation');
@@ -541,13 +599,37 @@ export default {
       apply('cvssv3');
       apply('cvssv4');
       apply('poc');
+      if (allowedFields.includes('cvssv3') || allowedFields.includes('cvssv4')) {
+        this.cvssCalculatorKey += 1;
+      }
       nextTick(() => {
-        Utils.syncEditors(this.$refs);
+        ['description', 'observation', 'remediation', 'poc'].forEach((field) => {
+          if (!allowedFields.includes(field)) return;
+          const ref = this.$refs[`basiceditor_${field}`];
+          if (ref && ref.editor && ref.editor.getHTML() !== (this.finding[field] || '')) {
+            ref.editor.commands.setContent(this.finding[field] || '', false);
+          }
+        });
       });
       notifySuccess('similarVulnApplied');
     },
 
-    searchSimilarFromProofs() {
+    _resetProofCompletionSteps() {
+      this.proofCompletionSteps = {
+        analyze: 'pending',
+        generate: 'pending',
+        search: 'pending',
+      };
+    },
+
+    _setProofCompletionStep(step, status) {
+      this.proofCompletionSteps = {
+        ...this.proofCompletionSteps,
+        [step]: status,
+      };
+    },
+
+    async searchSimilarFromProofs() {
       if (!this.aiVisionReady) {
         notifyWarning('aiDisabledReasonVision');
         return;
@@ -564,67 +646,70 @@ export default {
       this.similarVulnIsProofMode = true;
       this.proofVisionSummary = '';
       this.proofImageDescriptions = [];
-      this.proofGeneratedPoc = '';
-      this.similarVulnModalOpen = true;
+      this._resetProofCompletionSteps();
       this._abortAllAi();
+      this.similarVulnLoading = true;
+      this.similarVulnIsProofMode = true;
+      this.similarVulnModalOpen = true;
       this._similarController = new AbortController();
-      AiService.analyzeProofs(this.finding.poc, locale, this._similarController.signal)
-        .then((data) => {
-          const result = data.data.datas || {};
-          this.proofVisionSummary = result.visionSummary || '';
-          this.proofImageDescriptions = result.imageDescriptions || [];
-          this.similarVulnResults = result.similarResults || [];
-        })
-        .catch((err) => {
-          if (isAbortError(err)) return;
-          this.similarVulnError = err.response?.data?.datas || $t('aiError');
-        })
-        .finally(() => {
-          this.similarVulnLoading = false;
-          this._similarController = null;
-        });
+      const payloadBase = {
+        pocHtml: this.finding.poc,
+        locale,
+        findingTitle: this.finding.title || '',
+        findingDescription: this.finding.description || '',
+        findingRemediation: this.finding.remediation || '',
+        findingReferences: this.finding.references || [],
+        findingCvssv3: this.finding.cvssv3 || '',
+        findingCvssv4: this.finding.cvssv4 || '',
+        findingPoc: this.finding.poc || '',
+        auditContext: (this.localAudit && this.localAudit.summary) || (this.audit && this.audit.summary) || '',
+        overwriteFilledFields: this.proofOverwriteFilledFields,
+      };
+
+      try {
+        this._setProofCompletionStep('analyze', 'active');
+        const analysisResponse = await AiService.analyzeProofEvidence({ pocHtml: payloadBase.pocHtml }, this._similarController.signal);
+        const analysis = analysisResponse.data.datas || {};
+        this.proofVisionSummary = analysis.visionSummary || '';
+        this.proofImageDescriptions = analysis.imageDescriptions || [];
+        this._setProofCompletionStep('analyze', 'done');
+
+        this._setProofCompletionStep('generate', 'active');
+        const completionResponse = await AiService.completeProofFields({
+          ...payloadBase,
+          visionSummary: this.proofVisionSummary,
+        }, this._similarController.signal);
+        const completion = completionResponse.data.datas || {};
+        const generated = completion.generatedResult ? [completion.generatedResult] : [];
+        this._setProofCompletionStep('generate', 'done');
+
+        this._setProofCompletionStep('search', 'active');
+        const searchResponse = await AiService.searchProofSimilar({
+          locale,
+          findingTitle: payloadBase.findingTitle,
+          findingDescription: payloadBase.findingDescription,
+          findingRemediation: payloadBase.findingRemediation,
+          findingPoc: payloadBase.findingPoc,
+          visionSummary: this.proofVisionSummary,
+        }, this._similarController.signal);
+        const search = searchResponse.data.datas || {};
+        this._setProofCompletionStep('search', 'done');
+
+        this.similarVulnResults = generated.concat(search.similarResults || []);
+        if (this.similarVulnResults.length > 0) {
+          nextTick(() => this.onProofResultSelected(this.similarVulnResults[0]));
+        }
+      } catch (err) {
+        if (isAbortError(err)) return;
+        this.similarVulnError = err.response?.data?.datas || $t('aiError');
+      } finally {
+        this.similarVulnLoading = false;
+        this._similarController = null;
+      }
     },
 
     onProofResultSelected(result) {
       if (!this.similarVulnIsProofMode || !result) return;
-      // Cancel any pending fill-proofs and bump selection token to discard stale results
-      if (this._proofPocController) {
-        try { this._proofPocController.abort(); } catch (_) { /* noop */ }
-      }
-      this._proofPocSelectionToken++;
-      const myToken = this._proofPocSelectionToken;
-      this.proofGeneratedPoc = '';
-      this.proofPocLoading = true;
-      const locale = this.localAudit.language || 'en';
-      this._proofPocController = new AbortController();
-      AiService.generate({
-        action: 'fill-proofs',
-        fieldName: 'poc',
-        context: {
-          findingTitle: result.title || this.finding.title,
-          locale,
-          vulnDescription: result.description || '',
-          findingDescription: result.description || this.finding.description || '',
-          findingPoc: this.finding.poc || '',
-          visionSummary: this.proofVisionSummary,
-          imageDescriptions: this.proofImageDescriptions,
-        },
-      }, this._proofPocController.signal)
-        .then((data) => {
-          if (myToken !== this._proofPocSelectionToken) return; // stale
-          this.proofGeneratedPoc = (data.data.datas && data.data.datas.html) || '';
-        })
-        .catch((err) => {
-          if (myToken !== this._proofPocSelectionToken) return;
-          if (isAbortError(err)) return;
-          notifyError(err);
-        })
-        .finally(() => {
-          if (myToken === this._proofPocSelectionToken) {
-            this.proofPocLoading = false;
-            this._proofPocController = null;
-          }
-        });
     },
   },
 };

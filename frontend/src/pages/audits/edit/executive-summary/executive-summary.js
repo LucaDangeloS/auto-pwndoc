@@ -5,19 +5,14 @@ import _ from 'lodash';
 import Breadcrumb from 'components/breadcrumb';
 import BasicEditor from 'components/editor';
 import TemplateHint from 'components/template-hint';
-import AiActionBtn from 'components/ai-action-btn';
 import AiDiffModal from 'components/ai-diff-modal.vue';
+import { applyAiResult } from 'components/ai-assistant';
 
 import AuditService from '@/services/audit';
-import AiService from '@/services/ai';
 import Utils from '@/services/utils';
 import {
-    isAiEnabled,
-    aiDisabledReason,
     notifyError,
     notifySuccess,
-    isAbortError,
-    sanitizeHtml
 } from '@/services/ai-helpers';
 
 import { $t } from '@/boot/i18n';
@@ -42,7 +37,6 @@ export default {
         Breadcrumb,
         BasicEditor,
         TemplateHint,
-        AiActionBtn,
         AiDiffModal,
     },
 
@@ -60,11 +54,10 @@ export default {
         executiveSummaryOrig: {},
         loading: false,
         saving: false,
-        aiLoadingMap: {},
-        aiControllers: {},
         aiReviewOpen: false,
         aiReviews: [],
         aiReviewSeq: 0,
+        aiErrorMessage: '',
         AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
         SEVERITY_LEVELS,
     }),
@@ -160,17 +153,6 @@ export default {
             return this.audit ? (this.audit.name || '') : '';
         },
 
-        aiReady() {
-            return isAiEnabled(this.$settings);
-        },
-
-        aiDisabledReasonText() {
-            return aiDisabledReason(this.$settings, 'generation');
-        },
-
-        anyAiInFlight() {
-            return Object.values(this.aiLoadingMap).some(Boolean);
-        },
     },
 
     mounted() {
@@ -182,23 +164,10 @@ export default {
 
     beforeUnmount() {
         document.removeEventListener('keydown', this._listener, false);
-        this._abortAllAi();
     },
 
     beforeRouteLeave(to, from, next) {
         Utils.syncEditors(this.$refs);
-        if (this.anyAiInFlight) {
-            Dialog.create({
-                title: $t('aiInFlightTitle'),
-                message: $t('aiInFlightMessage'),
-                ok: { label: $t('btn.confirm'), color: 'negative' },
-                cancel: { label: $t('btn.cancel'), color: 'white' },
-            }).onOk(() => {
-                this._abortAllAi();
-                next();
-            }).onCancel(() => next(false));
-            return;
-        }
         if (_.isEqual(this.executiveSummary, this.executiveSummaryOrig)) {
             next();
         } else {
@@ -220,17 +189,6 @@ export default {
                     this.save();
                 }
             }
-        },
-
-        _abortAllAi() {
-            Object.keys(this.aiControllers).forEach((k) => {
-                const controller = this.aiControllers[k];
-                if (controller) {
-                    try { controller.abort(); } catch (_) { /* noop */ }
-                }
-            });
-            this.aiControllers = {};
-            this.aiLoadingMap = {};
         },
 
         getExecutiveSummary() {
@@ -310,11 +268,14 @@ export default {
         },
 
         aiContextFor(severity) {
+            const findings = this.findingsForSeverity(severity);
             return {
                 auditName: this.auditName,
                 severity,
+                severityCount: findings.length,
+                severityPrefix: this.severitySummaryPrefix(severity),
                 overallRisk: this.executiveSummary.overallRisk || '',
-                findingsDigest: this.findingsForSeverity(severity)
+                findingsDigest: findings
                     .map(f => this._findingDigestLine(f))
                     .join('\n'),
                 auditContext: this.audit?.summary || '',
@@ -340,25 +301,69 @@ export default {
             });
         },
 
-        _resolveEditorInstance(refKey) {
-            const ref = this.$refs[refKey];
-            return Array.isArray(ref) ? ref[0] : ref;
-        },
-
-        cancelAiOnEditor(refKey) {
-            const controller = this.aiControllers[refKey];
-            if (controller) {
-                try { controller.abort(); } catch (_) { /* noop */ }
+        severitySummaryPrefix(severity) {
+            const count = this.findingsForSeverity(severity).length;
+            const locale = this.audit?.language || this.$i18n?.locale || 'en-US';
+            if (String(locale).toLowerCase().startsWith('es')) {
+                const label = this._severityLabelForPrefix(severity, 'es');
+                const noun = count === 1 ? 'vulnerabilidad' : 'vulnerabilidades';
+                const verb = count === 1 ? 'ha' : 'han';
+                const connector = count === 1 ? 'relacionada con' : 'relacionadas con';
+                return `Se ${verb} detectado ${count} ${noun} de severidad ${label}, ${connector}`;
             }
-            this.aiControllers = { ...this.aiControllers, [refKey]: null };
-            this.aiLoadingMap = { ...this.aiLoadingMap, [refKey]: false };
+            if (String(locale).toLowerCase().startsWith('de')) {
+                const label = this._severityLabelForPrefix(severity, 'de');
+                const noun = count === 1 ? 'Schwachstelle' : 'Schwachstellen';
+                const verb = count === 1 ? 'wurde' : 'wurden';
+                return `Es ${verb} ${count} ${noun} mit Schweregrad ${label} festgestellt, im Zusammenhang mit`;
+            }
+            const label = this._severityLabelForPrefix(severity, 'en');
+            const noun = count === 1 ? 'vulnerability' : 'vulnerabilities';
+            const verb = count === 1 ? 'was' : 'were';
+            return `${count} ${label} severity ${noun} ${verb} detected, related to`;
         },
 
-        aiReviewTitle(refKey, action, severity) {
-            if (action === 'executive-summary') return this.$t('executiveSummaryText');
-            if (severity) return `${this.$t(severity.toLowerCase())} ${this.$t('aiPromptSectionSeveritySummary')}`;
-            const level = this.SEVERITY_LEVELS.find(item => `editor_${item.field}` === refKey);
-            return level ? `${this.$t(level.key.toLowerCase())} ${this.$t('aiPromptSectionSeveritySummary')}` : this.$t('aiReviewTitle');
+        _severityLabelForPrefix(severity, locale) {
+            const key = String(severity || '').toLowerCase();
+            const labels = {
+                es: {
+                    critical: 'crítica',
+                    high: 'alta',
+                    medium: 'media',
+                    low: 'baja',
+                    informative: 'informativa'
+                },
+                de: {
+                    critical: 'kritisch',
+                    high: 'hoch',
+                    medium: 'mittel',
+                    low: 'niedrig',
+                    informative: 'informativ'
+                },
+                en: {
+                    critical: 'critical',
+                    high: 'high',
+                    medium: 'medium',
+                    low: 'low',
+                    informative: 'informative'
+                }
+            };
+            if (labels[locale] && labels[locale][key]) return labels[locale][key];
+            const translated = this.$t(key);
+            return String(translated || key).toLowerCase();
+        },
+
+        aiReviewTitle(fieldName, action) {
+            const actionLabel = action === 'complete'
+                ? this.$t('aiComplete')
+                : action === 'rewrite'
+                    ? this.$t('aiRewrite')
+                    : this.$t('aiGenerate');
+            if (fieldName === 'executiveSummary') return `${this.$t('executiveSummaryText')} - ${actionLabel}`;
+            const level = this.SEVERITY_LEVELS.find(item => item.field === fieldName);
+            return level
+                ? `${this.$t(level.key.toLowerCase())} ${this.$t('aiPromptSectionSeveritySummary')} - ${actionLabel}`
+                : `${this.$t('aiReviewTitle')} - ${actionLabel}`;
         },
 
         setAiReviewOpen(value) {
@@ -371,69 +376,49 @@ export default {
             this.aiReviewOpen = this.aiReviews.length > 0;
         },
 
-        async runAiOnEditor(refKey, action, severity) {
-            if (!this.aiReady) return;
-            const editorInstance = this._resolveEditorInstance(refKey);
-            if (!editorInstance) return;
-
-            this.aiLoadingMap = { ...this.aiLoadingMap, [refKey]: true };
-
-            const controller = new AbortController();
-            this.aiControllers = { ...this.aiControllers, [refKey]: controller };
-
-            const context = action === 'executive-summary' ? this.aiContextSummary() : this.aiContextFor(severity);
-
-            try {
-                const response = await AiService.generate({ action, fieldName: refKey, context }, controller.signal);
-                const html = response.data?.datas?.html || '';
-                if (!html) throw new Error($t('aiEmptyResponse'));
-
-                const previousHtml = editorInstance && editorInstance.editor ? editorInstance.editor.getHTML() : '';
-                const proposedHtml = sanitizeHtml(html);
-
-                const reviewId = `${refKey}-${Date.now()}-${++this.aiReviewSeq}`;
-                this.aiReviews = [
-                    ...this.aiReviews,
-                    {
-                        id: reviewId,
-                        title: this.aiReviewTitle(refKey, action, severity),
-                        refKey,
-                        action,
-                        severity: severity || '',
-                        previousHtml,
-                        proposedHtml,
-                    }
-                ];
-                this.aiReviewOpen = true;
-            } catch (err) {
-                if (isAbortError(err)) return;
-                console.error('[AI Executive Summary]', err);
-                const retry = () => this.runAiOnEditor(refKey, action, severity);
-                notifyError(err, 'aiError', [
-                    { label: $t('btn.retry'), color: 'white', noCaps: true, handler: retry }
-                ]);
-            } finally {
-                this.aiLoadingMap = { ...this.aiLoadingMap, [refKey]: false };
-                this.aiControllers = { ...this.aiControllers, [refKey]: null };
+        handleEditorAiReview(result) {
+            if (!result || !result.editor) {
+                this.aiErrorMessage = $t('aiEditorUnavailable');
+                notifyError(this.aiErrorMessage, 'aiError');
+                return;
             }
+            this.aiErrorMessage = '';
+            const fieldName = result.fieldName || '';
+            const reviewId = `${fieldName || 'editor'}-${Date.now()}-${++this.aiReviewSeq}`;
+            this.aiReviews = [
+                ...this.aiReviews,
+                {
+                    id: reviewId,
+                    title: this.aiReviewTitle(fieldName, result.action),
+                    fieldName,
+                    editor: result.editor,
+                    action: result.action,
+                    previousHtml: result.previousHtml,
+                    proposedHtml: result.proposedHtml,
+                    selectionRange: result.selectionRange || null,
+                    rerun: result.rerun,
+                }
+            ];
+            this.aiReviewOpen = true;
         },
 
         applyAiReview(html, review = null) {
             const activeReview = review || this.aiReviews[0] || {};
-            const refKey = activeReview.refKey;
-            if (!refKey) return;
-            const editorInstance = this._resolveEditorInstance(refKey);
-            if (editorInstance && editorInstance.editor) {
-                editorInstance.editor.commands.setContent(sanitizeHtml(html));
+            if (!activeReview.editor) return;
+            try {
+                applyAiResult(activeReview.editor, activeReview.action, html, activeReview.selectionRange || null);
+            } catch (err) {
+                this.aiErrorMessage = err.message || $t('aiError');
+                notifyError(err, 'aiError');
+                return;
             }
             this.removeAiReview(activeReview.id);
         },
 
         regenerateAi(review = null) {
             const activeReview = review || this.aiReviews[0] || {};
-            const { refKey, action, severity } = activeReview;
             this.removeAiReview(activeReview.id);
-            if (refKey && action) this.runAiOnEditor(refKey, action, severity);
+            if (typeof activeReview.rerun === 'function') activeReview.rerun();
         },
     },
 };

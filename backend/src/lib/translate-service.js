@@ -38,6 +38,10 @@ Rules:
 - Do NOT wrap the output in markdown code fences or add any extra markup
 - Output only the translated HTML fragment`;
 
+const DEFAULT_TRANSLATION_USER_PROMPT = `Translate this "{fieldName}" field from {fromLanguage} to {toLanguage}:
+
+{text}`;
+
 function localeName(locale) {
     var base = locale.split('-')[0].toLowerCase();
     return LOCALE_NAMES[locale] || LOCALE_NAMES[base] || locale;
@@ -154,11 +158,17 @@ async function translateField(chatModel, html, fieldName, fromLocale, toLocale, 
 
     var fromName = localeName(fromLocale);
     var toName = localeName(toLocale);
+    var priv = aiSettings && aiSettings.private ? aiSettings.private : {};
     var systemPrompt = buildTranslationSystemPrompt(aiSettings, fieldName, fromLocale, toLocale);
 
-    var userPrompt = `Translate this "${fieldName}" field from ${fromName} to ${toName}:
-
-${html}`;
+    var userPrompt = fillTemplate(priv.vulnerabilityTranslationUserPrompt || DEFAULT_TRANSLATION_USER_PROMPT, {
+        fieldName: fieldName,
+        fromLocale: fromLocale,
+        toLocale: toLocale,
+        fromLanguage: fromName,
+        toLanguage: toName,
+        text: html
+    });
 
     var messages = [
         new SystemMessage(systemPrompt),

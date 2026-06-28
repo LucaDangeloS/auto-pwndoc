@@ -65,6 +65,27 @@
         </q-card-section>
       </q-card>
 
+      <q-banner
+        v-if="aiErrorMessage"
+        rounded
+        class="bg-negative text-white q-mb-md"
+      >
+        <template #avatar>
+          <q-icon name="error_outline" color="white" />
+        </template>
+        {{ aiErrorMessage }}
+        <template #action>
+          <q-btn
+            flat
+            dense
+            color="white"
+            icon="close"
+            :aria-label="$t('btn.close')"
+            @click="aiErrorMessage = ''"
+          />
+        </template>
+      </q-banner>
+
       <!-- Report Graph Template Hints -->
       <q-card class="q-mb-md">
         <q-expansion-item
@@ -107,18 +128,6 @@
               <div class="text-subtitle1 text-weight-medium">{{$t('executiveSummaryText')}}</div>
               <template-hint template-var="{@audit.executive_summary | convertHTML}" :description="$t('templateHintAuditHtmlAlias')" class="q-ml-sm" />
             </div>
-            <ai-action-btn
-              v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
-              :label="$t('aiSuggest')"
-              :loading="!!aiLoadingMap['editor_summary']"
-              :disabled="!aiReady"
-              :disabled-reason="aiDisabledReasonText"
-              :tooltip="$t('aiSuggestTooltip')"
-              cancellable
-              :cancel-hint="$t('btn.cancel')"
-              @click="runAiOnEditor('editor_summary', 'executive-summary')"
-              @cancel="cancelAiOnEditor('editor_summary')"
-            />
           </div>
           <basic-editor
             ref="editor_summary"
@@ -127,6 +136,7 @@
             :collab="false"
             fieldName="executiveSummary"
             :aiContext="aiContextSummary()"
+            :aiReviewHandler="handleEditorAiReview"
           />
         </q-card-section>
       </q-card>
@@ -162,18 +172,13 @@
                   {{ $t('noFindingsOfSeverity') }}
                 </span>
               </div>
-              <ai-action-btn
-                v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT && presentSeverities.has(level.key)"
-                :label="$t('aiSuggest')"
-                :loading="!!aiLoadingMap[`editor_${level.field}`]"
-                :disabled="!aiReady"
-                :disabled-reason="aiDisabledReasonText"
-                :tooltip="$t('aiSuggestTooltip')"
-                cancellable
-                :cancel-hint="$t('btn.cancel')"
-                @click="runAiOnEditor(`editor_${level.field}`, 'severity-summary', level.key)"
-                @cancel="cancelAiOnEditor(`editor_${level.field}`)"
-              />
+            </div>
+            <div
+              v-if="presentSeverities.has(level.key)"
+              class="text-caption text-secondary q-mb-xs"
+            >
+              {{ $t('severitySummaryPrefixPreview') }}
+              <span class="text-italic">{{ severitySummaryPrefix(level.key) }}</span>
             </div>
             <basic-editor
               :ref="`editor_${level.field}`"
@@ -182,6 +187,8 @@
               :collab="false"
               :fieldName="level.field"
               :aiContext="aiContextFor(level.key)"
+              :aiReviewHandler="handleEditorAiReview"
+              :aiDisabledReason="presentSeverities.has(level.key) ? '' : $t('noFindingsOfSeverity')"
             />
           </div>
         </q-card-section>

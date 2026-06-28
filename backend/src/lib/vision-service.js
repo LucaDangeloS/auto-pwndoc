@@ -4,17 +4,19 @@ const { ChatOpenAI, AzureChatOpenAI } = require('@langchain/openai');
 const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 const OpenWebUIProvider = require('./openwebui-provider');
 
-const DEFAULT_VISION_SYSTEM_PROMPT = `You are a cybersecurity expert analyzing proof-of-concept screenshots and evidence for a penetration test report.
-Examine all provided images and accompanying text carefully.
-Describe in technical detail what each image shows, focusing on:
+const DEFAULT_VISION_SYSTEM_PROMPT = `You are a cybersecurity expert analyzing proof-of-concept evidence for a penetration test report.
+Examine all provided proof text and any attached images carefully.
+Describe in technical detail what the evidence demonstrates, focusing on:
 - What vulnerability or security weakness is being demonstrated
-- What the attacker is doing or has achieved
-- Any sensitive information visible (e.g. responses, error messages, system information)
-- The overall attack flow or exploitation chain if multiple images are present
+- What the tester observed, performed, or achieved
+- Any sensitive information visible or described (e.g. responses, error messages, system information, credentials)
+- The overall attack flow or exploitation chain if multiple evidence items are present
 
 Produce a structured analysis with:
 1. A concise overall summary of the vulnerability being demonstrated (2-4 sentences)
-2. A per-image description labelled clearly (e.g. "Image 1:", "Image 2:")
+2. A per-image description labelled clearly only when images are provided (e.g. "Image 1:", "Image 2:")
+
+If only text is provided, analyze the text as evidence. Do not ask for screenshots or say that analysis cannot be performed solely because images are absent.
 
 Output plain text only. Do not use markdown headers or code fences.`;
 
@@ -120,7 +122,8 @@ function parseProofHtml(pocHtml) {
 
         const src = match[1];
         imageCounter++;
-        const idMatch = src.match(/\/api\/images\/([^/?#]+)/);
+        const idMatch = src.match(/(?:^|\/)api\/images\/(?:download\/)?([^/?#]+)/) ||
+            src.match(/^([a-f0-9]{24})$/i);
         const imageId = idMatch ? idMatch[1] : null;
 
         segments.push({
@@ -207,6 +210,38 @@ function anonymizeWithRegex(text, rules = DEFAULT_REGEX_RULES) {
     return result;
 }
 
+function buildMessageContentFromSegments(segments, imageFetches) {
+    const messageContent = [];
+
+    let imageIndex = 0;
+    for (const seg of segments) {
+        if (seg.type === 'text') {
+            messageContent.push({ type: 'text', text: seg.content });
+        } else if (seg.type === 'image') {
+            const fetched = imageFetches[imageIndex];
+            imageIndex++;
+
+            messageContent.push({ type: 'text', text: `Image ${seg.index}:` });
+
+            if (fetched && fetched.base64) {
+                const base64Value = fetched.base64;
+                const mimeMatch = base64Value.match(/^data:([^;]+);base64,/);
+                const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+                const base64Data = base64Value.replace(/^data:[^;]+;base64,/, '');
+
+                messageContent.push({
+                    type: 'image_url',
+                    image_url: { url: `data:${mimeType};base64,${base64Data}` }
+                });
+            } else {
+                messageContent.push({ type: 'text', text: `[Image ${seg.index} could not be loaded]` });
+            }
+        }
+    }
+
+    return messageContent;
+}
+
 async function analyzeProofs(pocHtml, aiSettings) {
     const segments = parseProofHtml(pocHtml);
 
@@ -217,6 +252,9 @@ async function analyzeProofs(pocHtml, aiSettings) {
     const images = segments.filter(s => s.type === 'image');
     const imageFetches = await Promise.all(
         images.map(async (seg) => {
+            if (typeof seg.src === 'string' && /^data:image\/[^;]+;base64,/i.test(seg.src)) {
+                return { ...seg, base64: seg.src };
+            }
             if (!seg.imageId) return { ...seg, base64: null };
             try {
                 const base64 = await fetchImageBase64(seg.imageId);
@@ -245,33 +283,7 @@ async function analyzeProofs(pocHtml, aiSettings) {
         visionAnonymizeLlm: anonymizeLlm
     });
 
-    const messageContent = [];
-
-    let imageIndex = 0;
-    for (const seg of segments) {
-        if (seg.type === 'text') {
-            messageContent.push({ type: 'text', text: seg.content });
-        } else if (seg.type === 'image') {
-            const fetched = imageFetches[imageIndex];
-            imageIndex++;
-
-            messageContent.push({ type: 'text', text: `Image ${seg.index}:` });
-
-            if (fetched && fetched.base64) {
-                const base64Value = fetched.base64;
-                const mimeMatch = base64Value.match(/^data:([^;]+);base64,/);
-                const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-                const base64Data = base64Value.replace(/^data:[^;]+;base64,/, '');
-
-                messageContent.push({
-                    type: 'image_url',
-                    image_url: { url: `data:${mimeType};base64,${base64Data}` }
-                });
-            } else {
-                messageContent.push({ type: 'text', text: `[Image ${seg.index} could not be loaded]` });
-            }
-        }
-    }
+    const messageContent = buildMessageContentFromSegments(segments, imageFetches);
 
     const chatModel = buildVisionModel(aiSettings);
     const messages = [
@@ -304,6 +316,7 @@ async function analyzeProofs(pocHtml, aiSettings) {
 module.exports = {
     analyzeProofs,
     parseProofHtml,
+    _buildMessageContentFromSegments: buildMessageContentFromSegments,
     anonymizeWithRegex,
     validateRegexRules,
     buildVisionSystemContent,

@@ -11,9 +11,49 @@
       </q-bar>
 
       <!-- Loading state -->
-      <div v-if="loading" class="col flex flex-center q-pa-xl">
+      <div v-if="loading && isProofMode" class="col flex flex-center q-pa-xl">
+        <q-card flat bordered class="q-pa-lg proof-processing-card">
+          <div class="row items-center q-mb-md">
+            <q-spinner-gears size="42px" color="primary" class="q-mr-md" />
+            <div>
+              <div class="text-h6">{{ $t('proofCompletionProcessingTitle') }}</div>
+              <div class="text-body2">{{ $t('proofCompletionRunning') }}</div>
+            </div>
+          </div>
+          <q-linear-progress indeterminate color="primary" class="q-mb-md" />
+          <q-list dense>
+            <q-item :class="proofStepClass('analyze')">
+              <q-item-section avatar>
+                <q-icon v-if="proofStepDone('analyze')" name="check_circle" color="positive" size="22px" />
+                <q-spinner v-else-if="proofStepActive('analyze')" size="20px" color="primary" />
+                <q-icon v-else name="radio_button_unchecked" color="grey-6" size="22px" />
+              </q-item-section>
+              <q-item-section>{{ $t('proofCompletionStepAnalyze') }}</q-item-section>
+            </q-item>
+            <q-item :class="proofStepClass('generate')">
+              <q-item-section avatar>
+                <q-icon v-if="proofStepDone('generate')" name="check_circle" color="positive" size="22px" />
+                <q-spinner v-else-if="proofStepActive('generate')" size="20px" color="secondary" />
+                <q-icon v-else name="radio_button_unchecked" color="grey-6" size="22px" />
+              </q-item-section>
+              <q-item-section>{{ $t('proofCompletionStepGenerate') }}</q-item-section>
+            </q-item>
+            <q-item :class="proofStepClass('search')">
+              <q-item-section avatar>
+                <q-icon v-if="proofStepDone('search')" name="check_circle" color="positive" size="22px" />
+                <q-spinner v-else-if="proofStepActive('search')" size="20px" color="info" />
+                <q-icon v-else name="radio_button_unchecked" color="grey-6" size="22px" />
+              </q-item-section>
+              <q-item-section>{{ $t('proofCompletionStepSearch') }}</q-item-section>
+            </q-item>
+          </q-list>
+        </q-card>
+      </div>
+      <div v-else-if="loading" class="col flex flex-center q-pa-xl">
         <q-spinner-gears size="48px" color="primary" />
-        <div class="q-ml-md text-grey-7 ai-loading">{{ $t('similarVulnSearching') }}</div>
+        <div class="q-ml-md text-grey-7 ai-loading">
+          {{ $t('similarVulnSearching') }}
+        </div>
       </div>
 
       <!-- Error state -->
@@ -33,7 +73,9 @@
       <!-- No results -->
       <div v-else-if="results.length === 0" class="col flex flex-center q-pa-xl column">
         <q-icon name="search_off" size="48px" color="grey-5" />
-        <div class="q-mt-md text-grey-7 text-center">{{ $t('similarVulnNoResults') }}</div>
+        <div class="q-mt-md text-grey-7 text-center">
+          {{ isProofMode ? $t('proofCompletionNoResults') : $t('similarVulnNoResults') }}
+        </div>
 
         <!-- Vision summary still useful even with zero results -->
         <div v-if="isProofMode && visionSummary" class="q-mt-lg" style="max-width: 640px; width: 100%">
@@ -63,20 +105,29 @@
               :aria-selected="selectedIndex === i"
             >
               <q-item-section>
-                <q-item-label lines="2">{{ r.title || $t('untitled') }}</q-item-label>
+                <q-item-label lines="2">
+                  {{ r.generatedFromProof ? $t('proofGeneratedCandidate') : (r.title || $t('untitled')) }}
+                </q-item-label>
                 <q-item-label caption>
-                  <span v-if="r.category">{{ $t('type') }}: {{ r.category }} &bull; </span>
-                  <span>{{ $t('category') }}: <span v-if="r.vulnType">{{ r.vulnType }}</span><span v-else class="taxonomy-empty">-</span> &bull; </span>
-                  <span class="text-weight-medium">
-                    {{ $t('similarVulnDistance') }}: {{ r.distance != null ? r.distance.toFixed(3) : 'N/A' }}
-                  </span>
+                  <template v-if="r.generatedFromProof">
+                    <span>{{ $t('proofGeneratedCandidateCaption') }}</span>
+                  </template>
+                  <template v-else>
+                    <span v-if="r.category">{{ $t('type') }}: {{ r.category }} &bull; </span>
+                    <span>{{ $t('category') }}: <span v-if="r.vulnType">{{ r.vulnType }}</span><span v-else class="taxonomy-empty">-</span> &bull; </span>
+                    <span class="text-weight-medium">
+                      {{ $t('similarVulnDistance') }}: {{ r.distance != null ? r.distance.toFixed(3) : 'N/A' }}
+                    </span>
+                  </template>
                 </q-item-label>
               </q-item-section>
               <q-item-section side>
                 <q-badge
+                  v-if="!r.generatedFromProof"
                   :color="distanceColor(r.distance)"
                   :label="distanceLabel(r.distance)"
                 />
+                <q-badge v-else color="secondary" :label="$t('proofGeneratedBadge')" />
               </q-item-section>
             </q-item>
           </q-list>
@@ -125,7 +176,7 @@
             </div>
 
             <!-- Vision summary (proof mode only) -->
-            <div v-if="isProofMode && visionSummary" class="diff-field-block q-mb-md">
+            <div v-if="isProofMode && visionSummary" class="diff-field-block">
               <q-expansion-item
                 :label="$t('proofAnalysisSummary')"
                 icon="visibility"
@@ -136,20 +187,8 @@
               </q-expansion-item>
             </div>
 
-            <!-- Generated PoC preview (proof mode only) -->
-            <div v-if="isProofMode" class="diff-field-block q-mb-md">
-              <div class="row items-center q-mb-xs">
-                <q-icon name="article" color="secondary" size="xs" class="q-mr-xs" />
-                <span class="text-caption text-weight-medium text-uppercase text-grey-7">{{ $t('proofGeneratedPreview') }}</span>
-                <q-spinner v-if="pocLoading" size="xs" color="secondary" class="q-ml-sm" />
-              </div>
-              <div v-if="pocLoading" class="text-caption text-grey-6 q-py-sm ai-loading">{{ $t('proofFillLoading') }}</div>
-              <div v-else-if="generatedPoc" class="diff-html-box proposed" v-html="sanitize(generatedPoc)"></div>
-              <div v-else class="diff-html-box text-grey-5"><em>{{ $t('proofGeneratedEmpty') }}</em></div>
-            </div>
-
             <!-- Field diffs with per-field apply checkboxes -->
-            <div class="q-col-gutter-md column">
+            <div class="diff-fields-stack column">
               <div v-for="field in diffFields" :key="field.key" class="diff-field-block">
                 <div class="row items-center q-mb-xs">
                   <q-checkbox
@@ -243,6 +282,7 @@ import { defineComponent } from 'vue';
 import { sanitizeHtml } from '@/services/ai-helpers';
 
 const DEFAULT_DIFF_FIELDS = [
+  { key: 'title',       label: 'title',                type: 'text'  },
   { key: 'description', label: 'description',          type: 'html'  },
   { key: 'observation',  label: 'observation',          type: 'html'  },
   { key: 'remediation',  label: 'remediation',          type: 'html'  },
@@ -250,6 +290,12 @@ const DEFAULT_DIFF_FIELDS = [
   { key: 'cvssv3',       label: 'cvssScore',            type: 'text'  },
   { key: 'cvssv4',       label: 'similarVulnCvss4',     type: 'text'  },
 ];
+
+function diffFieldsForMode(isProofMode) {
+  return isProofMode
+    ? DEFAULT_DIFF_FIELDS.filter(field => field.key !== 'observation')
+    : DEFAULT_DIFF_FIELDS;
+}
 
 export default defineComponent({
   name: 'SimilarVulnModal',
@@ -262,8 +308,10 @@ export default defineComponent({
     currentFinding: { type: Object, default: () => ({}) },
     isProofMode: { type: Boolean, default: false },
     visionSummary: { type: String, default: '' },
-    generatedPoc: { type: String, default: '' },
-    pocLoading: { type: Boolean, default: false },
+    proofSteps: {
+      type: Object,
+      default: () => ({ analyze: 'pending', generate: 'pending', search: 'pending' }),
+    },
   },
 
   emits: ['update:modelValue', 'apply', 'select', 'retry', 'close'],
@@ -271,7 +319,6 @@ export default defineComponent({
   data() {
     return {
       selectedIndex: null,
-      diffFields: DEFAULT_DIFF_FIELDS,
       applyMap: this._defaultApplyMap(),
     };
   },
@@ -287,11 +334,13 @@ export default defineComponent({
     },
     appliedCount() {
       const fields = Object.keys(this.applyMap);
-      // PoC isn't in diffFields when not proof mode, but it's still part of applyMap
       return fields.filter((k) => this.applyMap[k]).length;
     },
     emptyMarkup() {
       return `<em class="text-grey-5">${this.$t('empty')}</em>`;
+    },
+    diffFields() {
+      return diffFieldsForMode(this.isProofMode);
     }
   },
 
@@ -317,7 +366,10 @@ export default defineComponent({
   methods: {
     _defaultApplyMap() {
       // Pre-tick fields that actually changed so the user starts from a sensible default
-      const map = { description: false, observation: false, remediation: false, references: false, cvssv3: false, cvssv4: false, poc: false };
+      const map = diffFieldsForMode(this.isProofMode).reduce((acc, field) => {
+        acc[field.key] = false;
+        return acc;
+      }, {});
       if (this.results && this.results.length > 0 && this.selectedIndex !== null && this.selectedIndex < this.results.length) {
         const sel = this.results[this.selectedIndex];
         Object.keys(map).forEach((k) => {
@@ -327,8 +379,6 @@ export default defineComponent({
         // Even with no diff, default to selecting changed fields once selectedIndex is set
         Object.keys(map).forEach((k) => { map[k] = false; });
       }
-      // PoC is only relevant in proof mode and is auto-on if a generatedPoc is going to be applied
-      if (this.isProofMode && this.generatedPoc) map.poc = true;
       return map;
     },
 
@@ -346,6 +396,20 @@ export default defineComponent({
       return sanitizeHtml(html || '');
     },
 
+    proofStepActive(step) {
+      return this.proofSteps && this.proofSteps[step] === 'active';
+    },
+
+    proofStepDone(step) {
+      return this.proofSteps && this.proofSteps[step] === 'done';
+    },
+
+    proofStepClass(step) {
+      if (this.proofStepDone(step)) return 'text-positive';
+      if (this.proofStepActive(step)) return 'text-primary text-weight-medium';
+      return 'text-grey-7';
+    },
+
     selectResult(i) {
       this.selectedIndex = i;
       this.$emit('select', this.results[i]);
@@ -358,17 +422,14 @@ export default defineComponent({
 
     selectAllFields() {
       Object.keys(this.applyMap).forEach((k) => {
-        if (k === 'poc' && !this.isProofMode) return;
         this.applyMap[k] = true;
       });
-      if (this.isProofMode && this.generatedPoc) this.applyMap.poc = true;
     },
 
     selectChangedFields() {
       Object.keys(this.applyMap).forEach((k) => {
         this.applyMap[k] = this._fieldChanged(this.selected, k);
       });
-      if (this.isProofMode && this.generatedPoc) this.applyMap.poc = true;
     },
 
     applySelected() {
@@ -376,9 +437,6 @@ export default defineComponent({
       const fields = Object.keys(this.applyMap).filter((k) => this.applyMap[k]);
       if (fields.length === 0) return;
       const result = { ...this.selected };
-      if (this.isProofMode && this.generatedPoc && this.applyMap.poc) {
-        result.poc = this.generatedPoc;
-      }
       this.$emit('apply', { result, fields });
       this.show = false;
     },
@@ -426,6 +484,14 @@ export default defineComponent({
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 12px;
+}
+
+.diff-fields-stack {
+  gap: 12px;
+
+  .diff-field-block {
+    margin-bottom: 0;
+  }
 }
 
 .diff-html-box {

@@ -150,6 +150,181 @@ module.exports = function () {
 
         expect(rendered).toEqual('Description|Proof|Vision|External assessment')
       })
+
+      it('normalizes executive summary HTML lists into paragraphs', () => {
+        var html = aiService._normalizeExecutiveSummaryHtml(
+          '<ul><li>Primera idea ejecutiva.</li><li>Segunda idea ejecutiva.</li></ul>'
+        )
+
+        expect(html).toEqual('<p>Primera idea ejecutiva.</p>\n<p>Segunda idea ejecutiva.</p>')
+        expect(html).not.toContain('<li>')
+        expect(html).not.toContain('<ul>')
+      })
+
+      it('normalizes markdown bullets in executive summaries into paragraphs', () => {
+        var html = aiService._normalizeExecutiveSummaryHtml(
+          '- Primera idea ejecutiva.\n- Segunda idea ejecutiva.'
+        )
+
+        expect(html).toEqual('<p>Primera idea ejecutiva.</p>\n<p>Segunda idea ejecutiva.</p>')
+        expect(html).not.toContain('- Primera')
+      })
+
+      it('removes risk-level prelude sentences from executive summaries', () => {
+        var html = aiService._normalizeExecutiveSummaryHtml(
+          '<p>El auditor ha determinado que el riesgo general de la infraestructura es Medio. Durante el proceso de evaluación de seguridad llevado a cabo sobre el aplicativo, el equipo de pruebas de penetración ha identificado varias vulnerabilidades que podrían exponer riesgos significativos.</p><p>La gravedad de estas vulnerabilidades radica en la exposición de información sensible.</p>'
+        )
+
+        expect(html).toContain('Durante el proceso de evaluación de seguridad')
+        expect(html).not.toContain('El auditor ha determinado')
+        expect(html).not.toContain('riesgo general')
+      })
+
+      it('removes model reasoning artifacts from executive summaries', () => {
+        var html = aiService._normalizeExecutiveSummaryHtml(
+          '<p>Thinking Process:</p><p>Analyze the Request: write three paragraphs.</p><p>Durante el proceso de evaluación de seguridad llevado a cabo sobre el aplicativo, el equipo de pruebas de penetración ha identificado varias vulnerabilidades que podrían exponer riesgos significativos.</p>'
+        )
+
+        expect(html).toEqual('<p>Durante el proceso de evaluación de seguridad llevado a cabo sobre el aplicativo, el equipo de pruebas de penetración ha identificado varias vulnerabilidades que podrían exponer riesgos significativos.</p>')
+        expect(html).not.toContain('Thinking Process')
+        expect(html).not.toContain('Analyze the Request')
+      })
+
+      it('wraps plain executive summary paragraphs in HTML paragraphs', () => {
+        var html = aiService._normalizeExecutiveSummaryHtml(
+          'Durante el proceso de evaluación de seguridad llevado a cabo sobre el aplicativo, el equipo de pruebas de penetración ha identificado varias vulnerabilidades.\n\nLa gravedad de estas vulnerabilidades radica en la exposición de información sensible.\n\nEsto afecta principalmente la confidencialidad de los datos.'
+        )
+
+        expect(html).toContain('<p>Durante el proceso de evaluación de seguridad')
+        expect(html).toContain('</p>\n<p>La gravedad')
+        expect(html).toContain('</p>\n<p>Esto afecta')
+      })
+
+      it('splits long single-paragraph executive summaries into report paragraphs', () => {
+        var html = aiService._normalizeExecutiveSummaryHtml(
+          'Durante el proceso de evaluación de seguridad llevado a cabo sobre el aplicativo, el equipo de pruebas de penetración ha identificado varias vulnerabilidades que proporcionan información valiosa y posibles puntos de entrada. Estas vulnerabilidades no comprometen directamente sistemas críticos, pero podrían exponer riesgos significativos para la organización. La gravedad de estas vulnerabilidades radica en que permitirían a un atacante potencial acceder a información sensible y a datos críticos de la organización. Además, algunas debilidades pueden afectar la disponibilidad e integridad de determinados sistemas y datos. Este escenario podría resultar en exposición de datos confidenciales e interrupciones operativas menores. Esto afecta principalmente la confidencialidad de los datos.'
+        )
+
+        expect((html.match(/<p>/g) || []).length).toBe(3)
+        expect(html).toContain('</p>\n<p>La gravedad')
+        expect(html).toContain('</p>\n<p>Este escenario')
+      })
+
+      it('splits long single HTML paragraph executive summaries into report paragraphs', () => {
+        var html = aiService._normalizeExecutiveSummaryHtml(
+          '<p>Durante el proceso de evaluación de seguridad llevado a cabo sobre el aplicativo, el equipo de pruebas de penetración ha identificado varias vulnerabilidades que proporcionan información valiosa y posibles puntos de entrada. La gravedad de estas vulnerabilidades radica en que permitirían acceder a información sensible y a datos críticos, además de afectar parcialmente la disponibilidad e integridad de determinados sistemas y datos de negocio. Esto afecta principalmente la confidencialidad de los datos.</p>'
+        )
+
+        expect((html.match(/<p>/g) || []).length).toBe(3)
+        expect(html).toContain('</p>\n<p>La gravedad')
+      })
+
+      it('removes later executive-summary sentences that restate overall risk', () => {
+        var html = aiService._normalizeExecutiveSummaryHtml(
+          '<p>Durante el proceso de evaluación de seguridad llevado a cabo sobre el aplicativo, el equipo de pruebas de penetración ha identificado varias vulnerabilidades. El riesgo global se considera medio por el conjunto de hallazgos.</p><p>Esto afecta principalmente la confidencialidad de los datos.</p>'
+        )
+
+        expect(html).toContain('Durante el proceso de evaluación')
+        expect(html).not.toContain('riesgo global')
+        expect(html).not.toContain('considera medio')
+      })
+
+      it('documents the report-derived executive summary prompt guardrails', () => {
+        var systemPrompt = aiService._getDefaultSystemPrompt('executive-summary')
+        var userPrompt = aiService._getDefaultUserPrompt('executive-summary')
+
+        expect(systemPrompt).toContain('/no_think')
+        expect(systemPrompt).toContain('Do not include analysis, reasoning, planning')
+        expect(systemPrompt).toContain('Output only 3 <p> paragraphs')
+        expect(systemPrompt).toContain('120-170 words total')
+        expect(systemPrompt).toContain('Do not repeat, paraphrase, summarize, or mention the risk-level sentence')
+        expect(systemPrompt).toContain('El auditor ha determinado')
+        expect(systemPrompt).toContain('Durante el proceso de evaluación de seguridad llevado a cabo sobre el aplicativo,')
+        expect(systemPrompt).toContain('During the security assessment conducted on the application,')
+        expect(systemPrompt).toContain('Never use more than 5 paragraphs')
+        expect(systemPrompt).toContain('Do not enumerate individual vulnerabilities, counts, CVSS scores, endpoints, hosts, tools, or remediation actions')
+        expect(systemPrompt).toContain('Ignore the structure of the findings digest as an output format')
+        expect(userPrompt).toContain('after the risk-level sentence and before the possible-risk-level legend')
+      })
+
+      it('validates the corpus-derived executive summary shape', () => {
+        var spanishSample = [
+          '<p>Durante el proceso de evaluación de seguridad llevado a cabo sobre el aplicativo, el equipo de pruebas de penetración ha identificado varias vulnerabilidades que, aunque no comprometen directamente máquinas críticas, podrían exponer riesgos significativos. Estas vulnerabilidades, proporcionan información valiosa y posibles puntos de entrada que podrían ser explotados para comprometer la seguridad de la organización.</p>',
+          '<p>La gravedad de estas vulnerabilidades radica en que permiten a un atacante potencial obtener información sensible y acceder a datos críticos de la organización. Además, algunas de estas vulnerabilidades facilitan ataques que pueden afectar la disponibilidad y la integridad de los sistemas y datos de la organización.</p>',
+          '<p>Este escenario, podría resultar en la exposición de datos confidenciales, interrupciones operativas menores, y la posibilidad de acciones maliciosas con implicaciones significativas para la integridad y reputación de la organización. Esto afecta principalmente la confidencialidad de los datos.</p>'
+        ].join('\n')
+
+        var englishSample = [
+          '<p>During the security assessment conducted on the application, the penetration testing team identified several vulnerabilities that, although they do not directly compromise critical systems, could expose the organization to significant risks. These vulnerabilities provide valuable information and potential entry points that could be exploited to compromise the organization\'s security.</p>',
+          '<p>The severity of these vulnerabilities lies in their potential to allow an attacker to obtain sensitive information and gain access to the organization\'s critical data. Moreover, some of these vulnerabilities facilitate attacks that may affect the availability and integrity of the organization\'s systems and data.</p>',
+          '<p>This scenario could result in the exposure of confidential information, minor operational disruptions, and the possibility of malicious actions with significant implications for the integrity and reputation of the organization. The primary impact concerns data confidentiality.</p>'
+        ].join('\n')
+
+        function assertExecutiveSummaryShape(html, expectedStart, expectedEndPattern) {
+          var paragraphs = html.match(/<p>[\s\S]*?<\/p>/g) || []
+          var plain = html.replace(/<[^>]+>/g, ' ')
+          var words = plain.trim().split(/\s+/).filter(Boolean)
+
+          expect(paragraphs).toHaveLength(3)
+          expect(words.length).toBeGreaterThanOrEqual(120)
+          expect(words.length).toBeLessThanOrEqual(170)
+          expect(html).not.toMatch(/<(ul|ol|li|h[1-6])\b/i)
+          expect(plain).not.toMatch(/CVSS|https?:\/\/|endpoint|host/i)
+          expect(paragraphs[0]).toContain(expectedStart)
+          expect(paragraphs[2]).toMatch(expectedEndPattern)
+        }
+
+        assertExecutiveSummaryShape(
+          spanishSample,
+          'Durante el proceso de evaluación de seguridad llevado a cabo sobre el aplicativo,',
+          /Esto afecta principalmente la confidencialidad de los datos\.<\/p>$/
+        )
+        assertExecutiveSummaryShape(
+          englishSample,
+          'During the security assessment conducted on the application,',
+          /The primary impact concerns data confidentiality\.<\/p>$/
+        )
+      })
+
+      it('documents the suffix-only severity summary prompt guardrails', () => {
+        var systemPrompt = aiService._getDefaultSystemPrompt('severity-summary')
+        var userPrompt = aiService._getDefaultUserPrompt('severity-summary')
+
+        expect(systemPrompt).toContain('Your output is appended immediately after that prefix')
+        expect(systemPrompt).toContain('only a noun phrase or compact coordinated noun phrase')
+        expect(systemPrompt).toContain('Never start with a number, severity label')
+        expect(systemPrompt).toContain('Do not repeat the prefix, severity, count')
+        expect(systemPrompt).toContain('Do not add impact analysis, consequences')
+        expect(userPrompt).toContain('Return only the continuation to append after the prefix')
+      })
+
+      it('normalizes severity summaries to the stored sentence continuation', () => {
+        var html = aiService._normalizeSeveritySummaryHtml(
+          '<p>2 Informative vulnerabilities were found, related to almacenamiento de código JavaScript mediante subida de archivos sin validación de contenido en documentos PDF y transmisión no cifrada de credenciales de autenticación HTTP Basic a través de cabeceras Authorization. Ambos problemas comparten el patrón de fallos de control de entrada y exposición de información sensible, permitiendo la ejecución remota de scripts maliciosos.</p>',
+          {
+            severityPrefix: 'Se han detectado 2 vulnerabilidades de severidad informativa,',
+            severityCount: 2,
+            severity: 'Informative'
+          }
+        )
+
+        expect(html).toEqual('<p>almacenamiento de código JavaScript mediante subida de archivos sin validación de contenido en documentos PDF y transmisión no cifrada de credenciales de autenticación HTTP Basic a través de cabeceras Authorization.</p>')
+        expect(html).not.toContain('2 Informative vulnerabilities were found')
+        expect(html).not.toContain('Ambos problemas')
+      })
+
+      it('strips local model answer-artifact preludes from severity summaries', () => {
+        var html = aiService._normalizeSeveritySummaryHtml(
+          '<p>Click to reveal solution almacenamiento de código JavaScript en ficheros PDF y exposición de credenciales en cabeceras HTTP mediante autenticación básica no cifrada</p>',
+          {
+            severityPrefix: 'Se han detectado 2 vulnerabilidades de severidad informativa,',
+            severityCount: 2,
+            severity: 'Informative'
+          }
+        )
+
+        expect(html).toEqual('<p>almacenamiento de código JavaScript en ficheros PDF y exposición de credenciales en cabeceras HTTP mediante autenticación básica no cifrada</p>')
+      })
     })
 
     describe('vision anonymization tests', () => {

@@ -136,6 +136,8 @@ function buildAiPayload(action, text, fieldName, aiContext) {
             locale: aiContext && aiContext.locale ? aiContext.locale : '',
             auditName: aiContext && aiContext.auditName ? aiContext.auditName : '',
             severity: aiContext && aiContext.severity ? aiContext.severity : '',
+            severityCount: aiContext && aiContext.severityCount ? aiContext.severityCount : '',
+            severityPrefix: aiContext && aiContext.severityPrefix ? aiContext.severityPrefix : '',
             overallRisk: aiContext && aiContext.overallRisk ? aiContext.overallRisk : '',
             findingsDigest: aiContext && aiContext.findingsDigest ? aiContext.findingsDigest : '',
             findingDescription: aiContext && aiContext.findingDescription ? aiContext.findingDescription : '',

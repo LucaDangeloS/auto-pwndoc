@@ -486,7 +486,7 @@
             <template v-slot:label>
               <q-icon name="auto_awesome" :color="aiAvailable ? 'purple' : 'grey-5'" />
               <q-tooltip :delay="400" content-class="text-bold">
-                {{ aiAvailable ? $t('aiAssistant') : $t('aiDisabledReasonGlobal') }}
+                {{ aiAvailable ? $t('aiAssistant') : aiUnavailableReason }}
               </q-tooltip>
             </template>
             <q-list role="menu">
@@ -747,6 +747,14 @@ export default defineComponent({
       type: Object,
       default: function() { return {}; },
     },
+    aiReviewHandler: {
+      type: Function,
+      default: null,
+    },
+    aiDisabledReason: {
+      type: String,
+      default: '',
+    },
   },
 
   components: {
@@ -990,7 +998,12 @@ export default defineComponent({
   computed: {
 
     aiAvailable() {
-      return !!(this.$settings && this.$settings.ai && this.$settings.ai.enabled);
+      return !!(this.$settings && this.$settings.ai && this.$settings.ai.enabled && !this.aiDisabledReason);
+    },
+
+    aiUnavailableReason() {
+      if (this.aiDisabledReason) return this.aiDisabledReason;
+      return this.$t('aiDisabledReasonGlobal');
     },
 
     aiOverlayLabel() {
@@ -1242,13 +1255,22 @@ export default defineComponent({
       this.aiLoading = true;
       this.aiCurrentAction = action;
       const onResult = (result) => {
-        this.aiReview = {
-          open: true,
-          action: result.action,
-          previousHtml: result.previousHtml,
-          proposedHtml: result.proposedHtml,
-          selectionRange: result.selectionRange,
-        };
+        if (this.aiReviewHandler) {
+          this.aiReviewHandler({
+            ...result,
+            fieldName: this.fieldName,
+            editor: this.editor,
+            rerun: () => this.runAi(result.action),
+          });
+        } else {
+          this.aiReview = {
+            open: true,
+            action: result.action,
+            previousHtml: result.previousHtml,
+            proposedHtml: result.proposedHtml,
+            selectionRange: result.selectionRange,
+          };
+        }
         this.aiLoading = false;
         this.aiCurrentAction = '';
       };

@@ -1,5 +1,11 @@
 <template>
-    <div>
+    <div
+      @input.capture="markUserEdited"
+      @change.capture="markUserEdited"
+      @paste.capture="markUserEdited"
+      @cut.capture="markUserEdited"
+      @drop.capture="markUserEdited"
+    >
       <breadcrumb
         buttons
         :title="localAudit?.name ? `${localAudit.name} (${localAudit.auditType || 'Audit Type not set'})` : 'Loading...'"
@@ -69,6 +75,7 @@
             <q-separator vertical />
             <q-toggle
               v-model="finding.status"
+              @update:model-value="markUserEdited"
               :true-value="0"
               :false-value="1"
               checked-icon="check"
@@ -91,14 +98,14 @@
           v-model="selectedTab"
           animated
           class="bg-transparent col-md-8 col-12 offset-md-2 q-mt-md"
-          @before-transition="syncEditors"
+          @before-transition="beforeTabTransition"
           @transition="updateOrig"
         >
           <!-- DEFINITION -->
           <q-tab-panel name="definition">
             <q-card>
               <q-inner-loading :showing="loading">
-                <q-spinner-dots size="40px" color="primary" />
+                <q-spinner size="40px" color="primary" />
               </q-inner-loading>
               <q-card-section class="row q-col-gutter-md">
                 <q-input
@@ -106,6 +113,7 @@
                   :label="$t('title') + ' *'"
                   stack-label
                   v-model="finding.title"
+                  @update:model-value="markUserEdited"
                   outlined
                   :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                 >
@@ -115,6 +123,7 @@
                 <div class="col-md-12 col-12 q-mt-sm">
                   <taxonomy-picker
                     v-model="finding.taxonomies"
+                    @update:model-value="markUserEdited"
                     :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                   />
                 </div>
@@ -135,6 +144,7 @@
                       ref="basiceditor_description"
                       v-model="finding.description"
                       v-on:ready="onEditorReady"
+                      v-on:editorchange="markUserEdited"
                       idUnique="basiceditor_description"
                       fieldName="description"
                       :aiContext="findingAiContext()"
@@ -159,6 +169,7 @@
                     <basic-editor
                       ref="basiceditor_observation"
                       v-model="finding.observation"
+                      v-on:editorchange="markUserEdited"
                       idUnique="basiceditor_observation"
                       fieldName="observation"
                       :aiContext="findingAiContext()"
@@ -180,6 +191,7 @@
                   </div>
                   <textarea-array
                     v-model="finding.references"
+                    @update:model-value="markUserEdited"
                     :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                   />
                 </div>
@@ -194,7 +206,7 @@
               <div class="col-12">
                 <q-card>
                   <q-inner-loading :showing="loading">
-                    <q-spinner-dots size="40px" color="primary" />
+                    <q-spinner size="40px" color="primary" />
                   </q-inner-loading>
                   <q-card-section class="row items-center justify-between q-pb-none">
                     <span class="row items-center text-subtitle2 text-grey-7">
@@ -205,29 +217,43 @@
                         class="q-ml-xs"
                       />
                     </span>
-                    <ai-action-btn
+                    <div
                       v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
-                      :flat="false"
-                      :outline="true"
-                      :dense="false"
-                      size="sm"
-                      color="purple"
-                      icon="image_search"
-                      :label="$t('searchSimilarFromProofs')"
-                      :loading="similarVulnLoading && similarVulnIsProofMode"
-                      :disabled="loading || !aiVisionReady"
-                      :disabled-reason="aiVisionDisabledReason"
-                      :tooltip="$t('searchSimilarFromProofsTooltip')"
-                      cancellable
-                      :cancel-hint="$t('btn.cancel')"
-                      @click="searchSimilarFromProofs()"
-                      @cancel="cancelSimilarSearch()"
-                    />
+                      class="row items-center q-gutter-sm"
+                    >
+                      <q-toggle
+                        v-model="proofOverwriteFilledFields"
+                        dense
+                        color="primary"
+                        :label="$t('proofOverwriteFilledFields')"
+                      >
+                        <q-tooltip>{{ $t('proofOverwriteFilledFieldsTooltip') }}</q-tooltip>
+                      </q-toggle>
+                      <ai-action-btn
+                        :flat="false"
+                        :outline="true"
+                        :dense="false"
+                        size="sm"
+                        color="purple"
+                        icon="image_search"
+                        :label="$t('searchSimilarFromProofs')"
+                        :loading="similarVulnLoading && similarVulnIsProofMode"
+                        :disabled="loading || !aiVisionReady"
+                        :disabled-reason="aiVisionDisabledReason"
+                        :tooltip="$t('searchSimilarFromProofsTooltip')"
+                        cancellable
+                        :cancel-hint="$t('btn.cancel')"
+                        @click="searchSimilarFromProofs()"
+                        @cancel="cancelSimilarSearch()"
+                      />
+                    </div>
                   </q-card-section>
                   <q-card-section>
                     <basic-editor
                       ref="basiceditor_poc"
                       v-model="finding.poc"
+                      v-on:ready="onEditorReady('poc')"
+                      v-on:editorchange="markUserEdited"
                       idUnique="basiceditor_poc"
                       fieldName="poc"
                       :aiContext="findingAiContext()"
@@ -246,7 +272,7 @@
               <div class="col-12">
                 <q-card>
                   <q-inner-loading :showing="loading">
-                    <q-spinner-dots size="40px" color="primary" />
+                    <q-spinner size="40px" color="primary" />
                   </q-inner-loading>
                   <q-card-section class="row items-center q-pb-xs">
                     <span class="row items-center text-subtitle2">
@@ -256,6 +282,7 @@
                     <q-space />
                     <q-btn-toggle
                       v-model="finding.retestPassed"
+                      @update:model-value="markUserEdited"
                       :options="[
                         { label: $t('retestFailed'), value: false },
                         { label: $t('retestPassed'), value: true }
@@ -270,7 +297,7 @@
                       v-if="finding.retestPassed !== null && !loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                       flat dense round icon="clear" color="grey-6" size="sm"
                       class="q-ml-xs"
-                      @click="finding.retestPassed = null"
+                      @click="markUserEdited(); finding.retestPassed = null"
                     >
                       <q-tooltip>{{ $t('retestClearResult') }}</q-tooltip>
                     </q-btn>
@@ -290,6 +317,8 @@
                     <basic-editor
                       ref="basiceditor_retestEvidence"
                       v-model="finding.retestEvidence"
+                      v-on:ready="onEditorReady('retestEvidence')"
+                      v-on:editorchange="markUserEdited"
                       idUnique="basiceditor_retestEvidence"
                       fieldName="retestEvidence"
                       :aiContext="findingAiContext(localAudit)"
@@ -306,7 +335,7 @@
           <q-tab-panel name="details">
             <q-card>
               <q-inner-loading :showing="loading">
-                <q-spinner-dots size="40px" color="primary" />
+                <q-spinner size="40px" color="primary" />
               </q-inner-loading>
               <q-card-section>
                 <span class="row items-center">
@@ -317,7 +346,10 @@
               <q-separator />
               <q-card-section>
                 <basic-editor
+                  ref="basiceditor_scope"
                   v-model="finding.scope"
+                  v-on:ready="onEditorReady('scope')"
+                  v-on:editorchange="markUserEdited"
                   idUnique="basiceditor_scope"
                   :toolbar="['format','marks','list']"
                   :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
@@ -327,7 +359,7 @@
 
             <q-card class="q-mt-md bg-grey-1">
               <q-inner-loading :showing="loading">
-                <q-spinner-dots size="40px" color="primary" />
+                <q-spinner size="40px" color="primary" />
               </q-inner-loading>
               <q-card-section class="row items-center q-pb-none">
                 <span class="text-subtitle2 text-grey-7">{{ $t('cvssScore') }}</span>
@@ -338,8 +370,9 @@
                   class="q-ml-xs"
                 />
               </q-card-section>
-              <div class="col-12">
+              <div class="col-12" @pointerdown.capture="markUserEdited">
                 <cvss-calculator-unified
+                  :key="cvssCalculatorKey"
                   v-model="finding.cvssv3"
                   v-model:cvssv4Value="finding.cvssv4"
                   :readonly="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
@@ -349,7 +382,7 @@
 
             <q-card class="q-mt-md">
               <q-inner-loading :showing="loading">
-                <q-spinner-dots size="40px" color="primary" />
+                <q-spinner size="40px" color="primary" />
               </q-inner-loading>
               <q-card-section>{{ $t('courseOfActions') }}</q-card-section>
               <q-separator />
@@ -360,6 +393,7 @@
                     stack-label
                     class="col-md-6 col-12"
                     v-model="finding.remediationComplexity"
+                    @update:model-value="markUserEdited"
                     :options="[
                       { label: $t('easy'), value: 1 },
                       { label: $t('medium'), value: 2 },
@@ -378,6 +412,7 @@
                     stack-label
                     class="col-md-6 col-12"
                     v-model="finding.priority"
+                    @update:model-value="markUserEdited"
                     :options="[
                       { label: $t('low'), value: 1 },
                       { label: $t('medium'), value: 2 },
@@ -408,6 +443,8 @@
                     <basic-editor
                       ref="basiceditor_remediation"
                       v-model="finding.remediation"
+                      v-on:ready="onEditorReady('remediation')"
+                      v-on:editorchange="markUserEdited"
                       idUnique="basiceditor_remediation"
                       fieldName="remediation"
                       :aiContext="findingAiContext()"
@@ -430,8 +467,7 @@
         :current-finding="finding"
         :is-proof-mode="similarVulnIsProofMode"
         :vision-summary="proofVisionSummary"
-        :generated-poc="proofGeneratedPoc"
-        :poc-loading="proofPocLoading"
+        :proof-steps="proofCompletionSteps"
         @apply="applySimilarVuln"
         @select="onProofResultSelected"
         @retry="similarVulnIsProofMode ? searchSimilarFromProofs() : searchSimilarVulns()"

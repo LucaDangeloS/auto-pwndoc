@@ -195,9 +195,10 @@ Custom Sections allow to have additionnal Sections in an Audit.
 A Section is defined by:
 
 - Name
-- Name
 - Field: Used in docx template
 - Icon: material, mdi and font awesome are supported
+- Type: Plain Text or Checklist
+- Checklist rows: optional when Type is Checklist
 
 > Example
 > ```
@@ -205,3 +206,12 @@ Name: Cleanup
 Field: cleanup
 Icon: mdi-broom
 >```
+
+Checklist sections are useful for methodologies such as WSTG. Rows can be flexible/manual, or linked to a vulnerability classification:
+
+- Manual row: fill only the row label. The auditor sets Pass/Fail/N/A/Untested manually in each audit.
+- Linked row: fill label plus Code and/or Taxonomy path. The row is automatically marked Fail when an audit finding has the same code or matching taxonomy path; otherwise it is marked Pass. If the auditor manually changes the row status or note, that row stops being auto-managed.
+- Generated row set: choose a taxonomy type such as `WSTG`, choose whether to include categories and subcategories, then generate rows from the vulnerability taxonomy.
+- Bulk row set: use the checklist bulk editor with the same hierarchy format as the vulnerability taxonomy bulk editor, plus optional deeper nesting: `Type > Category > Subcategory > Test [CODE]`. Parent rows are created automatically, so a WSTG branch such as `OWASP WSTG > Information Gathering > Fingerprinting > Fingerprint 01 [WSTG-INFO-01]` renders as a nested checklist. The selected methodology hierarchy can be filled into the textbox or copied to the clipboard, edited externally, then imported back into checklist rows.
+
+For report templates, checklist rows are exposed under `{section_field.rows}`. See [Docx Template](/docxtemplate.md?id=custom-sections) for the table format.

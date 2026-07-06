@@ -243,7 +243,15 @@
                                 <tbody>
                                     <tr v-for="(row, rIdx) in (Array.isArray(field.text) ? field.text : [])" :key="rIdx">
                                         <td>
-                                            <div class="text-body2">{{ row.label }}</div>
+                                            <div class="row items-start no-wrap">
+                                                <q-icon :name="row.auto ? 'auto_mode' : 'edit_note'" :color="row.auto ? 'info' : 'grey'" size="sm" class="q-mr-sm q-mt-xs">
+                                                    <q-tooltip>{{ row.auto ? $t('checklistAutoManaged') : $t('checklistManualManaged') }}</q-tooltip>
+                                                </q-icon>
+                                                <div>
+                                                    <div class="text-body2 text-weight-medium">{{ row.label }}</div>
+                                                    <q-badge v-if="row.auto" color="info" text-color="white" :label="$t('checklistAutoBadge')" class="q-mt-xs" />
+                                                </div>
+                                            </div>
                                             <div v-if="row.taxonomy && (row.taxonomy.type || row.taxonomy.category || row.taxonomy.subcategory)" class="checklist-table__meta text-caption">
                                                 {{ [row.taxonomy.type, row.taxonomy.category, row.taxonomy.subcategory].filter(Boolean).join(' › ') }}
                                             </div>
@@ -255,7 +263,7 @@
                                         <td class="text-center">
                                             <q-btn-toggle
                                                 v-model="row.status"
-                                                @update:model-value="eventPropagation"
+                                                @update:model-value="value => setChecklistStatus(row, value)"
                                                 :disable="readonly"
                                                 :options="checklistStatusOptions"
                                                 size="sm"
@@ -266,7 +274,7 @@
                                         <td>
                                             <q-input
                                                 v-model="row.note"
-                                                @update:model-value="eventPropagation"
+                                                @update:model-value="() => { row.auto = false; eventPropagation(); }"
                                                 :readonly="readonly"
                                                 dense outlined
                                                 :placeholder="$t('addNote')"
@@ -409,6 +417,12 @@ export default defineComponent({
           return options
           .filter(e => e.locale === this.locale)
           .map(e => {return {label: e.value, value: e.value}})
+      },
+
+      setChecklistStatus: function(row, value) {
+          row.status = value
+          row.auto = false
+          this.eventPropagation()
       },
 
       normalizeTemplateKey: function(label) {

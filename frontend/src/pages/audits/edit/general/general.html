@@ -66,6 +66,42 @@
             </q-card-section>
 
             <q-card-section>
+                <div class="row items-center justify-between q-mb-md">
+                    <div class="text-subtitle2">{{ $t('vulnerabilitySeverityGraph') }}</div>
+                    <q-chip dense color="primary" text-color="white">
+                        {{ $t('vulnerabilitySeverityGraphTotal', { count: severityTotal }) }}
+                    </q-chip>
+                </div>
+
+                <div v-if="severityTotal > 0" class="severity-graph">
+                    <div
+                        v-for="level in severityStats"
+                        :key="level.key"
+                        class="severity-graph__row"
+                    >
+                        <div class="severity-graph__label">
+                            <span
+                                class="severity-graph__swatch"
+                                :style="{ background: level.color }"
+                            />
+                            <span>{{ level.label }}</span>
+                        </div>
+                        <q-linear-progress
+                            class="severity-graph__bar"
+                            rounded
+                            size="12px"
+                            :value="level.percent"
+                            :style="{ color: level.color }"
+                        />
+                        <div class="severity-graph__count">{{ level.count }}</div>
+                    </div>
+                </div>
+                <q-banner v-else rounded class="bg-info text-white">
+                    {{ $t('vulnerabilitySeverityGraphEmpty') }}
+                </q-banner>
+            </q-card-section>
+
+            <q-card-section>
                 <q-input
                     v-model="audit.summary"
                     :label="$t('aiAuditContext')"

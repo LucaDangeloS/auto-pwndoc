@@ -478,7 +478,7 @@
                         <div class="text-grey-8">{{$t('createCustomSections')}}</div>
                     </q-card-section>
                     <q-card-section class="row">
-                        <div class="col-md-6 col-12" v-if="UserService.isAllowed('sections:create')">
+                        <div :class="newSection.type === 'checklist' ? 'col-12' : 'col-md-6 col-12'" v-if="UserService.isAllowed('sections:create')">
                             <q-item>
                                 <q-item-section>
                                     <q-input
@@ -535,18 +535,86 @@
                             <!-- Checklist row editor (create) -->
                             <q-item v-if="newSection.type === 'checklist'">
                                 <q-item-section>
-                                    <div class="text-caption text-grey-7 q-mb-xs">{{$t('checklistRows')}}</div>
-                                    <div v-for="(row, idx) in newSection.rows" :key="idx" class="row items-center q-mb-xs">
+                                    <div class="row items-end q-col-gutter-sm q-mb-sm">
+                                        <div class="col-12 text-caption">{{ $t('checklistRows') }}</div>
+                                        <div class="col-12 col-sm-5 col-md-4">
+                                        <q-select
+                                            v-model="newSection.checklistTaxonomyType"
+                                            :options="taxonomyTypeOptions"
+                                            :label="$t('checklistTaxonomyType')"
+                                            dense outlined emit-value map-options options-sanitize
+                                        />
+                                        </div>
+                                        <div class="col-auto"><q-checkbox v-model="newSection.checklistIncludeCategories" :false-value="false" :true-value="true" :label="$t('checklistIncludeCategories')" dense /></div>
+                                        <div class="col-auto"><q-checkbox v-model="newSection.checklistIncludeSubcategories" :false-value="false" :true-value="true" :label="$t('checklistIncludeSubcategories')" dense /></div>
+                                        <div class="col-auto"><q-btn outline dense no-caps color="secondary" icon="playlist_add" :label="$t('btn.generateFromTaxonomy')" @click="generateSectionRowsFromTaxonomy(newSection)" /></div>
+                                    </div>
+                                    <q-expansion-item
+                                        dense
+                                        expand-separator
+                                        icon="format_list_bulleted"
+                                        :label="$t('checklistBulkEditor')"
+                                        class="checklist-bulk-editor q-mb-sm"
+                                    >
+                                        <div class="text-caption q-mb-sm">{{ $t('msg.checklistBulkHelp') }}</div>
                                         <q-input
-                                            v-model="row.label"
-                                            :label="$t('checklistRowLabel')"
+                                            v-model="newSection.checklistBulkText"
+                                            type="textarea"
                                             outlined
                                             dense
-                                            class="col"
+                                            autogrow
+                                            input-class="monospace"
+                                            :placeholder="$t('checklistBulkPlaceholder')"
                                         />
-                                        <q-btn flat dense icon="delete" color="negative" @click="removeSectionRow(newSection, idx)" class="q-ml-xs" />
+                                        <div class="row q-col-gutter-sm q-mt-sm">
+                                            <div class="col-auto"><q-btn outline dense no-caps color="primary" icon="playlist_add" :label="$t('btn.fillFromMethodology')" @click="fillChecklistBulkFromTaxonomy(newSection)" /></div>
+                                            <div class="col-auto"><q-btn outline dense no-caps color="primary" icon="content_copy" :label="$t('btn.copyHierarchy')" @click="copyChecklistBulkFromTaxonomy(newSection)" /></div>
+                                            <div class="col-auto"><q-btn unelevated dense no-caps color="secondary" icon="publish" :label="$t('btn.importRows')" @click="importChecklistBulkRows(newSection)" /></div>
+                                        </div>
+                                    </q-expansion-item>
+                                    <q-expansion-item
+                                        dense
+                                        expand-separator
+                                        icon="table_chart"
+                                        :label="$t('checklistTemplateGuide')"
+                                        class="checklist-template-guide q-mb-sm"
+                                    >
+                                        <div class="text-caption q-mb-sm">{{ $t('msg.checklistTemplateGuideIntro') }}</div>
+                                        <pre class="checklist-template-snippet">{#wstg.rows}
+{#is_divider}| {display_label} | | | |{/is_divider}
+{#is_item}| {display_label} | {code} | {status_label} | {note} |{/is_item}
+{/wstg.rows}</pre>
+                                    </q-expansion-item>
+                                    <div class="checklist-config-table">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th class="text-left">{{ $t('checklistRowLabel') }}</th>
+                                                    <th class="text-left">{{ $t('level') }}</th>
+                                                    <th class="text-left">{{ $t('code') }}</th>
+                                                    <th class="text-left">{{ $t('type') }}</th>
+                                                    <th class="text-left">{{ $t('category') }}</th>
+                                                    <th class="text-left">{{ $t('subcategory') }}</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="(row, idx) in newSection.rows" :key="idx">
+                                                    <td><q-input v-model="row.label" dense borderless :style="{ paddingLeft: `${(row.level || 0) * 18}px` }" /></td>
+                                                    <td><q-input v-model.number="row.level" type="number" dense borderless min="0" style="width: 64px" /></td>
+                                                    <td><q-input v-model="row.code" dense borderless /></td>
+                                                    <td><q-input v-model="row.taxonomy.type" dense borderless /></td>
+                                                    <td><q-input v-model="row.taxonomy.category" dense borderless /></td>
+                                                    <td><q-input v-model="row.taxonomy.subcategory" dense borderless /></td>
+                                                    <td class="text-right"><q-btn flat dense round icon="delete" color="negative" @click="removeSectionRow(newSection, idx)" /></td>
+                                                </tr>
+                                                <tr v-if="!newSection.rows || newSection.rows.length === 0">
+                                                    <td colspan="7" class="text-italic">{{ $t('msg.checklistEmpty') }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
-                                    <q-btn outline dense no-caps color="primary" icon="add" :label="$t('addChecklistRow')" @click="addSectionRow(newSection)" class="q-mt-xs" />
+                                    <q-btn outline dense no-caps color="primary" icon="add" :label="$t('addChecklistRow')" @click="addSectionRow(newSection)" class="q-mt-sm" />
                                 </q-item-section>
                             </q-item>
 
@@ -557,7 +625,7 @@
                             </q-item>
                         </div>
 
-                        <div v-if="!editSection" class="col-md-6">
+                        <div v-if="!editSection" :class="newSection.type === 'checklist' ? 'col-12 q-mt-md' : 'col-md-6 col-12'">
                             <q-card flat bordered v-if="sections.length > 0">
                                 <q-toolbar>
                                     <div class="text-grey-8">{{$t('listOfSections')}}</div>
@@ -576,14 +644,14 @@
                                             <q-input :label="$t('field')" v-model="sec.field" readonly outlined />
                                         </q-item-section>
                                         <q-item-section>
-                                            <q-badge :color="sec.type === 'checklist' ? 'purple' : 'teal'" :label="$t(sec.type === 'checklist' ? 'customSectionTypeChecklist' : 'customSectionTypeText')" class="q-mt-sm" />
+                                            <q-badge :color="sec.type === 'checklist' ? 'secondary' : 'primary'" :label="$t(sec.type === 'checklist' ? 'customSectionTypeChecklist' : 'customSectionTypeText')" class="section-type-badge q-mt-sm" />
                                         </q-item-section>
                                     </q-item>
                                 </div>
                             </q-card>
                         </div>
 
-                        <div v-else class="col-md-6">
+                        <div v-else :class="newSection.type === 'checklist' ? 'col-12 q-mt-md' : 'col-md-6 col-12'">
                             <q-card flat bordered>
                                 <q-toolbar>
                                     <div class="text-grey-8">{{$t('editSections')}}</div>
@@ -630,18 +698,86 @@
 
                                                 <!-- Checklist row editor (edit) -->
                                                 <q-card-section v-if="sec.type === 'checklist'" class="q-pt-none">
-                                                    <div class="text-caption text-grey-7 q-mb-xs">{{$t('checklistRows')}}</div>
-                                                    <div v-for="(row, rIdx) in (sec.rows || [])" :key="rIdx" class="row items-center q-mb-xs">
+                                                    <div class="row items-end q-col-gutter-sm q-mb-sm">
+                                                        <div class="col-12 text-caption">{{ $t('checklistRows') }}</div>
+                                                        <div class="col-12 col-sm-5 col-md-4">
+                                                        <q-select
+                                                            v-model="sec.checklistTaxonomyType"
+                                                            :options="taxonomyTypeOptions"
+                                                            :label="$t('checklistTaxonomyType')"
+                                                            dense outlined emit-value map-options options-sanitize
+                                                        />
+                                                        </div>
+                                                        <div class="col-auto"><q-checkbox v-model="sec.checklistIncludeCategories" :false-value="false" :true-value="true" :label="$t('checklistIncludeCategories')" dense /></div>
+                                                        <div class="col-auto"><q-checkbox v-model="sec.checklistIncludeSubcategories" :false-value="false" :true-value="true" :label="$t('checklistIncludeSubcategories')" dense /></div>
+                                                        <div class="col-auto"><q-btn outline dense no-caps color="secondary" icon="playlist_add" :label="$t('btn.generateFromTaxonomy')" @click="generateSectionRowsFromTaxonomy(sec)" /></div>
+                                                    </div>
+                                                    <q-expansion-item
+                                                        dense
+                                                        expand-separator
+                                                        icon="format_list_bulleted"
+                                                        :label="$t('checklistBulkEditor')"
+                                                        class="checklist-bulk-editor q-mb-sm"
+                                                    >
+                                                        <div class="text-caption q-mb-sm">{{ $t('msg.checklistBulkHelp') }}</div>
                                                         <q-input
-                                                            v-model="row.label"
-                                                            :label="$t('checklistRowLabel')"
+                                                            v-model="sec.checklistBulkText"
+                                                            type="textarea"
                                                             outlined
                                                             dense
-                                                            class="col"
+                                                            autogrow
+                                                            input-class="monospace"
+                                                            :placeholder="$t('checklistBulkPlaceholder')"
                                                         />
-                                                        <q-btn flat dense icon="delete" color="negative" @click="removeSectionRow(sec, rIdx)" class="q-ml-xs" />
+                                                        <div class="row q-col-gutter-sm q-mt-sm">
+                                                            <div class="col-auto"><q-btn outline dense no-caps color="primary" icon="playlist_add" :label="$t('btn.fillFromMethodology')" @click="fillChecklistBulkFromTaxonomy(sec)" /></div>
+                                                            <div class="col-auto"><q-btn outline dense no-caps color="primary" icon="content_copy" :label="$t('btn.copyHierarchy')" @click="copyChecklistBulkFromTaxonomy(sec)" /></div>
+                                                            <div class="col-auto"><q-btn unelevated dense no-caps color="secondary" icon="publish" :label="$t('btn.importRows')" @click="importChecklistBulkRows(sec)" /></div>
+                                                        </div>
+                                                    </q-expansion-item>
+                                                    <q-expansion-item
+                                                        dense
+                                                        expand-separator
+                                                        icon="table_chart"
+                                                        :label="$t('checklistTemplateGuide')"
+                                                        class="checklist-template-guide q-mb-sm"
+                                                    >
+                                                        <div class="text-caption q-mb-sm">{{ $t('msg.checklistTemplateGuideIntro') }}</div>
+                                                        <pre class="checklist-template-snippet">{#wstg.rows}
+{#is_divider}| {display_label} | | | |{/is_divider}
+{#is_item}| {display_label} | {code} | {status_label} | {note} |{/is_item}
+{/wstg.rows}</pre>
+                                                    </q-expansion-item>
+                                                    <div class="checklist-config-table">
+                                                        <table>
+                                                            <thead>
+                                                                <tr>
+                                                                    <th class="text-left">{{ $t('checklistRowLabel') }}</th>
+                                                                    <th class="text-left">{{ $t('level') }}</th>
+                                                                    <th class="text-left">{{ $t('code') }}</th>
+                                                                    <th class="text-left">{{ $t('type') }}</th>
+                                                                    <th class="text-left">{{ $t('category') }}</th>
+                                                                    <th class="text-left">{{ $t('subcategory') }}</th>
+                                                                    <th></th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr v-for="(row, rIdx) in (sec.rows || [])" :key="rIdx">
+                                                                    <td><q-input v-model="row.label" dense borderless :style="{ paddingLeft: `${(row.level || 0) * 18}px` }" /></td>
+                                                                    <td><q-input v-model.number="row.level" type="number" dense borderless min="0" style="width: 64px" /></td>
+                                                                    <td><q-input v-model="row.code" dense borderless /></td>
+                                                                    <td><q-input v-model="row.taxonomy.type" dense borderless /></td>
+                                                                    <td><q-input v-model="row.taxonomy.category" dense borderless /></td>
+                                                                    <td><q-input v-model="row.taxonomy.subcategory" dense borderless /></td>
+                                                                    <td class="text-right"><q-btn flat dense round icon="delete" color="negative" @click="removeSectionRow(sec, rIdx)" /></td>
+                                                                </tr>
+                                                                <tr v-if="!sec.rows || sec.rows.length === 0">
+                                                                    <td colspan="7" class="text-italic">{{ $t('msg.checklistEmpty') }}</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
                                                     </div>
-                                                    <q-btn outline dense no-caps color="primary" icon="add" :label="$t('addChecklistRow')" @click="addSectionRow(sec)" class="q-mt-xs" />
+                                                    <q-btn outline dense no-caps color="primary" icon="add" :label="$t('addChecklistRow')" @click="addSectionRow(sec)" class="q-mt-sm" />
                                                 </q-card-section>
                                             </q-card>
                                         </template>

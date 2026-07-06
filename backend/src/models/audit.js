@@ -23,6 +23,13 @@ var TaxonomyRef = new Schema({
     code:        {type: String, default: ''}
 }, {_id: false})
 
+var ChecklistTaxonomyRef = new Schema({
+    type:        {type: String, default: ''},
+    category:    {type: String, default: ''},
+    subcategory: {type: String, default: ''},
+    code:        {type: String, default: ''}
+}, {_id: false})
+
 var Finding = {
     id:                     Schema.Types.ObjectId,
     identifier:             Number, //incremental ID to be shown in the report
@@ -73,6 +80,91 @@ function findingTaxonomyType(finding) {
     return (taxonomy && taxonomy.type) || 'No Category';
 }
 
+function normalizeChecklistTaxonomy(row) {
+    var taxonomy = (row && row.taxonomy) || {};
+    return {
+        type: taxonomy.type || '',
+        category: taxonomy.category || '',
+        subcategory: taxonomy.subcategory || '',
+        code: taxonomy.code || ''
+    };
+}
+
+function checklistRowHasBinding(row) {
+    var taxonomy = normalizeChecklistTaxonomy(row);
+    return !!(
+        (row && row.code) ||
+        taxonomy.type ||
+        taxonomy.category ||
+        taxonomy.subcategory ||
+        taxonomy.code
+    );
+}
+
+function taxonomyMatchesChecklistRow(row, taxonomy) {
+    if (!taxonomy) return false;
+    var rowCode = (row && row.code) || normalizeChecklistTaxonomy(row).code;
+    if (rowCode && taxonomy.code && rowCode === taxonomy.code) return true;
+
+    var expected = normalizeChecklistTaxonomy(row);
+    if (!expected.type && !expected.category && !expected.subcategory) return false;
+    if (expected.type && expected.type !== (taxonomy.type || '')) return false;
+    if (expected.category && expected.category !== (taxonomy.category || '')) return false;
+    if (expected.subcategory && expected.subcategory !== (taxonomy.subcategory || '')) return false;
+    return true;
+}
+
+function findingMatchesChecklistRow(row, finding) {
+    var taxonomies = (finding && Array.isArray(finding.taxonomies)) ? finding.taxonomies : [];
+    return taxonomies.some(taxonomy => taxonomyMatchesChecklistRow(row, taxonomy));
+}
+
+function applyChecklistRowsAutoMark(rows, findings) {
+    var changed = false;
+    if (!Array.isArray(rows)) return changed;
+
+    rows.forEach(row => {
+        if (!checklistRowHasBinding(row)) return;
+        if (row.status && row.status !== 'untested' && row.auto !== true) return;
+
+        var hasFinding = (findings || []).some(finding => findingMatchesChecklistRow(row, finding));
+        var nextStatus = hasFinding ? 'fail' : 'pass';
+        if (row.status !== nextStatus) {
+            row.status = nextStatus;
+            changed = true;
+        }
+        if (row.auto !== true) {
+            row.auto = true;
+            changed = true;
+        }
+    });
+    return changed;
+}
+
+function applyChecklistAutoMarkToAudit(audit) {
+    var changed = false;
+    var findings = Array.isArray(audit.findings) ? audit.findings : [];
+
+    (audit.sections || []).forEach(section => {
+        if (section.type === 'checklist' && applyChecklistRowsAutoMark(section.rows, findings))
+            changed = true;
+    });
+
+    (audit.customFields || []).forEach(field => {
+        if (field && field.customField && field.customField.fieldType === 'checklist' && applyChecklistRowsAutoMark(field.text, findings))
+            changed = true;
+    });
+
+    findings.forEach(finding => {
+        (finding.customFields || []).forEach(field => {
+            if (field && field.customField && field.customField.fieldType === 'checklist' && applyChecklistRowsAutoMark(field.text, [finding]))
+                changed = true;
+        });
+    });
+
+    return changed;
+}
+
 var AuditSchema = new Schema({
     name:               {type: String, required: true},
     auditType:          String,
@@ -93,7 +185,17 @@ var AuditSchema = new Schema({
         name:   String,
         type:   {type: String, default: 'text'},
         text:   String,
-        rows:   [{_id: false, label: String, status: {type: String, default: 'untested'}, note: {type: String, default: ''}}]
+        rows:   [{
+            _id: false,
+            label: String,
+            code: {type: String, default: ''},
+            taxonomy: ChecklistTaxonomyRef,
+            level: {type: Number, default: 0},
+            path: {type: String, default: ''},
+            status: {type: String, default: 'untested'},
+            note: {type: String, default: ''},
+            auto: {type: Boolean, default: false}
+        }]
     }],
     customFields:       [customField],
     sortFindings:       [SortOption],
@@ -234,7 +336,16 @@ AuditSchema.statics.create = (audit, userId) => {
                         name:  section.name,
                         type:  section.type || 'text',
                         text:  '',
-                        rows:  (section.rows || []).map(r => ({label: r.label, status: 'untested', note: ''}))
+                        rows:  (section.rows || []).map(r => ({
+                            label: r.label,
+                            code: r.code || '',
+                            taxonomy: normalizeChecklistTaxonomy(r),
+                            level: Math.max(0, parseInt(r.level, 10) || 0),
+                            path: r.path || '',
+                            status: 'untested',
+                            note: '',
+                            auto: false
+                        }))
                     })
                 }
             })
@@ -426,6 +537,29 @@ AuditSchema.statics.updateNetwork = (isAdmin, auditId, userId, scope) => {
 }
 
 // Create finding
+AuditSchema.statics.applyChecklistAutoMark = (isAdmin, auditId, userId) => {
+    return new Promise((resolve, reject) => {
+        var query = Audit.findById(auditId)
+        if (!isAdmin)
+            query.or([{creator: userId}, {collaborators: userId}])
+        query.exec()
+        .then(audit => {
+            if (!audit)
+                throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
+
+            if (!applyChecklistAutoMarkToAudit(audit))
+                return null
+
+            audit.markModified('sections')
+            audit.markModified('customFields')
+            audit.markModified('findings')
+            return audit.save({validateBeforeSave: false})
+        })
+        .then(() => resolve('Audit checklist auto-marked successfully'))
+        .catch(err => reject(err))
+    })
+}
+
 AuditSchema.statics.createFinding = (isAdmin, auditId, userId, finding) => {
     return new Promise((resolve, reject) => {
         Audit.getLastFindingIdentifier(auditId)
@@ -447,6 +581,7 @@ AuditSchema.statics.createFinding = (isAdmin, auditId, userId, finding) => {
                     return null
             }
         })
+        .then(() => Audit.applyChecklistAutoMark(isAdmin, auditId, userId))
         .then(() => {
             resolve("Audit Finding created successfully")
         })
@@ -479,6 +614,7 @@ AuditSchema.statics.createFindings = (isAdmin, auditId, userId, findings) => {
                 throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
             return Audit.updateSortFindings(isAdmin, auditId, userId, null)
         })
+        .then(() => Audit.applyChecklistAutoMark(isAdmin, auditId, userId))
         .then(() => {
             resolve(findings.length)
         })
@@ -565,6 +701,7 @@ AuditSchema.statics.updateFinding = (isAdmin, auditId, userId, findingId, newFin
             else
                 return null
         })
+        .then(() => Audit.applyChecklistAutoMark(isAdmin, auditId, userId))
         .then(() => {
             resolve("Audit Finding updated successfully")
         })
@@ -592,6 +729,9 @@ AuditSchema.statics.deleteFinding = (isAdmin, auditId, userId, findingId) => {
                 row.findings.pull(findingId)
                 return row.save()
             }
+        })
+        .then(() => {
+            return Audit.applyChecklistAutoMark(isAdmin, auditId, userId)
         })
         .then(() => {
             resolve("Audit Finding deleted successfully")
@@ -668,7 +808,10 @@ AuditSchema.statics.updateSection = (isAdmin, auditId, userId, sectionId, newSec
             } 
         })
         .then(() => {
-            resolve('Audit Section updated successfully')        
+            return Audit.applyChecklistAutoMark(isAdmin, auditId, userId)
+        })
+        .then(() => {
+            resolve('Audit Section updated successfully')
         })
         .catch((err) => {
             reject(err)

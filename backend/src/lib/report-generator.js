@@ -2134,12 +2134,45 @@ async function prepAuditData(data, settings) {
         }
         if (section.text)
             formatSection.text = await splitHTMLParagraphs(section.text)
-        if (section.type === 'checklist' && Array.isArray(section.rows))
-            formatSection.rows = section.rows.map(r => ({
-                label:  r.label  || '',
-                status: r.status || 'untested',
-                note:   r.note   || ''
-            }))
+        if (section.type === 'checklist' && Array.isArray(section.rows)) {
+            const statusLabels = {
+                pass: 'Pass',
+                fail: 'Fail',
+                na: 'N/A',
+                untested: 'Untested'
+            };
+            formatSection.rows = section.rows.map((r, index) => {
+                const level = Math.max(0, parseInt(r.level, 10) || 0);
+                const next = section.rows[index + 1] || {};
+                const nextLevel = Math.max(0, parseInt(next.level, 10) || 0);
+                const isDivider = nextLevel > level;
+                const status = r.status || 'untested';
+                return {
+                    label:  r.label  || '',
+                    display_label: `${'  '.repeat(level)}${r.label || ''}`,
+                    code:   r.code   || '',
+                    level:  level,
+                    path:   r.path || '',
+                    is_divider: isDivider,
+                    is_item: !isDivider,
+                    taxonomy: {
+                        type:        (r.taxonomy && r.taxonomy.type) || '',
+                        category:    (r.taxonomy && r.taxonomy.category) || '',
+                        subcategory: (r.taxonomy && r.taxonomy.subcategory) || '',
+                        code:        (r.taxonomy && r.taxonomy.code) || '',
+                    },
+                    taxonomy_path: [
+                        r.taxonomy && r.taxonomy.type,
+                        r.taxonomy && r.taxonomy.category,
+                        r.taxonomy && r.taxonomy.subcategory
+                    ].filter(Boolean).join(' > '),
+                    status: status,
+                    status_label: statusLabels[status] || status,
+                    note:   r.note   || '',
+                    auto:   r.auto === true
+                };
+            })
+        }
         result[section.field] = formatSection
     }
     replaceSubTemplating(result)

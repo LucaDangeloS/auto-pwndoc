@@ -852,6 +852,111 @@ const STEPS = [
         },
     },
 
+    // Step 24: Add optional checklist classification metadata
+    // Checklist section rows can now be free-form or linked to a taxonomy/code.
+    // Existing rows are preserved and receive empty metadata plus auto=false.
+    {
+        id: 24,
+        name: 'add-checklist-row-classification-metadata',
+        async run(_srcDb, dstDb) {
+            function normalizeTaxonomy(row) {
+                const taxonomy = (row && row.taxonomy) || {};
+                return {
+                    type: taxonomy.type || '',
+                    category: taxonomy.category || '',
+                    subcategory: taxonomy.subcategory || '',
+                    code: taxonomy.code || '',
+                };
+            }
+
+            const customSectionCol = dstDb.collection('customsections');
+            let customSectionsTouched = 0;
+            const customSections = await customSectionCol.find({rows: {$exists: true, $type: 'array'}}).toArray();
+            for (const section of customSections) {
+                const rows = (section.rows || []).map(row => ({
+                    ...row,
+                    code: row.code || '',
+                    taxonomy: normalizeTaxonomy(row),
+                }));
+                await customSectionCol.updateOne({_id: section._id}, {$set: {rows}});
+                customSectionsTouched++;
+            }
+
+            const auditCol = dstDb.collection('audits');
+            let auditsTouched = 0;
+            const audits = await auditCol.find({sections: {$exists: true, $type: 'array'}}).toArray();
+            for (const audit of audits) {
+                const sections = (audit.sections || []).map(section => {
+                    if (section.type !== 'checklist' || !Array.isArray(section.rows)) return section;
+                    return {
+                        ...section,
+                        rows: section.rows.map(row => ({
+                            ...row,
+                            code: row.code || '',
+                            taxonomy: normalizeTaxonomy(row),
+                            auto: row.auto === true,
+                        })),
+                    };
+                });
+                await auditCol.updateOne({_id: audit._id}, {$set: {sections}});
+                auditsTouched++;
+            }
+
+            console.log(
+                `[migration] add-checklist-row-classification-metadata: ` +
+                `${customSectionsTouched} custom sections, ${auditsTouched} audits normalized`
+            );
+        },
+    },
+
+    // Step 25: Add checklist nesting metadata
+    // Checklist rows can be nested for methodology/category trees. Existing
+    // rows remain top-level and receive a best-effort path.
+    {
+        id: 25,
+        name: 'add-checklist-row-nesting-metadata',
+        async run(_srcDb, dstDb) {
+            function pathFor(row) {
+                if (row.path) return row.path;
+                const taxonomy = (row && row.taxonomy) || {};
+                return [taxonomy.category, taxonomy.subcategory].filter(Boolean).join(' / ') || row.label || '';
+            }
+
+            function normalizeRows(rows) {
+                return (rows || []).map(row => ({
+                    ...row,
+                    level: Math.max(0, parseInt(row.level, 10) || 0),
+                    path: pathFor(row),
+                }));
+            }
+
+            const customSectionCol = dstDb.collection('customsections');
+            let customSectionsTouched = 0;
+            const customSections = await customSectionCol.find({rows: {$exists: true, $type: 'array'}}).toArray();
+            for (const section of customSections) {
+                await customSectionCol.updateOne({_id: section._id}, {$set: {rows: normalizeRows(section.rows)}});
+                customSectionsTouched++;
+            }
+
+            const auditCol = dstDb.collection('audits');
+            let auditsTouched = 0;
+            const audits = await auditCol.find({sections: {$exists: true, $type: 'array'}}).toArray();
+            for (const audit of audits) {
+                const sections = (audit.sections || []).map(section => {
+                    if (section.type !== 'checklist' || !Array.isArray(section.rows)) return section;
+                    return {...section, rows: normalizeRows(section.rows)};
+                });
+                await auditCol.updateOne({_id: audit._id}, {$set: {sections}});
+                auditsTouched++;
+            }
+
+            console.log(
+                `[migration] add-checklist-row-nesting-metadata: ` +
+                `${customSectionsTouched} custom sections, ${auditsTouched} audits normalized`
+            );
+        },
+    },
+
 ];
 
 // Runner

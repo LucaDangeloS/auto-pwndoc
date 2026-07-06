@@ -249,6 +249,44 @@ CLEANUP SECTION (or use {cleanup.name} as title)
                                     Image 1 - {caption}{/images}{/cleanup.text}
 > ```
 
+Checklist custom sections expose a `rows` array. Each row can be purely manual, or linked to the vulnerability taxonomy with a `code` and `taxonomy` path. Linked rows are automatically marked `fail` when at least one finding matches the row's code or taxonomy path, and `pass` when no finding matches. Manual status changes in the audit override the automatic status for that row.
+
+Checklist row variables:
+
+* **section.rows[i].label**: checklist item label.
+* **section.rows[i].level**: zero-based nesting level for methodology/category trees.
+* **section.rows[i].path**: checklist hierarchy without the taxonomy type, for example `Information Gathering / Fingerprinting / Fingerprint 01`.
+* **section.rows[i].display_label**: label prefixed with indentation spaces according to `level`.
+* **section.rows[i].is_divider**: boolean, true when the next checklist row is nested below this one. Use this for methodology/category divider rows.
+* **section.rows[i].is_item**: boolean, true for regular checklist rows.
+* **section.rows[i].code**: optional stable code, for example `WSTG-INFO-02`.
+* **section.rows[i].taxonomy_path**: formatted path such as `WSTG > Information Gathering > Fingerprint Web Server`.
+* **section.rows[i].taxonomy.type**
+* **section.rows[i].taxonomy.category**
+* **section.rows[i].taxonomy.subcategory**
+* **section.rows[i].taxonomy.code**
+* **section.rows[i].status**: `pass`, `fail`, `na`, or `untested`.
+* **section.rows[i].status_label**: printable status label, for example `Pass` or `Untested`.
+* **section.rows[i].note**: auditor note.
+* **section.rows[i].auto**: boolean, true when the row is still automatically managed.
+
+To render a checklist as a DOCX table, create a normal Word table with one header row and one template row. Put the loop tags inside the template row cells:
+
+| Item | Code | Classification | Status | Notes |
+|:-----|:-----|:---------------|:-------|:------|
+| `{#wstg.rows}{label}` | `{code}` | `{taxonomy_path}` | `{status}` | `{note}{/wstg.rows}` |
+
+For a custom section with field `wstg`, the section title is available as `{wstg.name}`. Use your Word table styling directly on the header/template row; generated rows inherit that formatting.
+
+For methodology tables with visual division rows, create the table once in Word and place two template rows inside the loop:
+
+| Item | Code | Status | Notes |
+|:-----|:-----|:-------|:------|
+| `{#wstg.rows}{#is_divider}{display_label}` |  |  | `{/is_divider}` |
+| `{#is_item}{display_label}` | `{code}` | `{status_label}` | `{note}{/is_item}{/wstg.rows}` |
+
+Style the divider row directly in Word, for example with a dark fill and white bold text. You only create those two rows once; docxtemplater repeats the divider row for parent methodology steps and the item row for actual checklist tests.
+
 ## Styles
 
 Styles for simple text can be defined and applied directly in the Docx Template.

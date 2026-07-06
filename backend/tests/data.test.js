@@ -496,6 +496,63 @@ module.exports = function(request, app) {
         expect(response.body.datas).toEqual(expect.arrayContaining(expected.map(section => expect.objectContaining(section))))
       })
 
+      it('Renames a section field without inserting a duplicate and updates audit type references', async () => {
+        var sectionsResponse = await request(app).get('/api/data/sections')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+
+        var auditTypesResponse = await request(app).get('/api/data/audit-types')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+        var webAuditType = auditTypesResponse.body.datas.find(auditType => auditType.name === 'Web')
+
+        var auditTypeUpdate = await request(app).put('/api/data/audit-types')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+          .send([{
+            name: webAuditType.name,
+            templates: webAuditType.templates,
+            sections: ['attack_scenario'],
+            hidden: webAuditType.hidden
+          }])
+        expect(auditTypeUpdate.status).toBe(201)
+
+        var renamedSections = sectionsResponse.body.datas.map(section => {
+          if (section.field !== 'attack_scenario')
+            return section
+          return Object.assign({}, section, {field: 'performed_tests'})
+        })
+
+        var response = await request(app).put('/api/data/sections')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+          .send(renamedSections)
+
+        expect(response.status).toBe(201)
+
+        var updatedSections = await request(app).get('/api/data/sections')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+        expect(updatedSections.body.datas).toEqual(expect.arrayContaining([
+          expect.objectContaining({name: 'Attack Scenario', field: 'performed_tests'}),
+          expect.objectContaining({name: 'But', field: 'goal'})
+        ]))
+        expect(updatedSections.body.datas.find(section => section.field === 'attack_scenario')).toBeUndefined()
+
+        var updatedAuditTypes = await request(app).get('/api/data/audit-types')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+        var updatedWebAuditType = updatedAuditTypes.body.datas.find(auditType => auditType.name === 'Web')
+        expect(updatedWebAuditType.sections).toContain('performed_tests')
+        expect(updatedWebAuditType.sections).not.toContain('attack_scenario')
+      })
+
       //it('Should not delete nonexistent section', async () => {
       //  var response = await request(app).delete('/api/data/sections/attack_scenario/ru')
       //    .set('Cookie', [

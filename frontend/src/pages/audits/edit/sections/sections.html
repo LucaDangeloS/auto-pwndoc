@@ -17,7 +17,7 @@
   </breadcrumb>
 
 <div class="row q-col-gutter-md q-pa-md">
-    <div class="col-md-8 offset-md-2">
+    <div :class="section.type === 'checklist' ? 'col-12 col-lg-10 offset-lg-1' : 'col-md-8 offset-md-2'">
         <q-card>
             <!-- Plain text section -->
             <q-card-section v-if="!section.type || section.type === 'text'">
@@ -26,21 +26,56 @@
 
             <!-- Checklist section -->
             <q-card-section v-else-if="section.type === 'checklist'">
+                <div class="row items-center q-gutter-sm q-mb-md">
+                    <q-chip dense square color="positive" text-color="white" icon="check_circle">
+                        {{ $t('checklistStatusPass') }}: {{ statusCount('pass') }}
+                    </q-chip>
+                    <q-chip dense square color="negative" text-color="white" icon="cancel">
+                        {{ $t('checklistStatusFail') }}: {{ statusCount('fail') }}
+                    </q-chip>
+                    <q-chip dense square color="warning" text-color="dark" icon="remove_circle">
+                        {{ $t('checklistStatusNa') }}: {{ statusCount('na') }}
+                    </q-chip>
+                    <q-chip dense square color="grey" text-color="white" icon="radio_button_unchecked">
+                        {{ $t('checklistStatusUntested') }}: {{ statusCount('untested') }}
+                    </q-chip>
+                    <q-space />
+                    <q-badge color="info" text-color="white" :label="$t('checklistAutoBadge')" />
+                </div>
                 <q-table
                     :rows="section.rows"
                     :columns="checklistColumns"
                     row-key="label"
                     flat
                     bordered
+                    class="checklist-section-table"
                     hide-pagination
                     :rows-per-page-options="[0]"
                 >
+                    <template #body-cell-label="props">
+                        <q-td :props="props">
+                            <div class="row items-start no-wrap" :style="{ paddingLeft: `${(props.row.level || 0) * 22}px` }">
+                                <q-icon :name="props.row.auto ? 'auto_mode' : 'edit_note'" :color="props.row.auto ? 'info' : 'grey'" size="sm" class="q-mr-sm q-mt-xs">
+                                    <q-tooltip>{{ props.row.auto ? $t('checklistAutoManaged') : $t('checklistManualManaged') }}</q-tooltip>
+                                </q-icon>
+                                <div>
+                                    <div class="text-body2 text-weight-medium">{{ props.row.label }}</div>
+                                    <div v-if="props.row.code || taxonomyPath(props.row)" class="row items-center q-gutter-xs q-mt-xs">
+                                        <q-badge v-if="props.row.code" color="secondary" text-color="white" :label="props.row.code" />
+                                        <span v-if="taxonomyPath(props.row)" class="text-caption text-grey-7">{{ taxonomyPath(props.row) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </q-td>
+                    </template>
                     <template #body-cell-status="props">
                         <q-td :props="props">
                             <q-btn-toggle
                                 v-model="props.row.status"
+                                @update:model-value="value => setChecklistStatus(props.row, value)"
                                 :options="statusOptions"
                                 :disable="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                                class="checklist-status-toggle"
                                 no-caps
                                 dense
                                 unelevated
@@ -52,9 +87,11 @@
                         <q-td :props="props">
                             <q-input
                                 v-model="props.row.note"
+                                @update:model-value="props.row.auto = false"
                                 :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                                 dense
-                                borderless
+                                outlined
+                                autogrow
                             />
                         </q-td>
                     </template>

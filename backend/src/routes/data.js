@@ -13,6 +13,22 @@ module.exports = function(app) {
 
     var _ = require('lodash')
 
+    function normalizeChecklistRow(row) {
+        var taxonomy = (row && row.taxonomy) || {};
+        return {
+            label: row.label,
+            code: row.code || '',
+            taxonomy: {
+                type: taxonomy.type || '',
+                category: taxonomy.category || '',
+                subcategory: taxonomy.subcategory || '',
+                code: taxonomy.code || ''
+            },
+            level: Math.max(0, parseInt(row.level, 10) || 0),
+            path: row.path || ''
+        }
+    }
+
 /* ===== ROLES ===== */
 
     // Get Roles list
@@ -320,18 +336,45 @@ module.exports = function(app) {
                 else if (!hasCat && !hasSub && !includeCategories && !includeSubcategories) picked.push(r);
             });
 
-            var seed = picked.map(r => {
+            var seen = new Set();
+            var seed = [];
+            function addSeed(r, level, label, path, code) {
+                var key = [r.type, r.category || '', r.subcategory || '', code || '', level, path].join('|');
+                if (seen.has(key)) return;
+                seen.add(key);
+                seed.push({
+                    label: label,
+                    code: code || '',
+                    taxonomy: { type: r.type, category: r.category || '', subcategory: r.subcategory || '', code: code || '' },
+                    level: level,
+                    path: path,
+                    status: 'untested',
+                    note: ''
+                });
+            }
+
+            picked.forEach(r => {
+                if (r.category && r.subcategory && includeCategories) {
+                    addSeed(
+                        {type: r.type, category: r.category, subcategory: '', code: ''},
+                        0,
+                        r.category,
+                        r.category,
+                        ''
+                    );
+                }
+
                 var labelParts = [];
                 if (r.category) labelParts.push(r.category);
                 if (r.subcategory) labelParts.push(r.subcategory);
                 if (labelParts.length === 0) labelParts.push(r.type);
-                return {
-                    label: labelParts.join(' / '),
-                    code: r.code || '',
-                    taxonomy: { type: r.type, category: r.category || '', subcategory: r.subcategory || '' },
-                    status: 'untested',
-                    note: ''
-                };
+                addSeed(
+                    r,
+                    r.subcategory ? 1 : 0,
+                    r.subcategory || r.category || r.type,
+                    labelParts.join(' / '),
+                    r.code || ''
+                );
             });
 
             Response.Ok(res, seed);
@@ -370,7 +413,7 @@ module.exports = function(app) {
         }
         if (req.body.icon) section.icon = req.body.icon
         if (section.type === 'checklist' && Array.isArray(req.body.rows))
-            section.rows = req.body.rows.filter(r => r && r.label).map(r => ({label: r.label}))
+            section.rows = req.body.rows.filter(r => r && r.label).map(normalizeChecklistRow)
 
         CustomSection.create(section)
         .then(msg => Response.Created(res, msg))
@@ -404,6 +447,7 @@ module.exports = function(app) {
 
         var sections = req.body.map(e => {
             var s = {
+                _id:   e._id,
                 name:  e.name,
                 field: e.field,
                 icon:  e.icon || '',
@@ -411,7 +455,7 @@ module.exports = function(app) {
                 rows:  [],
             }
             if (s.type === 'checklist' && Array.isArray(e.rows))
-                s.rows = e.rows.filter(r => r && r.label).map(r => ({label: r.label}))
+                s.rows = e.rows.filter(r => r && r.label).map(normalizeChecklistRow)
             return s
         })
 

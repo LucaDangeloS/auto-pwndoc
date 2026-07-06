@@ -11,6 +11,95 @@ import TemplatesPage from '../templates/index.vue'
 
 import { $t } from '@/boot/i18n'
 
+function safeClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    }
+
+    return new Promise((resolve, reject) => {
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(textarea);
+            if (ok) resolve(); else reject(new Error('copy failed'));
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+function formatChecklistBulkLine(row) {
+    const taxonomy = row.taxonomy || row;
+    const parts = [taxonomy.type || row.type || ''];
+    if (taxonomy.category || row.category) parts.push(taxonomy.category || row.category || '');
+    if (taxonomy.subcategory || row.subcategory) parts.push(taxonomy.subcategory || row.subcategory || '');
+    let line = parts.filter(Boolean).join(' > ');
+    const code = row.code || taxonomy.code || '';
+    if (code) line += ` [${code}]`;
+    return line;
+}
+
+function parseChecklistBulkText(text) {
+    const rows = [];
+    const errors = [];
+    const seen = new Set();
+    const addedPrefixes = new Set();
+
+    String(text || '').split(/\r?\n/).forEach((raw, idx) => {
+        let line = raw.trim();
+        if (!line || line.startsWith('#')) return;
+
+        let code = '';
+        const codeMatch = line.match(/\s*\[([^\]]+)\]\s*$/);
+        if (codeMatch) {
+            code = codeMatch[1].trim();
+            line = line.slice(0, codeMatch.index).trim();
+        }
+
+        const parts = line.split('>').map(part => part.trim());
+        const type = parts[0] || '';
+        if (!type) {
+            errors.push({line: idx + 1, message: $t('msg.typeRequired')});
+            return;
+        }
+
+        const hierarchy = parts.slice(1).filter(Boolean);
+        const leafParts = hierarchy.length ? hierarchy : [type];
+        const exactKey = [type, ...hierarchy, code].join('|');
+        if (seen.has(exactKey)) {
+            errors.push({line: idx + 1, message: $t('msg.checklistBulkDuplicate')});
+            return;
+        }
+        seen.add(exactKey);
+
+        leafParts.forEach((label, hierarchyIndex) => {
+            const prefixParts = hierarchy.length ? hierarchy.slice(0, hierarchyIndex + 1) : [];
+            const isLeaf = hierarchyIndex === leafParts.length - 1;
+            const prefixKey = [type, ...prefixParts, isLeaf ? code : ''].join('|');
+            if (addedPrefixes.has(prefixKey)) return;
+            addedPrefixes.add(prefixKey);
+
+            const category = prefixParts[0] || '';
+            const subcategory = prefixParts[1] || '';
+            const rowCode = isLeaf ? code : '';
+            rows.push({
+                label,
+                code: rowCode,
+                taxonomy: {type, category, subcategory, code: rowCode},
+                level: hierarchy.length ? hierarchyIndex : 0,
+                path: prefixParts.length ? prefixParts.join(' / ') : type
+            });
+        });
+    });
+
+    return {rows, errors};
+}
+
 export default {
 
     props: {
@@ -40,9 +129,20 @@ export default {
             editAuditType: false,
 
             sections: [],
-            newSection: {field: "", name: "", icon: "", type: "text", rows: []},
+            newSection: {
+                field: "",
+                name: "",
+                icon: "",
+                type: "text",
+                rows: [],
+                checklistTaxonomyType: "",
+                checklistIncludeCategories: true,
+                checklistIncludeSubcategories: true,
+                checklistBulkText: ""
+            },
             editSections: [],
             editSection: false,
+            taxonomyRows: [],
             sectionTypeOptions: [
                 {label: 'Plain Text', value: 'text'},
                 {label: 'Checklist', value: 'checklist'}
@@ -69,6 +169,15 @@ export default {
         this.getLanguages()
         this.getAuditTypes()
         this.getSections()
+        this.getTaxonomy()
+    },
+
+    computed: {
+        taxonomyTypeOptions() {
+            return Array.from(new Set((this.taxonomyRows || []).map(row => row.type).filter(Boolean)))
+            .sort()
+            .map(type => ({label: type, value: type}))
+        }
     },
 
     methods: {
@@ -303,6 +412,16 @@ export default {
             })
         },
 
+        getTaxonomy: function() {
+            DataService.getVulnerabilityTaxonomy()
+            .then((data) => {
+                this.taxonomyRows = data.data.datas || []
+            })
+            .catch((err) => {
+                console.log(err)
+            })
+        },
+
         // Create section
         createSection: function() {
             this.cleanErrors();
@@ -314,9 +433,20 @@ export default {
             if (this.errors.sectionName || this.errors.sectionField)
                 return;
 
+            this.normalizeChecklistRows(this.newSection)
             DataService.createSection(this.newSection)
             .then(() => {
-                this.newSection = {field: "", name: "", icon: "", type: "text", rows: []}
+                this.newSection = {
+                    field: "",
+                    name: "",
+                    icon: "",
+                    type: "text",
+                    rows: [],
+                    checklistTaxonomyType: "",
+                    checklistIncludeCategories: true,
+                    checklistIncludeSubcategories: true,
+                    checklistBulkText: ""
+                }
                 this.getSections();
                 Notify.create({
                     message: 'Section created successfully',
@@ -338,6 +468,7 @@ export default {
         // Update Sections
         updateSections: function() {
             Utils.syncEditors(this.$refs)
+            this.editSections.forEach(section => this.normalizeChecklistRows(section))
             DataService.updateSections(this.editSections)
             .then(() => {
                 this.sections = this.$_.cloneDeep(this.editSections)
@@ -362,8 +493,13 @@ export default {
         startEditingSections() {
             this.editSections = this.$_.cloneDeep(this.sections).map(s => ({
                 ...s,
+                checklistTaxonomyType: '',
+                checklistIncludeCategories: true,
+                checklistIncludeSubcategories: true,
+                checklistBulkText: '',
                 _uniqueId: uid()
             }));
+            this.editSections.forEach(section => this.normalizeChecklistRows(section))
             this.editSection = true;
         },
 
@@ -375,12 +511,147 @@ export default {
         // Add a blank row to a section's row list (checklist type)
         addSectionRow: function(section) {
             if (!Array.isArray(section.rows)) section.rows = []
-            section.rows.push({label: ''})
+            section.rows.push({
+                label: '',
+                code: '',
+                taxonomy: {type: '', category: '', subcategory: '', code: ''},
+                level: 0,
+                path: ''
+            })
         },
 
         // Remove a row from a section's row list
         removeSectionRow: function(section, idx) {
             section.rows.splice(idx, 1)
+        },
+
+        normalizeChecklistRows: function(section) {
+            if (!section || section.type !== 'checklist') return
+            if (!Array.isArray(section.rows)) section.rows = []
+            section.rows = section.rows.map(row => {
+                const taxonomy = row.taxonomy || {}
+                return {
+                    label: row.label || '',
+                    code: row.code || '',
+                    taxonomy: {
+                        type: taxonomy.type || '',
+                        category: taxonomy.category || '',
+                        subcategory: taxonomy.subcategory || '',
+                        code: taxonomy.code || ''
+                    },
+                    level: Math.max(0, parseInt(row.level, 10) || 0),
+                    path: row.path || [taxonomy.category, taxonomy.subcategory].filter(Boolean).join(' / ') || row.label || ''
+                }
+            })
+        },
+
+        checklistTaxonomyRowsForSection: function(section) {
+            if (!section || !section.checklistTaxonomyType) return []
+            return (this.taxonomyRows || []).filter(row => {
+                if (row.type !== section.checklistTaxonomyType) return false
+                const hasCat = !!row.category
+                const hasSub = !!row.subcategory
+                if (hasSub && section.checklistIncludeSubcategories !== false) return true
+                if (hasCat && !hasSub && section.checklistIncludeCategories !== false) return true
+                return !hasCat && !hasSub && section.checklistIncludeCategories === false && section.checklistIncludeSubcategories === false
+            })
+        },
+
+        fillChecklistBulkFromTaxonomy: function(section) {
+            const lines = this.checklistTaxonomyRowsForSection(section).map(formatChecklistBulkLine)
+            section.checklistBulkText = lines.join('\n')
+            if (!lines.length) {
+                Notify.create({
+                    message: $t('msg.checklistBulkNoRows'),
+                    color: 'warning',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            }
+        },
+
+        copyChecklistBulkFromTaxonomy: function(section) {
+            this.fillChecklistBulkFromTaxonomy(section)
+            if (!section.checklistBulkText) return
+            safeClipboard(section.checklistBulkText)
+                .then(() => {
+                    Notify.create({
+                        message: $t('copied'),
+                        color: 'positive',
+                        textColor: 'white',
+                        position: 'top-right'
+                    })
+                })
+                .catch(() => {
+                    Notify.create({
+                        message: $t('copyFailed'),
+                        color: 'negative',
+                        textColor: 'white',
+                        position: 'top-right'
+                    })
+                })
+        },
+
+        importChecklistBulkRows: function(section) {
+            const parsed = parseChecklistBulkText(section?.checklistBulkText)
+            if (parsed.errors.length) {
+                Notify.create({
+                    message: parsed.errors.map(error => `${$t('msg.bulkErrorLine', {line: error.line})}: ${error.message}`).join('\n'),
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right',
+                    multiLine: true
+                })
+                return
+            }
+            section.rows = parsed.rows
+            Notify.create({
+                message: $t('msg.checklistBulkImported', {count: section.rows.length}),
+                color: 'positive',
+                textColor: 'white',
+                position: 'top-right'
+            })
+        },
+
+        generateSectionRowsFromTaxonomy: function(section) {
+            if (!section || !section.checklistTaxonomyType) {
+                Notify.create({
+                    message: $t('msg.typeRequired'),
+                    color: 'warning',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+                return
+            }
+
+            DataService.generateChecklistFromTaxonomy({
+                type: section.checklistTaxonomyType,
+                includeCategories: section.checklistIncludeCategories !== false,
+                includeSubcategories: section.checklistIncludeSubcategories !== false
+            })
+            .then((data) => {
+                section.rows = (data.data.datas || []).map(row => ({
+                    label: row.label || '',
+                    code: row.code || '',
+                    taxonomy: row.taxonomy || {type: '', category: '', subcategory: '', code: ''},
+                    level: Math.max(0, parseInt(row.level, 10) || 0),
+                    path: row.path || ''
+                }))
+                Notify.create({
+                    message: $t('msg.checklistGenerated', {count: section.rows.length}),
+                    color: 'positive',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response?.data?.datas || err.message,
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            })
         },
 
         cleanErrors: function() {

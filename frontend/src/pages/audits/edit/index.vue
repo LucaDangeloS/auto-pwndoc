@@ -269,7 +269,7 @@
         
       </q-splitter>
     </q-drawer>
-    <router-view :key="$route.fullPath" :frontEndAuditState="frontEndAuditState" :parentState="audit.state" :parentApprovals="audit.approvals"  :audit="audit" />
+    <router-view :key="$route.fullPath" :frontEndAuditState="frontEndAuditState" :parentState="audit.state" :parentApprovals="audit.approvals"  :audit="audit" :parent-audit="audit" />
     </div>
   </template>
   

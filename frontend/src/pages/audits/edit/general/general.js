@@ -18,6 +18,7 @@ import { $t } from '@/boot/i18n'
 
 export default {
     props: {
+        parentAudit: Object,
         frontEndAuditState: Number,
         parentState: String,
         parentApprovals: Array
@@ -72,6 +73,43 @@ export default {
         TextareaArray,
         CustomFields,
         TemplateHint
+    },
+
+    computed: {
+        auditFindings: function() {
+            return Array.isArray(this.parentAudit?.findings) ? this.parentAudit.findings : []
+        },
+
+        severityStats: function() {
+            const stats = this.severityLevels.map(level => ({...level, count: 0, percent: 0}))
+
+            this.auditFindings.forEach(finding => {
+                const severity = this.getFindingSeverity(finding)
+                const match = stats.find(level => level.key === severity) || stats.find(level => level.key === 'Informative')
+                if (match) match.count += 1
+            })
+
+            const total = stats.reduce((sum, level) => sum + level.count, 0)
+            return stats.map(level => ({
+                ...level,
+                percent: total > 0 ? level.count / total : 0
+            }))
+        },
+
+        severityTotal: function() {
+            return this.severityStats.reduce((sum, level) => sum + level.count, 0)
+        },
+
+        severityLevels: function() {
+            const colors = this.$settings?.report?.public?.cvssColors || {}
+            return [
+                { key: 'Critical', label: this.$t('critical'), color: colors.criticalColor || '#212121' },
+                { key: 'High', label: this.$t('high'), color: colors.highColor || '#fe0000' },
+                { key: 'Medium', label: this.$t('medium'), color: colors.mediumColor || '#f9a009' },
+                { key: 'Low', label: this.$t('low'), color: colors.lowColor || '#008000' },
+                { key: 'Informative', label: this.$t('informative'), color: colors.noneColor || '#4a86e8' }
+            ]
+        }
     },
 
     mounted: function() {
@@ -263,6 +301,21 @@ export default {
                 const needle = Utils.normalizeString(val)
                 this.selectCompanies = this.$_.clone(this.companies.filter(v => Utils.normalizeString(v.name).indexOf(needle) > -1))
             })
+        },
+
+        getFindingSeverity: function(finding) {
+            const cvssVersion = this.$settings?.report?.public?.defaultCvssVersion || '3.1'
+            let severity = 'Informative'
+
+            if (cvssVersion === '4.0' && finding.cvssv4) {
+                const cvss = window.CVSS40 ? window.CVSS40.calculateCVSSFromVector(finding.cvssv4) : null
+                if (cvss && cvss.success) severity = cvss.baseSeverity || 'Informative'
+            } else if (finding.cvssv3 && typeof CVSS31 !== 'undefined') {
+                const cvss = CVSS31.calculateCVSSFromVector(finding.cvssv3)
+                if (cvss.success) severity = cvss.baseSeverity || 'Informative'
+            }
+
+            return severity === 'None' ? 'Informative' : severity
         }
     }
 }

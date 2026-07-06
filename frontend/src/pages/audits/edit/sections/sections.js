@@ -34,9 +34,9 @@ export default {
             sectionOrig: {},
             AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
             checklistColumns: [
-                {name: 'label',  label: '#',      field: 'label',  align: 'left',   style: 'width: 50%'},
-                {name: 'status', label: $t('checklistStatus'), field: 'status', align: 'center'},
-                {name: 'note',   label: $t('checklistNote'),   field: 'note',   align: 'left',   style: 'width: 30%'}
+                {name: 'label',  label: $t('checklistRowLabel'), field: 'label',  align: 'left',   style: 'width: 46%'},
+                {name: 'status', label: $t('checklistStatus'),   field: 'status', align: 'center', style: 'width: 260px'},
+                {name: 'note',   label: $t('checklistNote'),     field: 'note',   align: 'left'}
             ],
             statusOptions: [
                 {label: $t('checklistStatusUntested'), value: 'untested', color: 'grey'},
@@ -111,6 +111,7 @@ export default {
             AuditService.getSection(this.auditId, this.sectionId)
             .then((data) => {
                 this.section = data.data.datas;
+                this.normalizeChecklistRows();
                 this.sectionOrig = this.$_.cloneDeep(this.section);
                 nextTick(() => {
                     Utils.syncEditors(this.$refs)
@@ -123,6 +124,7 @@ export default {
 
         updateSection: function() {
             Utils.syncEditors(this.$refs)
+            this.normalizeChecklistRows();
             nextTick(() => {
                 AuditService.updateSection(this.auditId, this.sectionId, this.section)
                 .then(() => {
@@ -151,6 +153,55 @@ export default {
             if (!this.$_.isEqual(this.section.text, this.sectionOrig.text)) return true
             if (!this.$_.isEqual(this.section.rows, this.sectionOrig.rows)) return true
             return false
+        },
+
+        normalizeChecklistRows: function() {
+            if (!this.section || this.section.type !== 'checklist') return
+            if (!Array.isArray(this.section.rows)) this.section.rows = []
+            this.section.rows = this.section.rows.map(row => {
+                const taxonomy = row.taxonomy || {}
+                return {
+                    label: row.label || '',
+                    code: row.code || '',
+                    taxonomy: {
+                        type: taxonomy.type || '',
+                        category: taxonomy.category || '',
+                        subcategory: taxonomy.subcategory || '',
+                        code: taxonomy.code || ''
+                    },
+                    level: Math.max(0, parseInt(row.level, 10) || 0),
+                    path: row.path || [taxonomy.category, taxonomy.subcategory].filter(Boolean).join(' / ') || row.label || '',
+                    status: row.status || 'untested',
+                    note: row.note || '',
+                    auto: row.auto === true
+                }
+            })
+        },
+
+        taxonomyPath: function(row) {
+            const taxonomy = row && row.taxonomy ? row.taxonomy : {}
+            return row.path || [taxonomy.type, taxonomy.category, taxonomy.subcategory].filter(Boolean).join(' › ')
+        },
+
+        statusColor: function(status) {
+            if (status === 'pass') return 'positive'
+            if (status === 'fail') return 'negative'
+            if (status === 'na') return 'warning'
+            return 'grey'
+        },
+
+        statusLabel: function(status) {
+            const option = this.statusOptions.find(item => item.value === status)
+            return option ? option.label : $t('checklistStatusUntested')
+        },
+
+        statusCount: function(status) {
+            return (this.section.rows || []).filter(row => (row.status || 'untested') === status).length
+        },
+
+        setChecklistStatus: function(row, status) {
+            row.status = status
+            row.auto = false
         }
     }
 }

@@ -45,9 +45,9 @@ var Finding = {
     paragraphs:             [Paragraph],
     poc:                    String,
     retestEvidence:         String,
-    retestPassed:           {type: Boolean, default: null},
+    retestStatus:           {type: String, enum: ['ok', 'ko', 'partial', 'unknown'], default: 'unknown'},
     scope:                  String,
-    status:                 {type: Number, enum: [0,1], default: 1}, // 0: done, 1: redacting
+    status:                 {type: Number, enum: [0,1,2,3], default: 1}, // 0: completed, 1: in progress, 2: for review, 3: improvement needed
     taxonomies:             [TaxonomyRef],
     customFields:           [customField]
 }
@@ -141,6 +141,96 @@ function applyChecklistRowsAutoMark(rows, findings) {
     return changed;
 }
 
+// Builds a fresh audit checklist row (untested, no note) from a definition row
+function buildRowFromDefinition(r) {
+    return {
+        label: r.label,
+        code: r.code || '',
+        taxonomy: normalizeChecklistTaxonomy(r),
+        level: Math.max(0, parseInt(r.level, 10) || 0),
+        path: r.path || '',
+        status: 'untested',
+        note: '',
+        auto: false
+    }
+}
+
+// Builds a fresh audit section (default text/rows) from a CustomSection definition
+function buildSectionFromDefinition(section) {
+    return {
+        field: section.field,
+        name:  section.name,
+        type:  section.type || 'text',
+        text:  '',
+        rows:  (section.rows || []).map(buildRowFromDefinition)
+    }
+}
+
+function checklistRowKey(row) {
+    if (row && row.code) return 'code:' + row.code
+    return 'label:' + ((row && row.path) || '') + '|' + ((row && row.label) || '')
+}
+
+// Reconciles an audit checklist section's rows with its current definition:
+// definition rows drive the set and order, matched rows keep their
+// status/note/auto state, and stale rows are dropped unless they hold manual
+// work (a human-set status or a note)
+function syncChecklistSectionRows(auditSection, definition) {
+    if ((definition.type || 'text') !== 'checklist') return false
+
+    var defRows = definition.rows || []
+    var currentRows = auditSection.rows || []
+    var currentByKey = new Map()
+    currentRows.forEach(row => {
+        var key = checklistRowKey(row)
+        if (!currentByKey.has(key)) currentByKey.set(key, row)
+    })
+
+    var changed = false
+    var matched = new Set()
+    var nextRows = []
+
+    defRows.forEach(defRow => {
+        var existing = currentByKey.get(checklistRowKey(defRow))
+        if (existing && !matched.has(existing)) {
+            matched.add(existing)
+            var fresh = buildRowFromDefinition(defRow)
+            if (existing.label !== fresh.label || existing.code !== fresh.code ||
+                existing.level !== fresh.level || existing.path !== fresh.path ||
+                JSON.stringify(normalizeChecklistTaxonomy(existing)) !== JSON.stringify(fresh.taxonomy)) {
+                existing.label = fresh.label
+                existing.code = fresh.code
+                existing.taxonomy = fresh.taxonomy
+                existing.level = fresh.level
+                existing.path = fresh.path
+                changed = true
+            }
+            nextRows.push(existing)
+        }
+        else {
+            nextRows.push(buildRowFromDefinition(defRow))
+            changed = true
+        }
+    })
+
+    currentRows.forEach(row => {
+        if (matched.has(row)) return
+        var hasManualWork = (row.status && row.status !== 'untested' && row.auto !== true) ||
+            (row.note && String(row.note).trim())
+        if (hasManualWork)
+            nextRows.push(row)
+        else
+            changed = true
+    })
+
+    if (!changed && nextRows.length === currentRows.length &&
+        nextRows.every((row, idx) => row === currentRows[idx]))
+        return false
+
+    auditSection.rows = nextRows
+    return true
+}
+
 function applyChecklistAutoMarkToAudit(audit) {
     var changed = false;
     var findings = Array.isArray(audit.findings) ? audit.findings : [];
@@ -164,6 +254,22 @@ function applyChecklistAutoMarkToAudit(audit) {
 
     return changed;
 }
+
+// Field-level comment threads on a finding or section field.
+var Reply = new Schema({
+    author: {type: Schema.Types.ObjectId, ref: 'User'},
+    text:   {type: String, default: ''}
+}, {timestamps: true})
+
+var Comment = new Schema({
+    findingId: {type: Schema.Types.ObjectId, default: null},
+    sectionId: {type: Schema.Types.ObjectId, default: null},
+    fieldName: {type: String, default: ''},
+    author:    {type: Schema.Types.ObjectId, ref: 'User'},
+    text:      {type: String, default: ''},
+    replies:   [Reply],
+    resolved:  {type: Boolean, default: false}
+}, {timestamps: true})
 
 var AuditSchema = new Schema({
     name:               {type: String, required: true},
@@ -200,6 +306,8 @@ var AuditSchema = new Schema({
     customFields:       [customField],
     sortFindings:       [SortOption],
     isRetest:           {type: Boolean, default: false},
+    // Set on a retest audit created from a parent (Phase B linked retests).
+    parentId:           {type: Schema.Types.ObjectId, ref: 'Audit', default: null},
     executiveSummary:   {
         _id:                false,
         overallRisk:        {type: String, default: ''},
@@ -212,6 +320,7 @@ var AuditSchema = new Schema({
     },
     state:              { type: String, enum: ['EDIT', 'REVIEW', 'APPROVED'], default: 'EDIT'},
     approvals:          [{type: Schema.Types.ObjectId, ref: 'User'}],
+    comments:           [Comment],
 }, {timestamps: true});
 
 /*
@@ -229,7 +338,7 @@ AuditSchema.statics.getAudits = (isAdmin, userId, filters) => {
         query.populate('reviewers', 'username firstname lastname')
         query.populate('approvals', 'username firstname lastname')
         query.populate('company', 'name')
-        query.select('id name language creator collaborators company createdAt state')
+        query.select('id name auditType language creator collaborators company createdAt state isRetest parentId')
         query.exec()
         .then((rows) => {
             resolve(rows)
@@ -282,6 +391,8 @@ AuditSchema.statics.getAudit = (isAdmin, auditId, userId) => {
                 select: 'label fieldType text'
             }
         })
+        query.populate('comments.author', 'username firstname lastname')
+        query.populate('comments.replies.author', 'username firstname lastname')
         query.exec()
         .then((row) => {
             if (!row)
@@ -330,24 +441,8 @@ AuditSchema.statics.create = (audit, userId) => {
             customFields = resolved[1]
 
             customSections.forEach(section => {
-                if (auditTypeSections.includes(section.field)) {
-                    audit.sections.push({
-                        field: section.field,
-                        name:  section.name,
-                        type:  section.type || 'text',
-                        text:  '',
-                        rows:  (section.rows || []).map(r => ({
-                            label: r.label,
-                            code: r.code || '',
-                            taxonomy: normalizeChecklistTaxonomy(r),
-                            level: Math.max(0, parseInt(r.level, 10) || 0),
-                            path: r.path || '',
-                            status: 'untested',
-                            note: '',
-                            auto: false
-                        }))
-                    })
-                }
+                if (auditTypeSections.includes(section.field))
+                    audit.sections.push(buildSectionFromDefinition(section))
             })
 
             customFields.forEach(field => { // Add customFields (and default text) to audit
@@ -494,6 +589,65 @@ AuditSchema.statics.updateGeneral = (isAdmin, auditId, userId, update) => {
         .catch((err) => {
             reject(err)
         })
+    })
+}
+
+// Add to an existing audit any sections its audit type now includes but the
+// audit is missing (audit types and custom sections can change after creation)
+AuditSchema.statics.syncSectionsWithAuditType = (isAdmin, auditId, userId) => {
+    return new Promise((resolve, reject) => {
+        var query = Audit.findById(auditId).select('auditType sections state')
+        if (!isAdmin)
+            query.or([{creator: userId}, {collaborators: userId}, {reviewers: userId}])
+        query.exec()
+        .then(audit => {
+            if (!audit || !audit.auditType || audit.state !== 'EDIT')
+                return null
+            var AuditType = mongoose.model('AuditType')
+            var CustomSection = mongoose.model('CustomSection')
+            return Promise.all([audit, AuditType.getByName(audit.auditType), CustomSection.getAll()])
+        })
+        .then(resolved => {
+            if (!resolved) return null
+            var audit = resolved[0]
+            var auditType = resolved[1]
+            var customSections = resolved[2]
+            if (!auditType || !Array.isArray(auditType.sections)) return null
+
+            var modified = false
+
+            // add sections the audit type now includes but the audit is missing
+            customSections.forEach(section => {
+                if (auditType.sections.includes(section.field) &&
+                    !audit.sections.some(s => s.field === section.field)) {
+                    audit.sections.push(buildSectionFromDefinition(section))
+                    modified = true
+                }
+            })
+
+            // refresh existing sections from their current definitions
+            var definitionsByField = new Map(customSections.map(s => [s.field, s]))
+            audit.sections.forEach(section => {
+                var definition = definitionsByField.get(section.field)
+                if (!definition) return
+                if (section.name !== definition.name) {
+                    section.name = definition.name
+                    modified = true
+                }
+                if (section.type !== (definition.type || 'text')) {
+                    section.type = definition.type || 'text'
+                    modified = true
+                }
+                if (syncChecklistSectionRows(section, definition))
+                    modified = true
+            })
+
+            if (!modified) return null
+            audit.markModified('sections')
+            return audit.save({validateBeforeSave: false})
+        })
+        .then(() => resolve())
+        .catch(err => reject(err))
     })
 }
 
@@ -1068,6 +1222,133 @@ AuditSchema.statics.clone = (auditId, newName, userId) => {
             reject(err);
         })
     });
+}
+
+// Get the retest child audit linked to a parent audit (Phase B)
+AuditSchema.statics.getRetest = (isAdmin, auditId, userId) => {
+    return new Promise((resolve, reject) => {
+        var query = Audit.findOne({parentId: auditId})
+        if (!isAdmin)
+            query.or([{creator: userId}, {collaborators: userId}, {reviewers: userId}])
+        query.select('_id name parentId isRetest state')
+        query.exec()
+        .then((row) => {
+            resolve(row || null)
+        })
+        .catch((err) => reject(err))
+    })
+}
+
+// Create a linked retest child audit from a parent audit. Clones scope and
+// findings (evidence reset) into a fresh audit flagged isRetest with parentId.
+AuditSchema.statics.createRetest = (isAdmin, auditId, userId, newName) => {
+    return new Promise((resolve, reject) => {
+        var query = Audit.findById(auditId)
+        if (!isAdmin)
+            query.or([{creator: userId}, {collaborators: userId}, {reviewers: userId}])
+        query.populate('company').populate('collaborators').populate('reviewers').populate('template')
+        query.exec()
+        .then(async (source) => {
+            if (!source)
+                throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
+
+            var existing = await Audit.findOne({parentId: auditId}).exec()
+            if (existing)
+                throw({fn: 'BadParameters', message: 'A retest already exists for this audit'})
+
+            // Carry findings forward but reset retest and workflow state so the
+            // retest starts from a clean slate for re-verification.
+            var retestFindings = (source.findings || []).map(f => {
+                var finding = f.toObject ? f.toObject() : f
+                delete finding._id
+                finding.retestEvidence = ''
+                finding.retestStatus = 'unknown'
+                finding.status = 1 // in progress
+                return finding
+            })
+
+            var retest = new Audit({
+                name: newName || `${source.name} (Retest)`,
+                auditType: source.auditType,
+                language: source.language,
+                company: source.company,
+                client: source.client,
+                collaborators: source.collaborators,
+                reviewers: source.reviewers,
+                template: source.template,
+                scope: source.scope,
+                findings: retestFindings,
+                sections: source.sections,
+                customFields: source.customFields,
+                sortFindings: source.sortFindings,
+                creator: userId,
+                isRetest: true,
+                parentId: source._id,
+                state: 'EDIT'
+            })
+            return retest.save()
+        })
+        .then((retest) => resolve(retest))
+        .catch((err) => reject(err))
+    })
+}
+
+// ### COMMENTS ###
+
+AuditSchema.statics.createComment = (isAdmin, auditId, userId, comment) => {
+    return new Promise((resolve, reject) => {
+        var query = Audit.findByIdAndUpdate(auditId, {$push: {comments: comment}}, {new: true})
+        if (!isAdmin)
+            query.or([{creator: userId}, {collaborators: userId}, {reviewers: userId}])
+        query.exec()
+        .then(row => {
+            if (!row)
+                throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
+            resolve(row.comments[row.comments.length - 1])
+        })
+        .catch((err) => reject(err))
+    })
+}
+
+AuditSchema.statics.deleteComment = (isAdmin, auditId, userId, commentId) => {
+    return new Promise((resolve, reject) => {
+        var query = Audit.findById(auditId)
+        if (!isAdmin)
+            query.or([{creator: userId}, {collaborators: userId}, {reviewers: userId}])
+        query.select('comments')
+        query.exec()
+        .then((row) => {
+            if (!row)
+                throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
+            var comment = row.comments.id(commentId)
+            if (!comment)
+                throw({fn: 'NotFound', message: 'Comment not found'})
+            row.comments.pull(commentId)
+            return row.save()
+        })
+        .then(() => resolve('Audit Comment deleted successfully'))
+        .catch((err) => reject(err))
+    })
+}
+
+AuditSchema.statics.updateComment = (isAdmin, auditId, userId, commentId, newComment) => {
+    return new Promise((resolve, reject) => {
+        var query = Audit.findById(auditId)
+        if (!isAdmin)
+            query.or([{creator: userId}, {collaborators: userId}, {reviewers: userId}])
+        query.exec()
+        .then((row) => {
+            if (!row)
+                throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
+            var comment = row.comments.id(commentId)
+            if (!comment)
+                throw({fn: 'NotFound', message: 'Comment not found'})
+            Object.keys(newComment).forEach((key) => { comment[key] = newComment[key] })
+            return row.save()
+        })
+        .then(() => resolve('Audit Comment updated successfully'))
+        .catch((err) => reject(err))
+    })
 }
 
 /*

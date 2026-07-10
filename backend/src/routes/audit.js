@@ -46,6 +46,7 @@ module.exports = function(app, io) {
                     var a = {}
                     a._id = audit._id
                     a.name = audit.name
+                    a.auditType = audit.auditType
                     a.language = audit.language
                     a.creator = audit.creator
                     a.collaborators = audit.collaborators
@@ -54,6 +55,8 @@ module.exports = function(app, io) {
                     a.reviewers = audit.reviewers
                     a.approvals = audit.approvals
                     a.state = audit.state
+                    a.isRetest = audit.isRetest
+                    a.parentId = audit.parentId
                     if (acl.isAllowed(req.decodedToken.role, 'audits:users-connected')){
                         a.connected = getUsersRoom(audit._id.toString())
                     }
@@ -116,6 +119,24 @@ module.exports = function(app, io) {
         .catch(err => Response.Internal(res, err))
     });
 
+    // Get the linked retest child audit of an audit (null if none)
+    app.get("/api/audits/:auditId/retest", acl.hasPermission('audits:read'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        Audit.getRetest(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id)
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
+
+    // Create a linked retest child audit from an audit
+    app.post("/api/audits/:auditId/retest", acl.hasPermission('audits:create'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        Audit.createRetest(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id, req.body.name)
+        .then(inserted => Response.Created(res, {message: 'Audit retest created successfully', audit: inserted}))
+        .catch(err => Response.Internal(res, err))
+    });
+
     // Delete audit if creator or admin
     app.delete("/api/audits/:auditId", acl.hasPermission('audits:delete'), function(req, res) {
         // #swagger.tags = ['Audit']
@@ -131,7 +152,11 @@ module.exports = function(app, io) {
     app.get("/api/audits/:auditId", acl.hasPermission('audits:read'), function(req, res) {
         // #swagger.tags = ['Audit']
 
-        Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id)
+        // Reconcile sections with the current audit type before returning the
+        // audit, so sections added to the type after creation show up
+        Audit.syncSectionsWithAuditType(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id)
+        .catch(err => console.log(err))
+        .then(() => Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id))
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
     });
@@ -308,9 +333,10 @@ module.exports = function(app, io) {
         if (!_.isNil(req.body.cvssv4)) finding.cvssv4 = req.body.cvssv4;
         if (req.body.poc) finding.poc = req.body.poc;
         if (req.body.retestEvidence) finding.retestEvidence = req.body.retestEvidence;
-        if (req.body.retestPassed !== undefined) finding.retestPassed = req.body.retestPassed;
+        if (req.body.retestStatus !== undefined && ['ok','ko','partial','unknown'].includes(req.body.retestStatus)) finding.retestStatus = req.body.retestStatus;
+        else if (req.body.retestPassed !== undefined) finding.retestStatus = req.body.retestPassed === true ? 'ok' : req.body.retestPassed === false ? 'ko' : 'unknown'; // legacy boolean payloads
         if (req.body.scope) finding.scope = req.body.scope;
-        if (req.body.status !== undefined) finding.status = req.body.status;
+        if (req.body.status !== undefined && [0,1,2,3].includes(req.body.status)) finding.status = req.body.status;
         if (req.body.customFields) finding.customFields = req.body.customFields
         syncTaxonomy(finding, req.body);
 
@@ -406,9 +432,10 @@ module.exports = function(app, io) {
         if (!_.isNil(req.body.cvssv4)) finding.cvssv4 = req.body.cvssv4;
         if (!_.isNil(req.body.poc)) finding.poc = req.body.poc;
         if (!_.isNil(req.body.retestEvidence)) finding.retestEvidence = req.body.retestEvidence;
-        if (req.body.retestPassed !== undefined) finding.retestPassed = req.body.retestPassed;
+        if (req.body.retestStatus !== undefined && ['ok','ko','partial','unknown'].includes(req.body.retestStatus)) finding.retestStatus = req.body.retestStatus;
+        else if (req.body.retestPassed !== undefined) finding.retestStatus = req.body.retestPassed === true ? 'ok' : req.body.retestPassed === false ? 'ko' : 'unknown'; // legacy boolean payloads
         if (!_.isNil(req.body.scope)) finding.scope = req.body.scope;
-        if (req.body.status !== undefined) finding.status = req.body.status;
+        if (req.body.status !== undefined && [0,1,2,3].includes(req.body.status)) finding.status = req.body.status;
         if (req.body.customFields) finding.customFields = req.body.customFields
         syncTaxonomy(finding, req.body);
 
@@ -648,6 +675,65 @@ module.exports = function(app, io) {
         }
 
         Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, update)
+        .then(msg => {
+            io.to(req.params.auditId).emit('updateAudit');
+            Response.Ok(res, msg)
+        })
+        .catch(err => Response.Internal(res, err))
+    });
+
+    /* ### COMMENTS ### */
+
+    // Add a field-level comment to a finding or section
+    app.post("/api/audits/:auditId/comments", acl.hasPermission('audits:comments:create'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        if ((!req.body.findingId && !req.body.sectionId) || (req.body.findingId && req.body.sectionId)) {
+            Response.BadParameters(res, 'Only set one of "findingId" or "sectionId"');
+            return;
+        }
+        if (!req.body.fieldName) {
+            Response.BadParameters(res, 'Missing required parameter: fieldName');
+            return;
+        }
+
+        var comment = {};
+        if (req.body.findingId) comment.findingId = req.body.findingId;
+        if (req.body.sectionId) comment.sectionId = req.body.sectionId;
+        comment.fieldName = req.body.fieldName;
+        comment.author = req.decodedToken.id;
+        comment.text = req.body.text || '';
+
+        Audit.createComment(acl.isAllowed(req.decodedToken.role, 'audits:comments:create-all'), req.params.auditId, req.decodedToken.id, comment)
+        .then(msg => {
+            io.to(req.params.auditId).emit('updateAudit');
+            Response.Created(res, msg)
+        })
+        .catch(err => Response.Internal(res, err))
+    });
+
+    // Update a comment (text, replies, resolved)
+    app.put("/api/audits/:auditId/comments/:commentId", acl.hasPermission('audits:comments:update'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        var comment = {};
+        if (!_.isNil(req.body.text)) comment.text = req.body.text;
+        if (Array.isArray(req.body.replies)) comment.replies = req.body.replies;
+        if (typeof(req.body.resolved) === 'boolean') comment.resolved = req.body.resolved;
+
+        Audit.updateComment(acl.isAllowed(req.decodedToken.role, 'audits:comments:update-all'), req.params.auditId, req.decodedToken.id, req.params.commentId, comment)
+        .then(msg => {
+            io.to(req.params.auditId).emit('updateAudit');
+            Response.Ok(res, msg)
+        })
+        .catch(err => Response.Internal(res, err))
+    });
+
+    // Delete a comment
+    app.delete("/api/audits/:auditId/comments/:commentId", acl.hasPermission('audits:comments:delete'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        Audit.deleteComment(acl.isAllowed(req.decodedToken.role, 'audits:comments:delete-all'), req.params.auditId, req.decodedToken.id, req.params.commentId)
         .then(msg => {
             io.to(req.params.auditId).emit('updateAudit');
             Response.Ok(res, msg)

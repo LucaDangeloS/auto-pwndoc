@@ -23,7 +23,7 @@ export default {
                 description: '',
                 observation: '',
                 references: [],
-                status: 1, // 1 = In progress, 0 = Completed (adapt according to your values)
+                status: 1, // 0: completed, 1: in progress, 2: for review, 3: improvement needed
                 customFields: [],
                 poc: '',
                 scope: '',

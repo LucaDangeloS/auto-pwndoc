@@ -222,7 +222,11 @@
             </template>
           </q-file>
           <q-toggle v-model="importOptions.groupByVuln" :label="$t('importGroupByVuln')" />
-          <q-toggle v-model="importOptions.includePoc" :label="$t('importIncludePoc')" />
+          <q-toggle
+            v-if="importTool === 'burp'"
+            v-model="importOptions.includePoc"
+            :label="$t('importIncludePoc')"
+          />
           <q-toggle
             v-if="importTool === 'openvas'"
             v-model="importOptions.skipInformational"

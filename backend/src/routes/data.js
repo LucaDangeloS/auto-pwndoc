@@ -29,21 +29,6 @@ module.exports = function(app) {
         }
     }
 
-/* ===== ROLES ===== */
-
-    // Get Roles list
-    app.get("/api/data/roles", acl.hasPermission('roles:read'), function(req, res) {
-        // #swagger.tags = ['Data']
-
-        try {
-            var result = Object.keys(acl.roles)
-            Response.Ok(res, result)
-        }
-        catch (error) {
-            Response.Internal(res, error)
-        }
-    })
-
 /* ===== LANGUAGES ===== */
 
     // Get languages list

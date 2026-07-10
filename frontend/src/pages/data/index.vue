@@ -10,7 +10,13 @@
                 <q-item-section avatar>
                     <q-icon name="fa fa-users" />
                 </q-item-section>
-                <q-item-section>{{$t('collaborators')}}</q-item-section>
+                <q-item-section>{{$t('users')}}</q-item-section>
+            </q-item>
+            <q-item to='/data/roles'>
+                <q-item-section avatar>
+                    <q-icon name="fa fa-id-badge" />
+                </q-item-section>
+                <q-item-section>{{$t('roles')}}</q-item-section>
             </q-item>
             <q-item to='/data/companies'>
                 <q-item-section avatar>
@@ -18,7 +24,7 @@
                 </q-item-section>
                 <q-item-section>{{$t('companies')}}</q-item-section>
             </q-item>
-            <q-item-label header>{{$t('vulnerabilities')}}</q-item-label>
+            <q-item-label header style="text-transform: capitalize">{{$t('vulnerabilities')}}</q-item-label>
             <q-item to='/data/vulnerabilities-data'>
                 <q-item-section avatar>
                     <q-icon name="fa fa-shield-alt" />
@@ -84,4 +90,3 @@ export default defineComponent({
   },
 });
 </script>
-

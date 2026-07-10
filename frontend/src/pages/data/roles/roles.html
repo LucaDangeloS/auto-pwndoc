@@ -1,0 +1,123 @@
+<div>
+    <div class="row">
+        <div class="col-md-10 col-12 offset-md-1 q-mt-md">
+            <q-table
+            class="sticky-header-table"
+            :columns="dtHeaders"
+            :rows="roles"
+            v-model:pagination="pagination"
+            row-key="name"
+            :loading="loading"
+            :grid="$q.screen.lt.md"
+            @row-dblclick="(evt, row) => openEdit(row)"
+          >
+            <template v-slot:loading>
+              <q-inner-loading showing color="primary" />
+            </template>
+
+                <template v-slot:top>
+                    <q-space />
+                    <q-btn
+                    v-if="UserService.isAllowed('roles:create')"
+                    unelevated
+                    :label="$t('addRole')"
+                    color="secondary"
+                    no-caps
+                    @click="openCreate()"
+                    />
+                </template>
+
+                <template v-slot:body-cell-displayName="props">
+                    <q-td :props="props">
+                        {{props.row.displayName}}
+                        <q-chip v-if="props.row.system" dense color="orange" text-color="white" class="q-ml-sm">{{$t('systemRole')}}</q-chip>
+                    </q-td>
+                </template>
+
+                <template v-slot:body-cell-permissions="props">
+                    <q-td :props="props">
+                        <span class="text-caption">{{permissionsSummary(props.row)}}</span>
+                    </q-td>
+                </template>
+
+                <template v-slot:body-cell-action="props">
+                    <q-td :props="props" style="width: 1px; white-space: nowrap">
+                      <q-btn
+                        size="sm"
+                        flat
+                        class="edit-btn-color"
+                        :icon="props.row.system || !UserService.isAllowed('roles:update') ? 'visibility' : 'fa fa-edit'"
+                        @click="openEdit(props.row)"
+                      >
+                        <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{props.row.system ? $t('tooltip.view') : $t('tooltip.edit')}}</q-tooltip>
+                      </q-btn>
+                      <q-btn
+                        v-if="!props.row.system && UserService.isAllowed('roles:delete')"
+                        size="sm"
+                        flat
+                        color="negative"
+                        icon="fa fa-trash"
+                        @click="confirmDelete(props.row)"
+                      >
+                        <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.delete')}}</q-tooltip>
+                      </q-btn>
+                    </q-td>
+                </template>
+            </q-table>
+        </div>
+    </div>
+
+    <!-- ── Role Create/Edit Modal ── -->
+    <q-dialog ref="roleModal" persistent @hide="cleanErrors()">
+        <q-card style="width:900px; max-width:95vw">
+            <q-bar class="bg-fixed-primary text-white">
+                <div class="q-toolbar-title">{{viewOnly ? currentRole.displayName : (editMode ? $t('editRole') : $t('addRole'))}}</div>
+                <q-space />
+                <q-btn dense flat icon="close" @click="$refs.roleModal.hide()" />
+            </q-bar>
+
+            <q-card-section class="q-col-gutter-md row">
+                <q-input class="col-12 col-md-4" :label="$t('roleName')+' *'" v-model="currentRole.name" :disable="editMode" :error="!!errors.name" :error-message="errors.name" hide-bottom-space outlined :hint="editMode ? '' : $t('roleNameHint')" />
+                <q-input class="col-12 col-md-4" :label="$t('roleDisplayName')+' *'" v-model="currentRole.displayName" :disable="viewOnly" :error="!!errors.displayName" :error-message="errors.displayName" hide-bottom-space outlined />
+                <q-input class="col-12 col-md-4" :label="$t('description')" v-model="currentRole.description" :disable="viewOnly" outlined />
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section>
+                <div class="row items-center q-mb-md">
+                    <div class="text-subtitle2">{{$t('permissions')}}</div>
+                    <q-space />
+                    <q-toggle
+                        v-if="!currentRole.allowsAll"
+                        v-model="inheritUser"
+                        :disable="viewOnly"
+                        :label="$t('roleInheritUser')"
+                    />
+                </div>
+                <div v-if="currentRole.allowsAll" class="text-caption text-grey-7 q-mb-md">{{$t('adminHasAllPermissions')}}</div>
+                <div class="row q-col-gutter-md">
+                    <div v-for="group in catalog" :key="group.key" class="col-12 col-md-4">
+                        <div class="text-caption text-weight-medium q-mb-xs">{{group.label}}</div>
+                        <div v-for="perm in group.permissions" :key="perm.scope">
+                            <q-checkbox
+                                dense
+                                :label="perm.scope"
+                                :model-value="isChecked(perm.scope)"
+                                :disable="viewOnly || isImplied(perm.scope)"
+                                @update:model-value="(val) => togglePermission(perm.scope, val)"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-actions align="right">
+                <q-btn color="primary" outline @click="$refs.roleModal.hide()">{{viewOnly ? $t('btn.close') : $t('btn.cancel')}}</q-btn>
+                <q-btn v-if="!viewOnly" color="secondary" unelevated :loading="saving" @click="saveRole()">{{editMode ? $t('btn.update') : $t('btn.create')}}</q-btn>
+            </q-card-actions>
+        </q-card>
+    </q-dialog>
+</div>

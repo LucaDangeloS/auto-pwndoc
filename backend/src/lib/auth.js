@@ -38,6 +38,9 @@ var builtInRoles = {
             'audits:read',
             'audits:update',
             'audits:delete',
+            'audits:comments:create',
+            'audits:comments:update',
+            'audits:comments:delete',
             'audit-archives:read',
             'audit-archives:create',
             'audit-archives:delete',
@@ -68,6 +71,9 @@ var builtInRoles = {
             'vulnerability-updates:create',
             // Custom Fields
             'custom-fields:read',
+            // Spellcheck
+            'spellcheck:read',
+            'spellcheck:create',
             // Settings
             'settings:read-public'
         ]
@@ -84,12 +90,32 @@ catch(error) {
 }
 var roles = {...customRoles, ...builtInRoles}
 
+exports.CORE_PERMISSIONS = builtInRoles.user.allows
+
 class ACL {
     constructor(roles) {
         if(typeof roles !== 'object') {
             throw new TypeError('Expected an object as input')
         }
         this.roles = roles
+    }
+
+    // Rebuild the role map from DB-stored custom roles. roles.json entries stay
+    // as a fallback base; DB roles with the same name win; built-in user/admin
+    // always win. Call after any Role mutation and once at startup.
+    async reload() {
+        try {
+            var Role = require('mongoose').model('Role')
+            var dbRoles = await Role.getAll()
+            var dbRoleMap = {}
+            dbRoles.forEach(role => {
+                dbRoleMap[role.name] = {allows: role.allows || [], inherits: role.inherits || []}
+            })
+            this.roles = {...customRoles, ...dbRoleMap, ...builtInRoles}
+        }
+        catch (err) {
+            console.error('[acl] Failed to reload roles from database:', err.message)
+        }
     }
 
     isAllowed(role, permission) {

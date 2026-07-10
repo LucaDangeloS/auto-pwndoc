@@ -20,6 +20,7 @@ export default [
     {path: 'data', component: () => import('pages/data'), meta: {breadcrumb: 'Datas'}, children: [
       {path: '', redirect: 'collaborators'},
       {path: 'collaborators', component: () => import('pages/data/collaborators')},
+      {path: 'roles', component: () => import('pages/data/roles')},
       {path: 'companies', component: () => import('pages/data/companies')},
       {path: 'templates', redirect: {path: '/data/audits-data', query: {tab: 'templates'}}},
       {path: 'vulnerabilities-data', component: () => import('pages/data/vulnerabilities-data')},

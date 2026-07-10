@@ -122,6 +122,13 @@ export default {
             newLanguage: {locale: "", language: ""},
             editLanguages: [],
             editLanguage: false,
+            vulnerabilityTranslationStats: {totalVulnerabilities: 0, languages: []},
+            vulnerabilityTranslationStatsLoading: false,
+            bulkTranslationSourceLocale: '',
+            bulkTranslationTargetLocale: '',
+            bulkTranslationDialog: false,
+            bulkTranslationStatus: {inProgress: false, status: 'idle', total: 0, processed: 0, updated: 0, skipped: 0, failed: 0},
+            bulkTranslationPolling: null,
 
             auditTypes: [],
             newAuditType: {name: "", templates: [], sections: [], hidden: []},
@@ -170,6 +177,14 @@ export default {
         this.getAuditTypes()
         this.getSections()
         this.getTaxonomy()
+        if (this.section === 'vulnerabilities') {
+            this.getVulnerabilityTranslationStats()
+            this.getBulkTranslationStatus()
+        }
+    },
+
+    beforeUnmount: function() {
+        this.stopBulkTranslationPolling()
     },
 
     computed: {
@@ -177,6 +192,43 @@ export default {
             return Array.from(new Set((this.taxonomyRows || []).map(row => row.type).filter(Boolean)))
             .sort()
             .map(type => ({label: type, value: type}))
+        },
+
+        vulnerabilityTranslationRows() {
+            return (this.vulnerabilityTranslationStats.languages || []).map(row => ({
+                ...row,
+                outgoingLabel: this.formatOutgoingTranslations(row)
+            }))
+        },
+
+        bulkTranslationProgress() {
+            const total = Number(this.bulkTranslationStatus.total) || 0
+            if (!total) return 0
+            return Math.min(1, (Number(this.bulkTranslationStatus.processed) || 0) / total)
+        },
+
+        bulkTranslationCandidateCount() {
+            return this.bulkTranslationDirections.reduce((sum, row) => sum + row.count, 0)
+        },
+
+        bulkTranslationDirections() {
+            const source = (this.vulnerabilityTranslationStats.languages || []).find(row => row.locale === this.bulkTranslationSourceLocale)
+            const target = (this.vulnerabilityTranslationStats.languages || []).find(row => row.locale === this.bulkTranslationTargetLocale)
+            if (!source || !target) return []
+            return [
+                {
+                    key: `${source.locale}-${target.locale}`,
+                    source: source.language || source.locale,
+                    target: target.language || target.locale,
+                    count: Number(source.missingByTarget?.[target.locale] || 0)
+                },
+                {
+                    key: `${target.locale}-${source.locale}`,
+                    source: target.language || target.locale,
+                    target: source.language || source.locale,
+                    count: Number(target.missingByTarget?.[source.locale] || 0)
+                }
+            ]
         }
     },
 
@@ -206,31 +258,6 @@ export default {
                 return !this.newAuditType.name || this.newAuditType.templates.length !== this.languages.length || this.newAuditType.templates.some(e => !e)
         },
 
-        cleanupTranslationGroups: function() {
-            VulnerabilityService.cleanupTranslationGroups()
-            .then((data) => {
-                const result = data.data.datas || {};
-                Notify.create({
-                    message: $t('translationCleanupDone', {
-                        groups: result.removedGroups || 0,
-                        members: result.removedMembers || 0,
-                        sources: result.repairedSources || 0
-                    }),
-                    color: 'positive',
-                    textColor:'white',
-                    position: 'top-right'
-                })
-            })
-            .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                })
-            })
-        },
-
 /* ===== LANGUAGES ===== */
 
         // Get available languages
@@ -238,9 +265,113 @@ export default {
             DataService.getLanguages()
             .then((data) => {
                 this.languages = data.data.datas;
+                if (this.section === 'vulnerabilities') this.ensureBulkTranslationLanguages()
             })
             .catch((err) => {
                 console.log(err)
+            })
+        },
+
+        ensureBulkTranslationLanguages: function() {
+            if (!this.bulkTranslationSourceLocale && this.languages[0]) this.bulkTranslationSourceLocale = this.languages[0].locale
+            if (!this.bulkTranslationTargetLocale && this.languages[1]) this.bulkTranslationTargetLocale = this.languages[1].locale
+            if (this.bulkTranslationSourceLocale === this.bulkTranslationTargetLocale) {
+                const alternative = this.languages.find(language => language.locale !== this.bulkTranslationSourceLocale)
+                this.bulkTranslationTargetLocale = alternative ? alternative.locale : ''
+            }
+        },
+
+        formatOutgoingTranslations: function(row) {
+            const targets = Object.keys(row.outgoingByTarget || {})
+                .filter(locale => row.outgoingByTarget[locale])
+                .map(locale => `${this.languageLabel(locale)}: ${row.outgoingByTarget[locale]}`)
+            return targets.length ? targets.join(', ') : '-'
+        },
+
+        languageLabel: function(locale) {
+            const language = this.languages.find(item => item.locale === locale)
+            return language ? language.language : locale
+        },
+
+        getVulnerabilityTranslationStats: function() {
+            if (this.section !== 'vulnerabilities') return
+            this.vulnerabilityTranslationStatsLoading = true
+            return VulnerabilityService.getTranslationStats()
+            .then((data) => {
+                this.vulnerabilityTranslationStats = data.data.datas || {totalVulnerabilities: 0, languages: []}
+                this.ensureBulkTranslationLanguages()
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response?.data?.datas || err.message,
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            })
+            .finally(() => {
+                this.vulnerabilityTranslationStatsLoading = false
+            })
+        },
+
+        getBulkTranslationStatus: function() {
+            if (this.section !== 'vulnerabilities') return
+            return VulnerabilityService.getBulkTranslationStatus()
+            .then((data) => {
+                const previous = this.bulkTranslationStatus.inProgress
+                this.bulkTranslationStatus = data.data.datas || this.bulkTranslationStatus
+                if (this.bulkTranslationStatus.inProgress) this.startBulkTranslationPolling()
+                else {
+                    this.stopBulkTranslationPolling()
+                    if (previous) this.getVulnerabilityTranslationStats()
+                }
+            })
+            .catch((err) => {
+                console.log(err)
+                this.stopBulkTranslationPolling()
+            })
+        },
+
+        startBulkTranslationPolling: function() {
+            if (this.bulkTranslationPolling) return
+            this.bulkTranslationPolling = setInterval(() => this.getBulkTranslationStatus(), 3000)
+        },
+
+        stopBulkTranslationPolling: function() {
+            if (!this.bulkTranslationPolling) return
+            clearInterval(this.bulkTranslationPolling)
+            this.bulkTranslationPolling = null
+        },
+
+        openBulkTranslationDialog: function() {
+            this.ensureBulkTranslationLanguages()
+            this.bulkTranslationDialog = true
+            this.getVulnerabilityTranslationStats()
+            this.getBulkTranslationStatus()
+        },
+
+        startBulkTranslation: function() {
+            if (!this.bulkTranslationSourceLocale || !this.bulkTranslationTargetLocale || this.bulkTranslationSourceLocale === this.bulkTranslationTargetLocale) return
+            VulnerabilityService.startBulkTranslation({
+                sourceLocales: [this.bulkTranslationSourceLocale, this.bulkTranslationTargetLocale]
+            })
+            .then((data) => {
+                this.bulkTranslationStatus = data.data.datas || this.bulkTranslationStatus
+                this.startBulkTranslationPolling()
+                Notify.create({
+                    message: this.bulkTranslationStatus.alreadyRunning ? $t('bulkTranslationAlreadyRunning') : $t('bulkTranslationStarted'),
+                    color: this.bulkTranslationStatus.alreadyRunning ? 'warning' : 'positive',
+                    textColor: this.bulkTranslationStatus.alreadyRunning ? 'dark' : 'white',
+                    position: 'top-right'
+                })
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response?.data?.datas || err.message,
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
             })
         },
 

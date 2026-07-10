@@ -24,17 +24,80 @@
                                     :label="$t('automaticVulnerabilityMatching')"
                                     @click="$router.push({path: '/vulnerabilities', query: {matching: '1'}})"
                                 />
-                                <q-btn
-                                    outline
-                                    color="secondary"
-                                    no-caps
-                                    :label="$t('cleanTranslationMappings')"
-                                    @click="cleanupTranslationGroups"
-                                />
                             </div>
                         </div>
-                    </q-card-section>
-                    <q-card-section class="row">
+	                    </q-card-section>
+	                    <q-separator v-if="section === 'vulnerabilities'" />
+			                    <q-card-section v-if="section === 'vulnerabilities'" class="translation-maintenance">
+			                        <div class="row items-center q-mb-sm">
+			                            <div class="text-subtitle2">{{$t('translationInsights')}}</div>
+			                            <q-space />
+			                            <q-btn v-if="UserService.isAllowed('vulnerabilities:update')" dense outline color="secondary" no-caps icon="translate" :label="$t('bulkTranslate')" @click="openBulkTranslationDialog" />
+			                        </div>
+			                        <div class="translation-stats-table">
+			                            <table>
+			                                <thead>
+		                                    <tr>
+		                                        <th class="text-left">{{$t('language')}}</th>
+		                                        <th class="text-right">{{$t('languageVersions')}}</th>
+		                                        <th class="text-right">{{$t('sourceVersions')}}</th>
+		                                        <th class="text-left">{{$t('generatedFromSource')}}</th>
+		                                    </tr>
+		                                </thead>
+		                                <tbody>
+		                                    <tr v-for="row in vulnerabilityTranslationRows" :key="row.locale">
+		                                        <td>{{row.language}} ({{row.locale}})</td>
+		                                        <td class="text-right">{{row.vulnerabilities}}</td>
+		                                        <td class="text-right">{{row.source}}</td>
+		                                        <td>{{row.outgoingLabel}}</td>
+		                                    </tr>
+			                                </tbody>
+			                            </table>
+			                        </div>
+			                    </q-card-section>
+		                    <q-dialog v-if="section === 'vulnerabilities'" v-model="bulkTranslationDialog">
+		                        <q-card class="bulk-translation-modal">
+		                            <q-bar class="bg-fixed-primary text-white">
+		                                <div class="q-toolbar-title">{{$t('bulkTranslate')}}</div>
+		                                <q-space />
+		                                <q-btn dense flat icon="close" v-close-popup />
+		                            </q-bar>
+		                            <q-card-section>
+		                                <div class="row q-col-gutter-sm">
+		                                    <q-select class="col-12 col-sm-6" :label="$t('sourceLanguage')" v-model="bulkTranslationSourceLocale" :options="languages" option-value="locale" option-label="language" map-options emit-value outlined dense />
+		                                    <q-select class="col-12 col-sm-6" :label="$t('targetLanguage')" v-model="bulkTranslationTargetLocale" :options="languages.filter(language => language.locale !== bulkTranslationSourceLocale)" option-value="locale" option-label="language" map-options emit-value outlined dense />
+		                                </div>
+		                                <q-markup-table flat bordered dense class="q-mt-md">
+		                                    <thead>
+		                                        <tr>
+		                                            <th class="text-left">{{$t('direction')}}</th>
+		                                            <th class="text-right">{{$t('missingTranslations')}}</th>
+		                                        </tr>
+		                                    </thead>
+		                                    <tbody>
+		                                        <tr v-for="row in bulkTranslationDirections" :key="row.key">
+		                                            <td>{{row.source}} -> {{row.target}}</td>
+		                                            <td class="text-right">{{row.count}}</td>
+		                                        </tr>
+		                                    </tbody>
+		                                </q-markup-table>
+		                                <div v-if="bulkTranslationStatus.inProgress" class="q-mt-md">
+		                                    <q-linear-progress :value="bulkTranslationProgress" color="secondary" />
+		                                    <div class="text-caption q-mt-xs">{{$t('bulkTranslationProgress', {processed: bulkTranslationStatus.processed, total: bulkTranslationStatus.total})}}</div>
+		                                </div>
+		                                <div v-if="!bulkTranslationStatus.inProgress && bulkTranslationStatus.status === 'finished'" class="text-caption q-mt-sm">
+		                                    {{$t('bulkTranslationDone', {updated: bulkTranslationStatus.updated, failed: bulkTranslationStatus.failed, skipped: bulkTranslationStatus.skipped})}}
+		                                </div>
+		                            </q-card-section>
+		                            <q-card-actions align="right" class="items-center">
+		                                <q-chip square color="info" text-color="white" class="q-mr-auto">{{$t('toTranslate')}}: {{bulkTranslationCandidateCount}}</q-chip>
+		                                <q-btn outline color="primary" no-caps :label="$t('btn.cancel')" v-close-popup />
+		                                <q-btn color="secondary" unelevated no-caps icon="translate" :label="$t('bulkTranslate')" :disable="bulkTranslationStatus.inProgress || bulkTranslationCandidateCount === 0 || bulkTranslationSourceLocale === bulkTranslationTargetLocale" @click="startBulkTranslation" />
+		                            </q-card-actions>
+		                        </q-card>
+		                    </q-dialog>
+		                    <q-separator />
+	                    <q-card-section class="row">
                         <div class="col-md-6 col-12" v-if="UserService.isAllowed('languages:create')">
                             <q-item>
                                 <q-item-section>

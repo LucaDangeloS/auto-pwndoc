@@ -76,4 +76,50 @@
   padding: 8px;
   white-space: pre;
 }
+
+.translation-maintenance {
+  max-width: 920px;
+}
+
+.translation-stats-table {
+  border: 1px solid $separator-color;
+  border-radius: 4px;
+  overflow-x: auto;
+
+  table {
+    border-collapse: collapse;
+    min-width: 620px;
+    width: 100%;
+  }
+
+  th,
+  td {
+    border-bottom: 1px solid $separator-color;
+    padding: 8px 12px;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+
+  th {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  td:last-child {
+    white-space: normal;
+  }
+}
+
+.bulk-translation-modal {
+  max-width: 680px;
+  width: 680px;
+
+  @media (max-width: $breakpoint-xs-max) {
+    width: calc(100vw - 32px);
+  }
+}
 </style>

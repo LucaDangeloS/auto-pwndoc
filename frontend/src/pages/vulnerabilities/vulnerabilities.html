@@ -33,6 +33,11 @@
                 options-sanitize
                 outlined
                 />
+                <q-toggle
+                class="q-ml-sm"
+                :label="$t('showSingleLanguageVulnerabilities')"
+                v-model="showOnlySelectedLanguage"
+                />
                 <q-toggle :label="$t('btn.valid')" v-model="search.valid" :true-value=0 :false-value="null" />
                 <q-toggle class="vuln-toggle-new" :label="$t('btn.new')" color="light-blue-5" v-model="search.new" :true-value=1 :false-value="null" />
                 <q-toggle class="vuln-toggle-updates" :label="$t('btn.updates')" color="orange-6" v-model="search.updates" :true-value=2 :false-value="null" />
@@ -125,9 +130,20 @@
             </template>
 
             <template v-slot:body="props">
-                <q-tr @dblclick="dblClick(props.row)" v-if="getDtTitle(props.row) !== 'Not defined for this language yet'" :props="props" :class="(props.row.status === 1)?'vuln-row-new':(props.row.status === 2)?'vuln-row-updates':''">
+                <q-tr @dblclick="dblClick(props.row)" v-if="getDtTitle(props.row) !== 'Not defined for this language yet'" :props="props" :class="(rowStatusForLocale(props.row) === 1)?'vuln-row-new':(rowStatusForLocale(props.row) === 2)?'vuln-row-updates':''">
                     <q-td key="title" :props="props">
                         {{getDtTitle(props.row)}}
+                        <q-chip
+                        v-if="props.row.indexedInChroma === false"
+                        dense
+                        square
+                        color="warning"
+                        text-color="dark"
+                        icon="fa fa-database"
+                        class="q-ml-sm vuln-index-chip"
+                        >
+                            {{$t('chromaNotIndexed')}}
+                        </q-chip>
                     </q-td>
                     <q-td key="type" :props="props">
                         {{ getDtType(props.row) || '-' }}
@@ -143,14 +159,17 @@
                         {{getDtUpdatedAt(props.row)}}
                     </q-td>
                     <q-td key="action" :props="props" style="width:1px">
-                        <q-btn v-if="UserService.isAllowed('vulnerabilities:update')" size="sm" flat class="edit-btn-color" icon="fa fa-edit" @click="clone(props.row); (props.row.status === 2)?$refs.updatesModal.show():$refs.editModal.show()">
+                        <q-btn v-if="UserService.isAllowed('vulnerabilities:update')" size="sm" flat class="edit-btn-color" icon="fa fa-edit" @click="openVulnerability(props.row)">
                             <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.edit')}}</q-tooltip>                                                    
                         </q-btn>
-                        <q-btn v-else size="sm" flat color="primary" icon="fa fa-eye" @click="clone(props.row); $refs.editModal.show()">
+                        <q-btn v-else size="sm" flat color="primary" icon="fa fa-eye" @click="openVulnerability(props.row)">
                             <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.view')}}</q-tooltip>                            
                         </q-btn>
                         <q-btn size="sm" flat color="secondary" icon="fa fa-fingerprint" @click="goToAudits(props.row)">
                             <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.findAudits')}}</q-tooltip>                            
+                        </q-btn>
+                        <q-btn v-if="UserService.isAllowed('vulnerabilities:create')" size="sm" flat color="secondary" icon="content_copy" @click="cloneAsNewVulnerability(props.row)">
+                            <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.clone')}}</q-tooltip>
                         </q-btn>
                         <q-btn v-if="UserService.isAllowed('vulnerabilities:delete')" size="sm" flat color="negative" icon="fa fa-trash" @click="confirmDeleteVulnerability(props.row)">
                             <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.delete')}}</q-tooltip>                            
@@ -396,8 +415,8 @@
                 <q-card-section>
                     <div class="row items-center justify-between q-mb-sm">
                         <div>
-                            <div class="text-subtitle2 text-weight-medium">{{$t('relatedTranslations')}}</div>
-                            <div class="text-caption text-grey-7">{{$t('relatedTranslationsHint')}}</div>
+                            <div class="text-subtitle2 text-weight-medium">{{$t('vulnerabilityLanguages')}}</div>
+                            <div class="text-caption text-grey-7">{{$t('vulnerabilityLanguagesHint')}}</div>
                         </div>
                         <q-btn
                             v-if="UserService.isAllowed('vulnerabilities:update')"
@@ -407,39 +426,43 @@
                             no-caps
                             :label="$t('autoTranslateRelated')"
                             :loading="translatingRelated"
-                            :disable="!currentTranslationGroup"
+                            :disable="currentVulnerabilityLanguages.length < 2"
                             @click="autoTranslateRelated"
                         />
                     </div>
-                    <div v-if="currentTranslationMembers.length === 0" class="text-caption text-grey-7 q-mb-md">
-                        {{$t('noRelatedTranslations')}}
-                    </div>
-                    <q-list v-else bordered separator class="q-mb-md">
-                        <q-item v-for="member in currentTranslationMembers" :key="memberVulnId(member) + member.locale">
+                    <q-list bordered separator class="q-mb-md">
+                        <q-item v-for="member in currentVulnerabilityLanguages" :key="member.locale">
                             <q-item-section>
                                 <q-item-label>
                                     <span class="text-weight-medium">{{ languageLabel(member.locale) }}</span>
                                     <q-badge v-if="member.isSource" color="secondary" class="q-ml-sm">{{$t('sourceVersion')}}</q-badge>
                                     <q-badge v-if="isMostRecentlyEdited(member)" outline color="primary" class="q-ml-sm">{{$t('lastEdited')}}</q-badge>
-                                    <q-badge :color="translationStatusColor(member)" class="q-ml-sm">{{ translationStatusLabel(member) }}</q-badge>
+                                    <q-badge v-if="member.syncStatus" :color="translationStatusColor(member)" class="q-ml-sm">{{ translationStatusLabel(member) }}</q-badge>
                                 </q-item-label>
-                                <q-item-label caption>{{ memberTitle(member) }}</q-item-label>
-                                <q-item-label caption>{{$t('lastEdited')}}: {{ memberLastEditedLabel(member) }}</q-item-label>
+                                <q-item-label caption>{{ member.title }}</q-item-label>
+                                <q-item-label v-if="member.lastEditedAt" caption>{{$t('lastEdited')}}: {{ memberLastEditedLabel(member) }}</q-item-label>
                             </q-item-section>
-                            <q-item-section side v-if="UserService.isAllowed('vulnerabilities:update')">
+                            <q-item-section side>
                                 <div class="row q-gutter-xs">
-                                    <q-btn flat dense round icon="star" color="secondary" :disable="member.isSource" @click="setTranslationSource(member)"><q-tooltip>{{$t('markAsSource')}}</q-tooltip></q-btn>
-                                    <q-btn v-if="member.syncStatus === 'failed'" flat dense round icon="refresh" color="warning" :loading="translatingRelated" @click="autoTranslateRelated"><q-tooltip>{{$t('retryAutoTranslate')}}</q-tooltip></q-btn>
-                                    <q-btn flat dense round icon="link_off" color="negative" @click="unrelateVulnerability(member)"><q-tooltip>{{$t('unrelateTranslation')}}</q-tooltip></q-btn>
+                                    <q-btn flat dense round icon="visibility" color="primary" :disable="member.isCurrent" @click="viewTranslationMember(member)"><q-tooltip>{{$t('viewTranslation')}}</q-tooltip></q-btn>
+                                    <template v-if="UserService.isAllowed('vulnerabilities:update')">
+                                        <q-btn flat dense round icon="star" color="secondary" :disable="member.isSource || member.isPendingUpdate" @click="setTranslationSource(member)"><q-tooltip>{{$t('markAsSource')}}</q-tooltip></q-btn>
+                                        <q-btn v-if="member.syncStatus === 'stale'" flat dense round icon="check" color="positive" @click="markTranslationSynced(member)"><q-tooltip>{{$t('markAsSynced')}}</q-tooltip></q-btn>
+                                        <q-btn v-if="member.syncStatus === 'failed'" flat dense round icon="refresh" color="warning" :loading="translatingRelated" @click="autoTranslateRelated"><q-tooltip>{{$t('retryAutoTranslate')}}</q-tooltip></q-btn>
+                                        <q-btn flat dense round icon="call_split" color="negative" :disable="currentVulnerabilityLanguages.length < 2 || member.isPendingUpdate" @click="splitTranslationMember(member)"><q-tooltip>{{$t('splitTranslation')}}</q-tooltip></q-btn>
+                                    </template>
                                 </div>
                             </q-item-section>
                         </q-item>
                     </q-list>
-                    <div v-if="UserService.isAllowed('vulnerabilities:update')" class="row q-col-gutter-md">
+                    <div v-if="UserService.isAllowed('vulnerabilities:update') && relationLanguageOptions.length > 0" class="row q-col-gutter-md">
+                        <div class="col-12">
+                            <div class="text-subtitle2 text-weight-medium">{{$t('mergeLanguageIn')}}</div>
+                            <div class="text-caption text-grey-7">{{$t('mergeLanguageInHint')}}</div>
+                        </div>
                         <q-select class="col-12 col-md-3" :label="$t('language')" v-model="relationCandidateLocale" :options="relationLanguageOptions" option-value="locale" option-label="language" map-options emit-value outlined />
-                        <q-select class="col-12 col-md-5" :label="$t('relatedVulnerability')" v-model="relationCandidateVuln" :options="relationCandidates" :option-label="relationCandidateLabel" option-value="_id" emit-value map-options outlined />
-                        <div class="col-12 col-md-2 flex items-center"><q-toggle v-model="showMappedRelationCandidates" :label="$t('showMapped')" /></div>
-                        <div class="col-12 col-md-2 flex items-center"><q-btn color="secondary" unelevated no-caps :label="$t('relateTranslation')" :disable="!relationCandidateVuln" @click="relateSelectedVulnerability" /></div>
+                        <q-select class="col-12 col-md-6" :label="$t('relatedVulnerability')" v-model="relationCandidateVuln" :options="filteredRelationCandidates" :option-label="relationCandidateLabel" option-value="_id" emit-value map-options outlined use-input input-debounce="0" clearable @filter="filterRelationCandidates" />
+                        <div class="col-12 col-md-3 flex items-center"><q-btn color="secondary" unelevated no-caps :label="$t('mergeTranslation')" :disable="!relationCandidateVuln" @click="mergeSelectedVulnerability" /></div>
                     </div>
                     <q-separator v-if="UserService.isAllowed('vulnerabilities:update')" class="q-my-md" />
                     <div v-if="UserService.isAllowed('vulnerabilities:update')" class="row q-col-gutter-md items-center">
@@ -880,8 +903,13 @@
             <q-card-section v-html="$t('mergeVulnerabilitiesInfo')"></q-card-section>
         </div>
         <q-card-section v-if="languages.length >= 2" class="q-pb-none">
-            <q-toggle v-model="showMappedInMerge" :label="$t('showMapped')" />
             <div class="text-caption text-grey-7">{{$t('mergeVulnerabilitiesInfo')}}</div>
+            <q-toggle
+                class="q-mt-sm"
+                dense
+                :label="$t('hideTranslatedVulnerabilities')"
+                v-model="mergeHideTranslated"
+            />
         </q-card-section>
         <div v-if="languages.length >= 2" class="row translation-relation-modal__body">
             <div class="col-md-6 col-12 translation-relation-modal__column">
@@ -894,9 +922,17 @@
                     option-label="language"
                     map-options
                     emit-value
-                    @input="mergeVulnLeft = ''"
+                    @update:model-value="mergeVulnLeft = ''"
                     options-sanitize
                     outlined
+                    />
+                    <q-input
+                    class="q-mt-sm"
+                    dense
+                    clearable
+                    outlined
+                    :label="$t('filterVulnerabilities')"
+                    v-model="mergeSearchLeft"
                     />
                 </q-card-section>
                 <q-card-section class="card-section-merge">
@@ -931,9 +967,17 @@
                     option-label="language"
                     map-options
                     emit-value
-                    @input="mergeVulnRight = ''"
+                    @update:model-value="mergeVulnRight = ''"
                     options-sanitize
                     outlined
+                    />
+                    <q-input
+                    class="q-mt-sm"
+                    dense
+                    clearable
+                    outlined
+                    :label="$t('filterVulnerabilities')"
+                    v-model="mergeSearchRight"
                     />
                 </q-card-section>
                 <q-card-section class="card-section-merge">
@@ -960,8 +1004,44 @@
         </div>
         <q-separator />
         <q-card-actions align="center">
-                <q-btn color="secondary" unelevated @click="mergeVulnerabilities" :disable="mergeVulnLeft === '' || mergeVulnRight === ''">{{$t('relateTranslation')}}</q-btn>
+                <q-btn color="secondary" unelevated @click="mergeVulnerabilities" :disable="mergeVulnLeft === '' || mergeVulnRight === ''">{{$t('mergeTranslation')}}</q-btn>
             </q-card-actions>
+    </q-card>
+</q-dialog>
+
+<q-dialog v-model="mergeConflict.active" persistent>
+    <q-card style="width: 700px; max-width: 90vw">
+        <q-bar class="bg-fixed-primary text-white">
+            <span>{{$t('mergeConflictTitle')}}</span>
+            <q-space />
+            <q-btn dense flat icon="close" @click="cancelMergeConflict" />
+        </q-bar>
+        <q-card-section>
+            <div class="text-caption text-grey-7 q-mb-md">{{$t('mergeConflictHint')}}</div>
+            <div class="row q-mb-sm text-weight-medium">
+                <div class="col-2"></div>
+                <div class="col-5">{{ mergeConflict.baseTitle }}</div>
+                <div class="col-5">{{ mergeConflict.otherTitle }}</div>
+            </div>
+            <div v-for="conflict in mergeConflict.conflicts" :key="conflict.field" class="row items-center q-py-sm" style="border-top: 1px solid rgba(128,128,128,0.25)">
+                <div class="col-2 text-weight-medium">{{ mergeFieldLabel(conflict.field) }}</div>
+                <div class="col-5">
+                    <q-radio v-model="mergeConflict.picks[conflict.field]" val="base" dense>
+                        <span class="q-ml-xs" style="word-break: break-all">{{ mergeFieldDisplay(conflict.field, conflict.baseValue) }}</span>
+                    </q-radio>
+                </div>
+                <div class="col-5">
+                    <q-radio v-model="mergeConflict.picks[conflict.field]" val="other" dense>
+                        <span class="q-ml-xs" style="word-break: break-all">{{ mergeFieldDisplay(conflict.field, conflict.otherValue) }}</span>
+                    </q-radio>
+                </div>
+            </div>
+        </q-card-section>
+        <q-separator />
+        <q-card-actions align="right">
+            <q-btn flat color="white" @click="cancelMergeConflict">{{$t('btn.cancel')}}</q-btn>
+            <q-btn color="secondary" unelevated @click="confirmMergeConflict">{{$t('btn.confirm')}}</q-btn>
+        </q-card-actions>
     </q-card>
 </q-dialog>
 

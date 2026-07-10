@@ -53,6 +53,9 @@
     td
         background: rgba(251, 140, 0, 0.14) !important
 
+.vuln-index-chip
+    vertical-align: middle
+
 .vuln-toggle-new
     .q-toggle__inner--truthy
         .q-toggle__thumb

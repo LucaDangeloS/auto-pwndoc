@@ -134,6 +134,18 @@ async function deleteVulnerability(vulnId, aiSettings) {
     }
 }
 
+async function getIndexedVulnerabilityIds() {
+    const collection = await getChromaCollection();
+    const results = await collection.get({ include: ['metadatas'] });
+    const indexed = new Set();
+
+    for (const metadata of results.metadatas || []) {
+        if (metadata && metadata.vulnId) indexed.add(metadata.vulnId.toString());
+    }
+
+    return indexed;
+}
+
 async function searchSimilar(query, locale, aiSettings, topK = 10, maxDistanceOverride) {
     const embeddings = buildEmbeddings(aiSettings);
     const collection = await getChromaCollection();
@@ -222,4 +234,4 @@ async function reindexAll(aiSettings) {
     return indexed;
 }
 
-module.exports = { indexVulnerability, deleteVulnerability, searchSimilar, reindexAll, getReindexStatus };
+module.exports = { indexVulnerability, deleteVulnerability, getIndexedVulnerabilityIds, searchSimilar, reindexAll, getReindexStatus };

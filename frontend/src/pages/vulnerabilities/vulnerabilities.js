@@ -11,6 +11,7 @@ import VulnerabilityService from '@/services/vulnerability'
 import DataService from '@/services/data'
 import UserService from '@/services/user'
 import Utils from '@/services/utils'
+import { extractErrorMessage } from '@/services/ai-helpers'
 
 import { $t } from 'boot/i18n'
 
@@ -51,6 +52,7 @@ export default {
             locale: '',
             // Search filter
             search: {title: '', type: '', category: '', updatedAt: '', valid: 0, new: 1, updates: 2},
+            showOnlySelectedLanguage: false,
             // Errors messages
             errors: {title: ''},
             // Selected or New Vulnerability
@@ -81,14 +83,26 @@ export default {
             mergeLanguageRight: '',
             mergeVulnLeft: '',
             mergeVulnRight: '',
-            showMappedInMerge: false,
-            translationGroups: [],
+            mergeSearchLeft: '',
+            mergeSearchRight: '',
+            mergeHideTranslated: false,
             relationCandidateLocale: '',
             relationCandidateVuln: '',
+            relationCandidateSearch: '',
             translationTargetLocale: '',
-            showMappedRelationCandidates: false,
             translatingRelated: false,
             translatingLocale: false,
+            // Merge metadata conflict dialog: when the two documents disagree on
+            // shared fields (CVSS, priority, ...) the user picks per field which
+            // value the merged document keeps.
+            mergeConflict: {
+                active: false,
+                baseTitle: '',
+                otherTitle: '',
+                conflicts: [],   // [{field, baseValue, otherValue}]
+                picks: {},       // field -> 'base' | 'other'
+                resolve: null
+            },
             matchingDialog: false,
             matchingScope: 'unmapped',
             matchingThreshold: 0.35,
@@ -117,7 +131,6 @@ export default {
     mounted: function() {
         this.getLanguages()
         this.getVulnerabilities()
-        this.getTranslationGroups()
         this.getVulnerabilityCategories()
         this.getCustomFields()
         if (this.$route.query.matching === '1') {
@@ -133,6 +146,13 @@ export default {
         currentLanguage: function(val, oldVal) {
             if (this.suppressLanguageWatch) return;
             this.resolveLanguageSelection(val, oldVal);
+        },
+        // A candidate picked for one language is meaningless for another:
+        // keeping it would let "Relate translation" submit a vuln that may not
+        // even contain the newly selected locale.
+        relationCandidateLocale: function() {
+            this.relationCandidateVuln = '';
+            this.relationCandidateSearch = '';
         }
     },
 
@@ -152,57 +172,108 @@ export default {
             if (!this.dtLanguage) return [];
             let filtered = this.vulnerabilities.filter(vuln =>
                 vuln.details.some(detail => detail.locale === this.dtLanguage && detail.title)
+                || this.hasPendingUpdateForLocale(vuln, this.dtLanguage)
             );
+            if (this.showOnlySelectedLanguage) {
+                filtered = filtered.filter(vuln => this.vulnerabilityLocales(vuln).length === 1);
+            }
             return filtered;
         },
         filteredVulnerabilitiesLeft() {
             if (!this.mergeLanguageLeft) return [];
-            return this.vulnerabilities.filter(
-              (vuln) => vuln && vuln.details && this.getVulnTitleLocale(vuln, this.mergeLanguageLeft) && (this.showMappedInMerge || !this.isVulnerabilityMapped(vuln._id))
-            );
+            const needle = this.normalizeSearch(this.mergeSearchLeft);
+            return this.vulnerabilities.filter((vuln) => {
+                const title = this.getVulnTitleLocale(vuln, this.mergeLanguageLeft);
+                return vuln && vuln.details && vuln._id !== this.mergeVulnRight
+                    && title
+                    // The right language will be merged INTO the left document, so
+                    // it must not already contain it.
+                    && (!this.mergeLanguageRight || !this.getVulnTitleLocale(vuln, this.mergeLanguageRight))
+                    && (!this.mergeHideTranslated || this.vulnerabilityLocales(vuln).length === 1)
+                    && (!needle || this.normalizeSearch(title).includes(needle));
+            });
           },
           filteredVulnerabilitiesRight() {
             if (!this.mergeLanguageRight) return [];
-            return this.vulnerabilities.filter(
-              (vuln) => vuln && vuln.details && this.getVulnTitleLocale(vuln, this.mergeLanguageRight) && (this.showMappedInMerge || !this.isVulnerabilityMapped(vuln._id))
-            );
-          },
-        currentTranslationGroup: function() {
-            if (!this.vulnerabilityId) return null;
-            return this.translationGroups.find(group => (group.members || []).some(member => this.memberVulnId(member) === this.vulnerabilityId)) || null;
-        },
-        currentTranslationMembers: function() {
-            return this.currentTranslationGroup ? (this.currentTranslationGroup.members || []).filter(member => member.locale !== this.currentLanguage) : [];
-        },
-        // Key of the single most recently edited member across the whole group,
-        // so the "Last edited" badge marks only that one (not every member that
-        // was ever edited).
-        mostRecentlyEditedMemberKey: function() {
-            const group = this.currentTranslationGroup;
-            if (!group || !Array.isArray(group.members)) return null;
-            let best = null;
-            group.members.forEach(member => {
-                if (!member.lastEditedAt) return;
-                const time = new Date(member.lastEditedAt).getTime();
-                if (!Number.isFinite(time)) return;
-                if (!best || time > best.time) best = {time, key: this.memberVulnId(member) + member.locale};
+            const needle = this.normalizeSearch(this.mergeSearchRight);
+            return this.vulnerabilities.filter((vuln) => {
+                const title = this.getVulnTitleLocale(vuln, this.mergeLanguageRight);
+                return vuln && vuln.details && vuln._id !== this.mergeVulnLeft
+                    && title
+                    && (!this.mergeHideTranslated || this.vulnerabilityLocales(vuln).length === 1)
+                    && (!needle || this.normalizeSearch(title).includes(needle));
             });
-            return best ? best.key : null;
+          },
+        // Languages already stored in details[], plus pending translation
+        // proposals that are not committed yet but should still be visible from
+        // the original vulnerability.
+        currentVulnerabilityLanguages: function() {
+            if (!this.vulnerabilityId) return [];
+            var languages = (this.currentVulnerability.details || [])
+                .filter(detail => detail.locale && detail.title)
+                .map(detail => ({
+                    locale: detail.locale,
+                    title: detail.title,
+                    lastEditedAt: detail.lastEditedAt,
+                    syncStatus: detail.syncStatus || '',
+                    isSource: (this.currentVulnerability.sourceLocale || '') === detail.locale,
+                    isCurrent: detail.locale === this.currentLanguage
+                }));
+            var presentLocales = new Set(languages.map(lang => lang.locale));
+            ((this.currentVulnerability && this.currentVulnerability.pendingUpdates) || [])
+                .filter(update => update.locale && !presentLocales.has(update.locale))
+                .forEach(update => {
+                    languages.push({
+                        locale: update.locale,
+                        title: update.title || '',
+                        lastEditedAt: null,
+                        syncStatus: 'pending-review',
+                        isSource: false,
+                        isCurrent: update.locale === this.currentLanguage,
+                        isPendingUpdate: true
+                    });
+                });
+            return languages;
         },
+        // Locale of the single most recently edited language, so the "Last
+        // edited" badge marks only that one.
+        mostRecentlyEditedLocale: function() {
+            let best = null;
+            this.currentVulnerabilityLanguages.forEach(lang => {
+                if (!lang.lastEditedAt) return;
+                const time = new Date(lang.lastEditedAt).getTime();
+                if (!Number.isFinite(time)) return;
+                if (!best || time > best.time) best = {time, locale: lang.locale};
+            });
+            return best ? best.locale : null;
+        },
+        // Languages that can still be added to the current document (not yet in
+        // details[]) — used by both the merge-in flow and auto-translate.
         relationLanguageOptions: function() {
-            return this.languages.filter(lang => lang.locale !== this.currentLanguage);
+            return this.languages.filter(lang =>
+                !this.getVulnTitleLocale(this.currentVulnerability, lang.locale)
+                && !this.hasPendingUpdateForLocale(this.currentVulnerability, lang.locale)
+            );
         },
         relationCandidates: function() {
             if (!this.relationCandidateLocale) return [];
             return this.vulnerabilities.filter(vuln => {
                 if (vuln._id === this.vulnerabilityId) return false;
                 if (!this.getVulnTitleLocale(vuln, this.relationCandidateLocale)) return false;
-                if (!this.showMappedRelationCandidates && this.isVulnerabilityMapped(vuln._id)) return false;
                 return true;
             });
         },
+        filteredRelationCandidates: function() {
+            if (!this.relationCandidateSearch) return this.relationCandidates;
+            var needle = this.relationCandidateSearch;
+            return this.relationCandidates.filter(vuln => this.getVulnTitleLocale(vuln, this.relationCandidateLocale).toLowerCase().includes(needle));
+        },
         missingTranslationLanguageOptions: function() {
-            return this.languages.filter(lang => lang.locale !== this.currentLanguage && !this.getVulnTitleLocale(this.currentVulnerability, lang.locale));
+            return this.languages.filter(lang =>
+                lang.locale !== this.currentLanguage
+                && !this.getVulnTitleLocale(this.currentVulnerability, lang.locale)
+                && !this.hasPendingUpdateForLocale(this.currentVulnerability, lang.locale)
+            );
         },
         vulnCategoriesOptions: function() {
             return this.$_.uniq(this.vulnerabilities.map(vuln => this.getDtCategory(vuln)).filter(Boolean)).sort()
@@ -245,6 +316,16 @@ export default {
     },
 
     methods: {
+        notifyError: function(err, fallback) {
+            console.error(err);
+            Notify.create({
+                message: extractErrorMessage(err) || fallback || $t('err.unexpectedError'),
+                color: 'negative',
+                textColor: 'white',
+                position: 'top-right'
+            })
+        },
+
         // Get available languages
         getLanguages: function() {
             DataService.getLanguages()
@@ -301,24 +382,21 @@ export default {
                 this.loading = false
             })
             .catch((err) => {
-                console.log(err)
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                })
+                this.notifyError(err)
             })
         },
 
-        getTranslationGroups: function() {
-            VulnerabilityService.getTranslationGroups()
-            .then((data) => {
-                this.translationGroups = data.data.datas || [];
-            })
-            .catch((err) => {
-                console.log(err)
-            })
+        // Re-clone the currently edited vulnerability from a fresh list after a
+        // server-side change to its details[] (merge, split, source change).
+        refreshCurrentVulnerability: function() {
+            return this.getVulnerabilities().then(() => {
+                if (!this.vulnerabilityId) return;
+                var fresh = this.vulnerabilities.find(v => v._id === this.vulnerabilityId);
+                if (!fresh) return;
+                this.currentVulnerability = this.$_.cloneDeep(fresh);
+                this.setCurrentDetails();
+                this.$nextTick(() => { this.snapshotCurrentVulnerability(); });
+            });
         },
 
         createVulnerability: function() {
@@ -342,13 +420,57 @@ export default {
                 })
             })
             .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                })
+                this.notifyError(err)
             })
+        },
+
+        cloneAsNewVulnerability: function(row) {
+            var sourceDetail = this.detailForLocale(row, this.dtLanguage);
+            if (!sourceDetail || !sourceDetail.title) return;
+
+            this.suppressLanguageWatch = true;
+            this.cleanCurrentVulnerability();
+            var clonedDetail = this.$_.cloneDeep(sourceDetail);
+            clonedDetail.title = this.uniqueClonedVulnerabilityTitle(sourceDetail.title);
+            delete clonedDetail.lastEditedAt;
+            delete clonedDetail.syncStatus;
+
+            this.currentLanguage = this.dtLanguage;
+            this.currentVulnerability = {
+                cvssv3: row.cvssv3 || '',
+                cvssv4: row.cvssv4 || '',
+                priority: row.priority || '',
+                remediationComplexity: row.remediationComplexity || '',
+                taxonomies: this.$_.cloneDeep(row.taxonomies || []),
+                details: [clonedDetail]
+            };
+            this.vulnerabilityId = '';
+            this.currentDetailsIndex = 0;
+            this.relationCandidateLocale = '';
+            this.relationCandidateVuln = '';
+            this.translationTargetLocale = '';
+            this.$nextTick(() => {
+                this.suppressLanguageWatch = false;
+                this.setCurrentDetails();
+                this.$refs.createModal.show();
+            });
+        },
+
+        uniqueClonedVulnerabilityTitle: function(title) {
+            var base = `${title} (${$t('copySuffix')})`;
+            var candidate = base;
+            var index = 2;
+            while (this.vulnerabilityTitleExists(candidate)) {
+                candidate = `${base} ${index}`;
+                index++;
+            }
+            return candidate;
+        },
+
+        vulnerabilityTitleExists: function(title) {
+            return this.vulnerabilities.some(vuln =>
+                (vuln.details || []).some(detail => detail.title === title)
+            );
         },
 
         updateVulnerability: function() {
@@ -364,7 +486,6 @@ export default {
             VulnerabilityService.updateVulnerability(this.vulnerabilityId, this.vulnerabilityPayload(this.currentVulnerability))
             .then(() => {
                 this.getVulnerabilities();
-                this.getTranslationGroups();
                 this.$refs.editModal.hide();
                 this.$refs.updatesModal.hide();
                 Notify.create({
@@ -375,12 +496,7 @@ export default {
                 })
             })
             .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                })
+                this.notifyError(err)
             })
         },
 
@@ -434,12 +550,7 @@ export default {
                 })
             })
             .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
-                })
+                this.notifyError(err)
             })
         },
 
@@ -453,22 +564,50 @@ export default {
             .onOk(() => this.deleteVulnerability(row._id))
         },
 
-        getVulnUpdates: function(vulnId) {
-            VulnerabilityService.getVulnUpdates(vulnId)
+        getVulnUpdates: function(vulnId, preferredLocale) {
+            return VulnerabilityService.getVulnUpdates(vulnId)
             .then((data) => {
-                this.vulnUpdates = data.data.datas;
+                this.vulnUpdates = data.data.datas || [];
                 this.vulnUpdates.forEach(vuln => {
                     vuln.customFields = Utils.filterCustomFields('vulnerability', this.currentVulnerabilityType(), this.customFields, vuln.customFields, vuln.locale)
                 })
                 if (this.vulnUpdates.length > 0) {
                     // Sort by modification date (newest first)
                     this.vulnUpdates.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-                    this.currentUpdate = this.vulnUpdates[0]._id || null;
-                    this.currentLanguage = this.vulnUpdates[0].locale || null;
+                    var selected = preferredLocale
+                        ? this.vulnUpdates.find(update => update.locale === preferredLocale)
+                        : this.vulnUpdates[0];
+                    if (selected) {
+                        this.currentUpdate = selected._id || null;
+                        this.currentLanguage = selected.locale || null;
+                    }
                 }
+                return this.vulnUpdates;
             })
             .catch((err) => {
-                console.log(err)
+                this.notifyError(err);
+                return [];
+            })
+        },
+
+        openVulnerability: function(row) {
+            this.clone(row);
+            if (!this.UserService.isAllowed('vulnerabilities:update')) {
+                this.$refs.editModal.show();
+                return;
+            }
+
+            if (this.rowStatusForLocale(row, this.dtLanguage) !== 2) {
+                this.$refs.editModal.show();
+                return;
+            }
+
+            this.getVulnUpdates(row._id, this.dtLanguage)
+            .then((updates) => {
+                if ((updates || []).some(update => update.locale === this.dtLanguage))
+                    this.$refs.updatesModal.show();
+                else
+                    this.$refs.editModal.show();
             })
         },
 
@@ -479,12 +618,10 @@ export default {
             this.setCurrentDetails();
             
             this.vulnerabilityId = row._id;
-            this.relationCandidateLocale = this.languages.find(l => l.locale !== this.currentLanguage)?.locale || '';
+            this.relationCandidateLocale = this.relationLanguageOptions[0]?.locale || '';
             this.relationCandidateVuln = '';
             this.translationTargetLocale = this.missingTranslationLanguageOptions[0]?.locale || '';
             this.$nextTick(() => { this.suppressLanguageWatch = false; });
-            if (this.UserService.isAllowed('vulnerabilities:update'))
-                this.getVulnUpdates(this.vulnerabilityId);
         },
 
         editModalShow: function() {
@@ -500,57 +637,12 @@ export default {
             this.cleanCurrentVulnerability();
         },
 
-        // Item 2: route a language-selector change. In the edit modal, if the
-        // chosen locale lives in a linked translation (separate document) rather
-        // than in the current one, load that document so its content is shown.
+        // Route a language-selector change: every language of a vulnerability
+        // lives in this same document's details[], so switching just selects the
+        // matching detail (or an empty editor for a language not yet present).
         resolveLanguageSelection: function(newLocale, oldLocale) {
-            var localDetail = (this.currentVulnerability.details || []).find(d => d.locale === newLocale && d.title);
-            if (localDetail) {
-                this.setCurrentDetails();
-                this.afterLanguageResolved();
-                return;
-            }
-
-            var related = this.editModalActive ? this.findRelatedVulnerabilityForLocale(newLocale) : null;
-            if (related) {
-                if (this.hasUnsavedVulnerabilityChanges()) {
-                    Dialog.create({
-                        title: $t('msg.confirmLanguageSwitchTitle'),
-                        message: $t('msg.confirmLanguageSwitchMessage'),
-                        ok: {label: $t('btn.confirm'), color: 'primary'},
-                        cancel: {label: $t('btn.cancel'), color: 'white'}
-                    })
-                    .onOk(() => this.loadRelatedVulnerability(related, newLocale))
-                    .onCancel(() => this.setLanguageSilently(oldLocale));
-                    return;
-                }
-                this.loadRelatedVulnerability(related, newLocale);
-                return;
-            }
-
             this.setCurrentDetails();
             this.afterLanguageResolved();
-        },
-
-        findRelatedVulnerabilityForLocale: function(locale) {
-            var group = this.currentTranslationGroup;
-            if (!group) return null;
-            var member = (group.members || []).find(m => m.locale === locale && this.memberVulnId(m) !== this.vulnerabilityId);
-            if (!member) return null;
-            return this.vulnerabilities.find(v => v._id === this.memberVulnId(member)) || null;
-        },
-
-        loadRelatedVulnerability: function(vuln, locale) {
-            this.vulnerabilityId = vuln._id;
-            this.currentVulnerability = this.$_.cloneDeep(vuln);
-            this.setLanguageSilently(locale);
-            this.setCurrentDetails();
-            this.afterLanguageResolved();
-            // Re-baseline after the editors re-render the loaded translation, so a
-            // subsequent language switch is not falsely flagged as dirty.
-            this.$nextTick(() => { this.snapshotCurrentVulnerability(); });
-            if (this.UserService.isAllowed('vulnerabilities:update'))
-                this.getVulnUpdates(this.vulnerabilityId);
         },
 
         setLanguageSilently: function(locale) {
@@ -643,6 +735,9 @@ export default {
             this.currentVulnerability.priority = '';
             this.currentVulnerability.remediationComplexity = '';
             this.currentVulnerability.details = [];
+            this.vulnUpdates = [];
+            this.currentUpdate = '';
+            this.currentUpdateLocale = '';
             this.currentLanguage = this.dtLanguage;
             // Phase 3: seed `taxonomies[]` from the legacy "Add to <category>"
             // dropdown so existing UX still primes the picker. Backend's
@@ -713,9 +808,33 @@ export default {
         getDtTitle: function(row) {
             var index = row.details.findIndex(obj => obj.locale === this.dtLanguage);
             if (index < 0 || !row.details[index].title)
-                return $t('err.notDefinedLanguage');
+                return this.pendingUpdateForLocale(row, this.dtLanguage)?.title || $t('err.notDefinedLanguage');
             else
                 return row.details[index].title;         
+        },
+
+        pendingUpdateForLocale: function(row, locale) {
+            return ((row && row.pendingUpdates) || []).find(update => update.locale === locale);
+        },
+
+        hasPendingUpdateForLocale: function(row, locale) {
+            return !!this.pendingUpdateForLocale(row, locale);
+        },
+
+        detailForLocale: function(row, locale) {
+            return ((row && row.details) || []).find(detail => detail.locale === locale);
+        },
+
+        hasPendingReviewDetailForLocale: function(row, locale) {
+            var detail = this.detailForLocale(row, locale);
+            return detail && detail.syncStatus === 'pending-review';
+        },
+
+        rowStatusForLocale: function(row, locale) {
+            if (row && row.status === 1) return 1;
+            var selectedLocale = locale || this.dtLanguage;
+            if (this.hasPendingUpdateForLocale(row, selectedLocale) || this.hasPendingReviewDetailForLocale(row, selectedLocale)) return 2;
+            return 0;
         },
 
         getDtType: function(row) {
@@ -780,11 +899,12 @@ export default {
                 var termVulnType = (terms.type || "").toLowerCase()
                 var termUpdatedAt = (terms.updatedAt || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
+                var localeStatus = this.rowStatusForLocale(row, this.dtLanguage);
                 return title.indexOf(termTitle) > -1 && 
                     type.indexOf(termVulnType || "") > -1 &&
                     category.indexOf(termCategory || "") > -1 &&
                     updatedAt.indexOf(termUpdatedAt) > -1 &&
-                    (row.status === terms.valid || row.status === terms.new || row.status === terms.updates);
+                    (localeStatus === terms.valid || localeStatus === terms.new || localeStatus === terms.updates);
             })
             this.filteredRowsCount = result.length;
             return result;
@@ -807,18 +927,20 @@ export default {
             return "";
         },
 
+        vulnerabilityLocales: function(vuln) {
+            if (!vuln || !Array.isArray(vuln.details)) return [];
+            return vuln.details
+                .filter(detail => detail.locale && detail.title)
+                .map(detail => detail.locale);
+        },
+
+        normalizeSearch: function(value) {
+            return (value || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        },
+
         relationCandidateLabel: function(vuln) {
             const option = vuln && vuln._id ? vuln : this.vulnerabilities.find(item => item._id === vuln);
             return this.getVulnTitleLocale(option, this.relationCandidateLocale) || '-';
-        },
-
-        memberVulnId: function(member) {
-            const vuln = member && member.vulnerability;
-            return vuln && vuln._id ? vuln._id : (vuln || '');
-        },
-
-        isVulnerabilityMapped: function(vulnerabilityId) {
-            return this.translationGroups.some(group => (group.members || []).some(member => this.memberVulnId(member) === vulnerabilityId));
         },
 
         languageLabel: function(locale) {
@@ -826,9 +948,23 @@ export default {
             return lang ? lang.language : locale;
         },
 
-        memberTitle: function(member) {
-            const vuln = member && member.vulnerability && member.vulnerability.details ? member.vulnerability : this.vulnerabilities.find(v => v._id === this.memberVulnId(member));
-            return this.getVulnTitleLocale(vuln, member.locale) || '-';
+        filterRelationCandidates: function(val, update) {
+            update(() => {
+                this.relationCandidateSearch = (val || '').toLowerCase();
+            });
+        },
+
+        // Switch the edit modal to one of the document's languages.
+        viewTranslationMember: function(member) {
+            if (member && member.isPendingUpdate) {
+                this.getVulnUpdates(this.vulnerabilityId, member.locale)
+                .then((updates) => {
+                    if ((updates || []).some(update => update.locale === member.locale))
+                        this.$refs.updatesModal.show();
+                })
+                return;
+            }
+            this.currentLanguage = member.locale;
         },
 
         memberLastEditedLabel: function(member) {
@@ -838,24 +974,26 @@ export default {
 
         isMostRecentlyEdited: function(member) {
             if (!member || !member.lastEditedAt) return false;
-            return this.mostRecentlyEditedMemberKey === (this.memberVulnId(member) + member.locale);
+            return this.mostRecentlyEditedLocale === member.locale;
         },
 
         translationStatusLabel: function(member) {
-            switch ((member && member.syncStatus) || 'synced') {
+            switch ((member && member.syncStatus) || '') {
                 case 'stale':
                     return $t('translationStatusStale');
                 case 'pending-review':
                     return $t('translationStatusPendingReview');
                 case 'failed':
                     return $t('translationStatusFailed');
-                default:
+                case 'synced':
                     return $t('translationStatusSynced');
+                default:
+                    return '';
             }
         },
 
         translationStatusColor: function(member) {
-            switch ((member && member.syncStatus) || 'synced') {
+            switch ((member && member.syncStatus) || '') {
                 case 'stale':
                     return 'warning';
                 case 'pending-review':
@@ -865,6 +1003,78 @@ export default {
                 default:
                     return 'positive';
             }
+        },
+
+        // --- Merge metadata conflict handling -------------------------------
+        // Compare the shared (language-independent) fields of two documents and
+        // return the list of fields where they differ.
+        computeMergeConflicts: function(baseVuln, otherVuln) {
+            var fields = ['cvssv3', 'cvssv4', 'priority', 'remediationComplexity', 'taxonomies'];
+            var conflicts = [];
+            fields.forEach(field => {
+                var a = baseVuln ? baseVuln[field] : undefined;
+                var b = otherVuln ? otherVuln[field] : undefined;
+                var norm = v => JSON.stringify(v === undefined || v === null || v === '' ? null : v);
+                if (norm(a) !== norm(b)) conflicts.push({field: field, baseValue: a, otherValue: b});
+            });
+            return conflicts;
+        },
+
+        mergeFieldLabel: function(field) {
+            switch (field) {
+                case 'cvssv3': return 'CVSS v3';
+                case 'cvssv4': return 'CVSS v4';
+                case 'priority': return $t('priority');
+                case 'remediationComplexity': return $t('remediationComplexity');
+                case 'taxonomies': return $t('category');
+                default: return field;
+            }
+        },
+
+        mergeFieldDisplay: function(field, value) {
+            if (value === undefined || value === null || value === '') return '-';
+            if (field === 'taxonomies') {
+                var parts = (Array.isArray(value) ? value : []).map(t => [t.type, t.category, t.subcategory, t.code].filter(Boolean).join(' / '));
+                return parts.length ? parts.join(' ; ') : '-';
+            }
+            return String(value);
+        },
+
+        // If the two documents disagree on shared metadata, open the conflict
+        // dialog and resolve with the user's picks ({} when nothing differs).
+        promptMergeMetadata: function(baseVuln, otherVuln, baseTitle, otherTitle) {
+            var conflicts = this.computeMergeConflicts(baseVuln, otherVuln);
+            if (conflicts.length === 0) return Promise.resolve({});
+            return new Promise((resolve) => {
+                var picks = {};
+                conflicts.forEach(c => { picks[c.field] = 'base'; });
+                this.mergeConflict = {
+                    active: true,
+                    baseTitle: baseTitle,
+                    otherTitle: otherTitle,
+                    conflicts: conflicts,
+                    picks: picks,
+                    resolve: resolve
+                };
+            });
+        },
+
+        confirmMergeConflict: function() {
+            var metadata = {};
+            this.mergeConflict.conflicts.forEach(c => {
+                if (this.mergeConflict.picks[c.field] === 'other') {
+                    metadata[c.field] = c.otherValue === undefined ? null : c.otherValue;
+                }
+            });
+            var resolve = this.mergeConflict.resolve;
+            this.mergeConflict = {active: false, baseTitle: '', otherTitle: '', conflicts: [], picks: {}, resolve: null};
+            if (resolve) resolve(metadata);
+        },
+
+        cancelMergeConflict: function() {
+            var resolve = this.mergeConflict.resolve;
+            this.mergeConflict = {active: false, baseTitle: '', otherTitle: '', conflicts: [], picks: {}, resolve: null};
+            if (resolve) resolve(null);
         },
 
         isPendingProposal: function(proposal) {
@@ -925,75 +1135,99 @@ export default {
         },
         
 
+        // Relate dialog: physically merge the right language into the left
+        // document (with the conflict dialog when shared metadata differs).
         mergeVulnerabilities: function() {
-            VulnerabilityService.relateTranslation(this.mergeVulnLeft, {
-                baseLocale: this.mergeLanguageLeft,
-                targetVulnId: this.mergeVulnRight,
-                targetLocale: this.mergeLanguageRight
-            })
-            .then(() => {
-                this.getVulnerabilities();
-                this.getTranslationGroups();
-                this.mergeVulnLeft = '';
-                this.mergeVulnRight = '';
-                Notify.create({
-                    message: $t('msg.vulnerabilityRelationOk'),
-                    color: 'positive',
-                    textColor:'white',
-                    position: 'top-right'
+            var left = this.vulnerabilities.find(v => v._id === this.mergeVulnLeft);
+            var right = this.vulnerabilities.find(v => v._id === this.mergeVulnRight);
+            if (!left || !right) return;
+            this.promptMergeMetadata(
+                left, right,
+                this.getVulnTitleLocale(left, this.mergeLanguageLeft),
+                this.getVulnTitleLocale(right, this.mergeLanguageRight)
+            )
+            .then(metadata => {
+                if (metadata === null) return; // user cancelled
+                return VulnerabilityService.mergeVulnerability(this.mergeVulnLeft, this.mergeVulnRight, this.mergeLanguageRight, metadata, this.mergeLanguageLeft)
+                .then(() => {
+                    this.getVulnerabilities();
+                    this.mergeVulnLeft = '';
+                    this.mergeVulnRight = '';
+                    Notify.create({
+                        message: $t('msg.vulnerabilityMergeOk'),
+                        color: 'positive',
+                        textColor:'white',
+                        position: 'top-right'
+                    })
                 })
             })
             .catch((err) => {
-                Notify.create({
-                    message: err.response.data.datas,
-                    color: 'negative',
-                    textColor: 'white',
-                    position: 'top-right'
+                this.notifyError(err)
+            })
+        },
+
+        // Edit modal: merge the selected vulnerability's language into the
+        // currently edited document.
+        mergeSelectedVulnerability: function() {
+            if (!this.relationCandidateVuln || !this.relationCandidateLocale) return;
+            var other = this.vulnerabilities.find(v => v._id === this.relationCandidateVuln);
+            if (!other) return;
+            this.promptMergeMetadata(
+                this.currentVulnerability, other,
+                this.getVulnTitleLocale(this.currentVulnerability, this.currentLanguage),
+                this.getVulnTitleLocale(other, this.relationCandidateLocale)
+            )
+            .then(metadata => {
+                if (metadata === null) return; // user cancelled
+                return VulnerabilityService.mergeVulnerability(this.vulnerabilityId, this.relationCandidateVuln, this.relationCandidateLocale, metadata, this.currentLanguage)
+                .then(() => {
+                    this.relationCandidateVuln = '';
+                    Notify.create({message: $t('msg.vulnerabilityMergeOk'), color: 'positive', textColor:'white', position: 'top-right'})
+                    return this.refreshCurrentVulnerability();
                 })
             })
+            .catch(err => this.notifyError(err))
         },
 
-        relateSelectedVulnerability: function() {
-            if (!this.relationCandidateVuln || !this.relationCandidateLocale) return;
-            VulnerabilityService.relateTranslation(this.vulnerabilityId, {
-                baseLocale: this.currentLanguage,
-                targetVulnId: this.relationCandidateVuln,
-                targetLocale: this.relationCandidateLocale
+        // Extract a language back out into its own vulnerability document.
+        splitTranslationMember: function(member) {
+            Dialog.create({
+                title: $t('msg.confirmSplitTitle'),
+                message: $t('msg.confirmSplitMessage', {language: this.languageLabel(member.locale)}),
+                ok: {label: $t('btn.confirm'), color: 'primary'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
             })
-            .then(() => {
-                this.getTranslationGroups();
-                this.relationCandidateVuln = '';
-                Notify.create({message: $t('msg.vulnerabilityRelationOk'), color: 'positive', textColor:'white', position: 'top-right'})
+            .onOk(() => {
+                VulnerabilityService.splitVulnerabilityLocale(this.vulnerabilityId, member.locale)
+                .then(() => {
+                    Notify.create({message: $t('msg.vulnerabilitySplitOk'), color: 'positive', textColor:'white', position: 'top-right'})
+                    if (this.currentLanguage === member.locale) this.setLanguageSilently(this.currentVulnerabilityLanguages.find(l => l.locale !== member.locale)?.locale || this.currentLanguage);
+                    return this.refreshCurrentVulnerability();
+                })
+                .catch(err => this.notifyError(err))
             })
-            .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
-        },
-
-        unrelateVulnerability: function(member) {
-            VulnerabilityService.unrelateTranslation(this.vulnerabilityId, this.memberVulnId(member))
-            .then(() => {
-                this.getTranslationGroups();
-                Notify.create({message: $t('msg.vulnerabilityUnrelatedOk'), color: 'positive', textColor:'white', position: 'top-right'})
-            })
-            .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
         },
 
         setTranslationSource: function(member) {
-            VulnerabilityService.setTranslationSource(this.vulnerabilityId, {
-                sourceVulnId: this.memberVulnId(member),
-                sourceLocale: member.locale
-            })
-            .then(() => this.getTranslationGroups())
-            .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
+            VulnerabilityService.setTranslationSource(this.vulnerabilityId, member.locale)
+            .then(() => this.refreshCurrentVulnerability())
+            .catch(err => this.notifyError(err))
+        },
+
+        markTranslationSynced: function(member) {
+            if (!member || member.isPendingUpdate) return;
+            VulnerabilityService.setTranslationSyncStatus(this.vulnerabilityId, member.locale, 'synced')
+            .then(() => this.refreshCurrentVulnerability())
+            .catch(err => this.notifyError(err))
         },
 
         autoTranslateRelated: function() {
             this.translatingRelated = true;
             VulnerabilityService.autoTranslateRelated(this.vulnerabilityId)
             .then((data) => {
-                this.getVulnerabilities().then(() => {
+                this.refreshCurrentVulnerability().then(() => {
                     this.translationTargetLocale = this.missingTranslationLanguageOptions[0]?.locale || '';
                 });
-                this.getTranslationGroups();
                 const result = data.data.datas || {};
                 Notify.create({
                     message: result.failed
@@ -1004,7 +1238,7 @@ export default {
                     position: 'top-right'
                 })
             })
-            .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
+            .catch(err => this.notifyError(err))
             .finally(() => { this.translatingRelated = false; })
         },
 
@@ -1016,8 +1250,7 @@ export default {
                 targetLocale: this.translationTargetLocale
             })
             .then((data) => {
-                this.getVulnerabilities();
-                this.getTranslationGroups();
+                this.refreshCurrentVulnerability();
                 const result = data.data.datas || {};
                 Notify.create({
                     message: result.failed
@@ -1029,7 +1262,7 @@ export default {
                 })
                 if (!result.failed) this.translationTargetLocale = '';
             })
-            .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
+            .catch(err => this.notifyError(err))
             .finally(() => { this.translatingLocale = false; })
         },
 
@@ -1041,7 +1274,7 @@ export default {
                 this.matchingThreshold = Number(threshold);
             }
             this.matchingDialog = true;
-            this.getMatchingStatus();
+            this.getMatchingStatus().catch(err => this.notifyError(err));
         },
 
         closeMatchingDialog: function() {
@@ -1058,9 +1291,11 @@ export default {
                 if (data.data.datas && data.data.datas.runId) {
                     this.matchingStatus = Object.assign({}, this.matchingStatus, data.data.datas);
                 }
-                this.getMatchingStatus().finally(() => this.pollMatchingStatus());
+                this.getMatchingStatus()
+                    .catch(err => this.notifyError(err))
+                    .finally(() => this.pollMatchingStatus());
             })
-            .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
+            .catch(err => this.notifyError(err))
         },
 
         getMatchingStatus: function() {
@@ -1080,34 +1315,64 @@ export default {
                         clearInterval(this.matchingPoll);
                         this.matchingPoll = null;
                     }
+                })
+                .catch(err => {
+                    clearInterval(this.matchingPoll);
+                    this.matchingPoll = null;
+                    this.notifyError(err);
                 });
             }, 1500);
         },
 
-        applyMatchingProposals: function() {
-            VulnerabilityService.applyMatchingProposals(this.selectedPendingMatchingProposals, this.matchingStatus.runId)
+        // Accepting proposals physically merges each target language into its
+        // source document. Proposals whose documents disagree on shared
+        // metadata go through the conflict dialog one by one; cancelling the
+        // dialog skips that proposal.
+        applyMatchingProposals: async function() {
+            var proposals = this.selectedPendingMatchingProposals.slice();
+            var payload = [];
+            for (var p of proposals) {
+                var source = this.vulnerabilities.find(v => v._id === p.sourceVulnId);
+                var target = this.vulnerabilities.find(v => v._id === p.targetVulnId);
+                var metadata = {};
+                if (source && target) {
+                    metadata = await this.promptMergeMetadata(source, target, p.sourceTitle, p.targetTitle);
+                    if (metadata === null) continue; // user cancelled -> skip this proposal
+                }
+                payload.push({
+                    sourceVulnId: p.sourceVulnId,
+                    sourceLocale: p.sourceLocale,
+                    targetVulnId: p.targetVulnId,
+                    targetLocale: p.targetLocale,
+                    metadata: metadata
+                });
+            }
+            if (payload.length === 0) return;
+            VulnerabilityService.applyMatchingProposals(payload, this.matchingStatus.runId)
             .then((data) => {
-                this.getTranslationGroups();
-                this.getMatchingStatus();
+                const result = data.data.datas || {};
+                const applied = Number.isFinite(Number(result.applied)) ? Number(result.applied) : 0;
+                const skipped = Number.isFinite(Number(result.skipped)) ? Number(result.skipped) : 0;
+                const failed = Number.isFinite(Number(result.failed)) ? Number(result.failed) : 0;
+                this.getVulnerabilities();
+                this.getMatchingStatus().catch(err => this.notifyError(err));
                 Notify.create({
                     message: $t('vulnerabilityMatchingApplied', {
-                        count: data.data.datas.applied || 0,
-                        skipped: data.data.datas.skipped || 0
+                        count: payload.length,
+                        applied,
+                        skipped,
+                        failed
                     }),
-                    color: 'positive',
-                    textColor:'white',
+                    color: failed ? 'warning' : 'positive',
+                    textColor: failed ? 'dark' : 'white',
                     position: 'top-right'
                 })
             })
-            .catch(err => Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'}))
+            .catch(err => this.notifyError(err))
         },
 
         dblClick: function(row) {
-            this.clone(row)
-            if (this.UserService.isAllowed('vulnerabilities:update') && row.status === 2)
-                this.$refs.updatesModal.show()
-            else
-                this.$refs.editModal.show()
+            this.openVulnerability(row)
         }
     }
 }

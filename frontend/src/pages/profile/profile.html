@@ -115,6 +115,16 @@
                         </q-item>
                     </q-list>
                     <q-list class="col-md-6 col-12">
+                        <q-item v-if="twoFactorRequired && !user.totpEnabled">
+                            <q-item-section>
+                                <q-banner rounded class="bg-warning text-dark">
+                                    <template v-slot:avatar>
+                                        <q-icon name="security" color="dark" />
+                                    </template>
+                                    {{$t('twoFactorSetupRequired')}}
+                                </q-banner>
+                            </q-item-section>
+                        </q-item>
                         <q-item>
                             <q-item-section>
                                 <q-toggle 
@@ -122,7 +132,6 @@
                                 :label="$t('autoCorrection')"
                                 @update:model-value="toggleAutoCorrection"
                                 />
-                                <div class="text-caption text-grey-7 q-mt-xs">{{$t('autoCorrectionInfo')}}</div>
                             </q-item-section>
                         </q-item>
                         <q-item>
@@ -130,6 +139,7 @@
                                 <q-toggle 
                                 v-model="totpEnabled" 
                                 label="Two-factor authentication"
+                                :disable="twoFactorRequired && user.totpEnabled"
                                 @update:model-value="getTotpQrcode"
                                 @click="getTotpQrcode" 
                                 />

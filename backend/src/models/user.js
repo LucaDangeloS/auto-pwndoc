@@ -2,6 +2,7 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var bcrypt = require('bcrypt');
 var jwt = require('jsonwebtoken');
+var crypto = require('crypto');
 
 var auth = require('../lib/auth.js');
 const { generateUUID } = require('../lib/utils.js');
@@ -19,9 +20,16 @@ var UserSchema = new Schema({
     phone:          {type: String, required: false},
     role:           {type: String, default: 'user'},
     permissions:    {type: [String], default: []},
+    sso: {
+        provider:   {type: String, default: ''},
+        subject:    {type: String, default: ''},
+        email:      {type: String, default: ''},
+        linkedAt:   {type: Date, default: null}
+    },
     totpEnabled:    {type: Boolean, default: false},
     totpSecret:     {type: String, default: ''},
     enabled:        {type: Boolean, default: true},
+    lastLoginAt:    {type: Date, default: null},
     refreshTokens:  [{_id: false, sessionId: String, userAgent: String, token: String}]
 }, {timestamps: true});
 
@@ -58,6 +66,33 @@ var checkTotpToken = function(token, secret) {
     }
     return true;
 };
+
+async function isTotpEnforced() {
+    try {
+        var Settings = mongoose.model('Settings');
+        var settings = await Settings.getAll();
+        return !!(settings && settings.authentication && settings.authentication.enforce2fa);
+    }
+    catch (err) {
+        return false;
+    }
+}
+
+async function buildJwtPayload(row) {
+    var payload = {};
+    payload.id = row._id;
+    payload.username = row.username;
+    payload.role = row.role;
+    payload.firstname = row.firstname;
+    payload.lastname = row.lastname;
+    payload.email = row.email;
+    payload.phone = row.phone;
+    var baseRoles = auth.acl.getRoles(payload.role);
+    payload.roles = baseRoles === '*' ? '*'
+        : [...new Set([...baseRoles, ...(row.permissions || [])])];
+    payload.forceTotpSetup = await isTotpEnforced() && !row.totpEnabled;
+    return payload;
+}
 
 /*
 *** Statics ***
@@ -100,7 +135,7 @@ UserSchema.statics.create = function (users) {
 UserSchema.statics.getAll = function () {
     return new Promise((resolve, reject) => {
         var query = this.find();
-        query.select('username firstname lastname email phone role permissions totpEnabled enabled');
+        query.select('username firstname lastname email phone role permissions sso totpEnabled enabled createdAt lastLoginAt');
         query.exec()
         .then(function(rows) {
             resolve(rows);
@@ -115,7 +150,7 @@ UserSchema.statics.getAll = function () {
 UserSchema.statics.export = () => {
     return new Promise((resolve, reject) => {
         var query = User.find();
-        query.select('username password firstname lastname email phone role permissions totpEnabled enabled -_id')
+        query.select('username password firstname lastname email phone role permissions sso totpEnabled enabled createdAt lastLoginAt -_id')
         query.exec()
         .then((rows) => {
             resolve(rows);
@@ -130,7 +165,7 @@ UserSchema.statics.export = () => {
 UserSchema.statics.getByUsername = function (username) {
     return new Promise((resolve, reject) => {
         var query = this.findOne({username: username})
-        query.select('username firstname lastname email phone role totpEnabled enabled');
+        query.select('username firstname lastname email phone role sso totpEnabled enabled createdAt lastLoginAt');
         query.exec()
         .then(function(row) {
             if (row)
@@ -148,7 +183,6 @@ UserSchema.statics.getByUsername = function (username) {
 UserSchema.statics.updateProfile = function (username, user) {
     return new Promise((resolve, reject) => {
         var query = this.findOne({username: username});
-        var payload = {};
         query.exec()
         .then(function(row) {
             if (!row)
@@ -162,21 +196,12 @@ UserSchema.statics.updateProfile = function (username, user) {
                 if (user.newPassword) row.password = bcrypt.hashSync(user.newPassword, 10);
                 if (typeof(user.totpEnabled)=='boolean') row.totpEnabled = user.totpEnabled;
 
-                payload.id = row._id;
-                payload.username = row.username;
-                payload.role = row.role;
-                payload.firstname = row.firstname;
-                payload.lastname = row.lastname;
-                payload.email = row.email;
-                payload.phone = row.phone;
-                payload.roles = auth.acl.getRoles(payload.role)
-
-                return row.save();
+                return row.save().then(savedRow => buildJwtPayload(savedRow));
             }
             else
                 throw({fn: 'Unauthorized', message: 'Current password is invalid'});
         })
-        .then(function() {
+        .then(function(payload) {
             var token = jwt.sign(payload, auth.jwtSecret, {expiresIn: '15 minutes'});
             resolve({token: `JWT ${token}`});
         })
@@ -191,28 +216,119 @@ UserSchema.statics.updateProfile = function (username, user) {
 }
 
 // Update user (for admin usage)
-UserSchema.statics.updateUser = function (userId, user) {
-    return new Promise((resolve, reject) => {
+UserSchema.statics.updateUser = async function (userId, user) {
+    try {
         if (user.password) user.password = bcrypt.hashSync(user.password, 10);
+        if (user.sso && user.sso.provider && user.sso.subject) {
+            var linked = await this.findOne({
+                _id: {$ne: userId},
+                'sso.provider': user.sso.provider,
+                'sso.subject': user.sso.subject
+            });
+            if (linked)
+                throw({fn: 'BadParameters', message: 'SSO account is already linked to another user'});
+            user.sso.linkedAt = user.sso.linkedAt || new Date();
+        }
+        else if (user.sso) {
+            user.sso = {provider: '', subject: '', email: '', linkedAt: null};
+        }
         var query = this.findOneAndUpdate({_id: userId}, { $set: user });
-        query.exec()
-        .then(function(row) {
-            if (row)
-                resolve('User updated successfully')
-            else
-                reject({fn: 'NotFound', message: 'User not found'});
-        })
-        .catch(function(err) {
-            if (err.code === 11000)
-                reject({fn: 'BadParameters', message: 'Username already exists'});
-            else
-                reject(err);
-        })
+        var row = await query.exec();
+        if (row)
+            return 'User updated successfully'
+        throw({fn: 'NotFound', message: 'User not found'});
+    }
+    catch (err) {
+        if (err.code === 11000)
+            throw({fn: 'BadParameters', message: 'Username already exists'});
+        throw(err);
+    }
+}
+
+UserSchema.statics.findBySsoIdentity = function(provider, subject) {
+    return this.findOne({'sso.provider': provider, 'sso.subject': subject});
+}
+
+UserSchema.statics.linkSsoIdentity = async function(userId, identity) {
+    var provider = identity.provider || '';
+    var subject = identity.subject || '';
+    if (!provider || !subject)
+        throw({fn: 'BadParameters', message: 'Missing SSO provider or subject'});
+
+    var existing = await this.findOne({
+        _id: {$ne: userId},
+        'sso.provider': provider,
+        'sso.subject': subject
+    });
+    if (existing)
+        throw({fn: 'BadParameters', message: 'SSO account is already linked to another user'});
+
+    return this.findByIdAndUpdate(
+        userId,
+        {
+            $set: {
+                sso: {
+                    provider: provider,
+                    subject: subject,
+                    email: identity.email || '',
+                    linkedAt: new Date()
+                }
+            }
+        },
+        {new: true}
+    );
+}
+
+UserSchema.statics.createSsoUser = async function(profile) {
+    var baseUsername = String(profile.username || profile.email || profile.subject || 'sso-user')
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '') || 'sso-user';
+
+    var username = baseUsername;
+    var suffix = 1;
+    while (await this.exists({username: username})) {
+        username = `${baseUsername}-${suffix}`;
+        suffix++;
+    }
+
+    var user = new User({
+        username: username,
+        password: crypto.randomBytes(32).toString('hex'),
+        firstname: profile.firstname || profile.username || 'SSO',
+        lastname: profile.lastname || 'User',
+        email: profile.email || '',
+        role: 'user',
+        permissions: [],
+        lastLoginAt: new Date(),
+        sso: {
+            provider: profile.provider,
+            subject: profile.subject,
+            email: profile.email || '',
+            linkedAt: new Date()
+        }
+    });
+    user.password = bcrypt.hashSync(user.password, 10);
+    return user.save();
+}
+
+UserSchema.statics.issueTokensForUser = function(row, userAgent) {
+    return new Promise((resolve, reject) => {
+        if (!row)
+            return reject({fn: 'NotFound', message: 'User not found'});
+        if (row.enabled === false)
+            return reject({fn: 'Unauthorized', message: 'Account disabled'});
+
+        var refreshToken = jwt.sign({sessionId: null, userId: row._id}, auth.jwtRefreshSecret)
+        User.updateRefreshToken(refreshToken, userAgent, true)
+        .then(tokens => resolve(tokens))
+        .catch(err => reject(err))
     })
 }
 
 // Update refreshtoken
-UserSchema.statics.updateRefreshToken = function (refreshToken, userAgent) {
+UserSchema.statics.updateRefreshToken = function (refreshToken, userAgent, markLogin) {
     return new Promise((resolve, reject) => {
         var token = ""
         var newRefreshToken = ""
@@ -230,7 +346,7 @@ UserSchema.statics.updateRefreshToken = function (refreshToken, userAgent) {
         }
         var query = this.findById(userId)
         query.exec()
-        .then(row => {
+        .then(async row => {
             if (row && row.enabled !== false) {
                 // Check session exist and sessionId not null (if null then it is a login)
                 if (sessionId !== null) {
@@ -239,19 +355,7 @@ UserSchema.statics.updateRefreshToken = function (refreshToken, userAgent) {
                         throw({fn: 'Unauthorized', message: 'Session not found'})
                 }
 
-                // Generate new token
-                var payload = {}
-                payload.id = row._id
-                payload.username = row.username
-                payload.role = row.role
-                payload.firstname = row.firstname
-                payload.lastname = row.lastname
-                payload.email = row.email
-                payload.phone = row.phone
-                var baseRoles = auth.acl.getRoles(payload.role)
-                payload.roles = baseRoles === '*' ? '*'
-                    : [...new Set([...baseRoles, ...(row.permissions || [])])]
-
+                var payload = await buildJwtPayload(row)
                 token = jwt.sign(payload, auth.jwtSecret, {expiresIn: '15 minutes'})
 
                 // Remove expired sessions
@@ -275,10 +379,9 @@ UserSchema.statics.updateRefreshToken = function (refreshToken, userAgent) {
                     newRefreshToken = jwt.sign({sessionId: sessionId, userId: userId, exp: expiration}, auth.jwtRefreshSecret)
                     row.refreshTokens[foundIndex].token = newRefreshToken
                 }
-                return User.updateOne(
-                    { _id: row._id },
-                    { $set: { refreshTokens: row.refreshTokens } }
-                )
+                var update = { refreshTokens: row.refreshTokens }
+                if (markLogin) update.lastLoginAt = new Date()
+                return User.updateOne({_id: row._id}, {$set: update})
             }
             else if (row) {
                 reject({fn: 'Unauthorized', message: 'Authentication Failed.'})
@@ -411,6 +514,8 @@ UserSchema.methods.getToken = function (userAgent) {
         .then(function(row) {
             if (row && row.enabled === false) 
                 throw({fn: 'Unauthorized', message: 'Account disabled'});
+            if (row && row.sso && row.sso.provider && row.sso.subject)
+                throw({fn: 'Unauthorized', message: 'Password login disabled for SSO-linked account'});
 
             if (row && bcrypt.compareSync(user.password, row.password)) {
                 if (row.totpEnabled && user.totpToken)
@@ -418,7 +523,7 @@ UserSchema.methods.getToken = function (userAgent) {
                 else if (row.totpEnabled)
                     throw({fn: 'BadParameters', message: 'Missing TOTP token'})
                 var refreshToken = jwt.sign({sessionId: null, userId: row._id}, auth.jwtRefreshSecret)
-                return User.updateRefreshToken(refreshToken, userAgent)
+                return User.updateRefreshToken(refreshToken, userAgent, true)
             }
             else {
                 if (!row) {

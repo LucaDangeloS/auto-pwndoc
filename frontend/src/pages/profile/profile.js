@@ -25,15 +25,28 @@ export default {
         this.loadAutoCorrectionSetting();
     },
 
+    computed: {
+        twoFactorRequired: function() {
+            return !!(
+                (this.$settings && this.$settings.authentication && this.$settings.authentication.enforce2fa) ||
+                (UserService.user && UserService.user.forceTotpSetup) ||
+                this.$route.query.setup2fa
+            );
+        }
+    },
+
     methods: {
         getProfile: function() {
             UserService.getProfile()
             .then((data) => {
                 this.user = data.data.datas;
-                this.totpEnabled = this.user.totpEnabled;
+                this.totpEnabled = this.user.totpEnabled || this.twoFactorRequired;
                 // If 2FA is already enabled, retrieve the QR code
                 if(this.user.totpEnabled) {
                     this.showExistingTotpQrCode();
+                }
+                else if (this.twoFactorRequired) {
+                    this.getTotpQrcode();
                 }
             })
             .catch((err) => {
@@ -111,6 +124,10 @@ export default {
                     });
                 });
             } else {
+                if (this.twoFactorRequired && !this.user.totpEnabled) {
+                    this.totpEnabled = true;
+                    return;
+                }
                 // Toggle disabled - reset values
                 console.log('Toggle is OFF - resetting values...');
                 this.totpQrcode = "";
@@ -183,7 +200,13 @@ export default {
                 // If we get here, it's a success
                 console.log('TOTP setup successful');
                 this.user.totpEnabled = true;
+                this.totpEnabled = true;
                 this.totpToken = "";
+                UserService.refreshToken()
+                .then(() => {
+                    if (this.$route.query.setup2fa) this.$router.replace('/profile');
+                })
+                .catch(() => {});
                 Notify.create({
                     message: 'TOTP successfully enabled',
                     color: 'positive',
@@ -212,6 +235,16 @@ export default {
         },
 
         cancelTotp: function() {
+            if (this.twoFactorRequired) {
+                this.totpEnabled = true;
+                Notify.create({
+                    message: $t('twoFactorEnforcedCannotDisable'),
+                    color: 'warning',
+                    textColor: 'dark',
+                    position: 'top-right'
+                });
+                return;
+            }
             UserService.cancelTotp(this.totpToken)
             .then((data)=>{
                 console.log('TOTP cancel response:', data);

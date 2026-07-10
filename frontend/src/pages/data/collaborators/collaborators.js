@@ -2,6 +2,7 @@ import { Dialog, Notify } from 'quasar';
 
 import CollabService from '@/services/collaborator'
 import UserService from '@/services/user'
+import RoleService from '@/services/role'
 import Utils from '@/services/utils'
 
 import { $t } from '@/boot/i18n'
@@ -65,6 +66,13 @@ const PERM_SHORT_LABELS = {
     'custom-fields:create':             'Custom fields',
 };
 
+function formatDateTimeCell(value) {
+    if (!value) return $t('never');
+    var date = new Date(value);
+    if (Number.isNaN(date.getTime())) return $t('never');
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
+}
+
 export default {
     data: () => {
         return {
@@ -77,6 +85,8 @@ export default {
                 {name: 'lastname',    label: $t('lastname'),    field: 'lastname',    align: 'left', sortable: true},
                 {name: 'email',       label: $t('email'),       field: 'email',       align: 'left', sortable: true},
                 {name: 'role',        label: $t('role'),        field: 'role',        align: 'left', sortable: true},
+                {name: 'created-at',  label: $t('createdAt'),   field: 'createdAt',   align: 'left', sortable: true, format: formatDateTimeCell, style: 'white-space: nowrap; min-width: 140px'},
+                {name: 'last-login',  label: $t('lastLoginAt'), field: 'lastLoginAt', align: 'left', sortable: true, format: formatDateTimeCell, style: 'white-space: nowrap; min-width: 140px'},
                 {name: 'permissions', label: $t('permissions'), field: 'permissions', align: 'left', sortable: false},
                 {name: 'action',      label: '',                field: 'action',      align: 'left', sortable: false},
             ],
@@ -94,21 +104,39 @@ export default {
                 lastname: '', firstname: '', username: '',
                 role: 'user', permissions: [],
                 email: '', phone: '', password: '',
+                sso: {provider: '', subject: '', email: '', linkedAt: null},
                 totpEnabled: false, enabled: true,
             },
             idUpdate: '',
-            // Only the two built-in base roles are selectable; custom roles (from roles.json)
-            // are intentionally excluded here since they are managed via config file.
-            baseRoles: ['user', 'admin'],
+            // Built-in roles plus DB-managed custom roles (Data → Roles)
+            baseRoles: [
+                {label: 'User', value: 'user'},
+                {label: 'Admin', value: 'admin'}
+            ],
             permissionGroups: PERMISSION_GROUPS,
+            selected: [],
+            bulkRoleValue: 'user',
+            bulkPermMode: 'grant',
+            bulkPermValues: [],
+            bulkLoading: false,
         }
     },
 
     mounted() {
         this.getCollabs();
+        this.getRoleOptions();
     },
 
     methods: {
+        getRoleOptions() {
+            RoleService.getRoles()
+            .then(res => {
+                var roles = res.data.datas || [];
+                this.baseRoles = roles.map(r => ({label: r.displayName || r.name, value: r.name}));
+            })
+            .catch(err => console.error(err));
+        },
+
         getCollabs() {
             this.loading = true;
             CollabService.getCollabs()
@@ -137,7 +165,7 @@ export default {
             .then(() => {
                 this.getCollabs();
                 this.$refs.createModal.hide();
-                Notify.create({message: $t('msg.collaboratorCreatedOk'), color: 'positive', textColor: 'white', position: 'top-right'});
+                Notify.create({message: $t('msg.userCreatedOk'), color: 'positive', textColor: 'white', position: 'top-right'});
             })
             .catch(err => {
                 Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'});
@@ -162,7 +190,7 @@ export default {
             .then(() => {
                 this.getCollabs();
                 this.$refs.editModal.hide();
-                Notify.create({message: $t('msg.collaboratorUpdatedOk'), color: 'positive', textColor: 'white', position: 'top-right'});
+                Notify.create({message: $t('msg.userUpdatedOk'), color: 'positive', textColor: 'white', position: 'top-right'});
             })
             .catch(err => {
                 Notify.create({message: err.response.data.datas, color: 'negative', textColor: 'white', position: 'top-right'});
@@ -173,6 +201,7 @@ export default {
             this.currentCollab = {
                 ...this.$_.clone(row),
                 permissions: Array.isArray(row.permissions) ? [...row.permissions] : [],
+                sso: row.sso ? {...row.sso} : {provider: '', subject: '', email: '', linkedAt: null},
                 password: '',
             };
             this.idUpdate = row._id;
@@ -190,6 +219,7 @@ export default {
                 lastname: '', firstname: '', username: '',
                 role: 'user', permissions: [],
                 email: '', phone: '', password: '',
+                sso: {provider: '', subject: '', email: '', linkedAt: null},
                 totpEnabled: false, enabled: true,
             };
         },
@@ -207,6 +237,71 @@ export default {
             }
         },
 
+        selectedIds() {
+            return this.selected.map(u => u._id);
+        },
+
+        _afterBulk() {
+            this.selected = [];
+            this.getCollabs();
+            Notify.create({message: $t('msg.usersUpdatedOk'), color: 'positive', textColor: 'white', position: 'top-right'});
+        },
+
+        _bulkError(err) {
+            Notify.create({message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right'});
+        },
+
+        bulkSetStatus(enabled) {
+            var ids = this.selectedIds();
+            if (ids.length === 0) return;
+            var run = () => {
+                this.bulkLoading = true;
+                CollabService.bulkStatus(ids, enabled)
+                .then(() => this._afterBulk())
+                .catch(err => this._bulkError(err))
+                .finally(() => { this.bulkLoading = false; });
+            };
+            if (!enabled) {
+                Dialog.create({
+                    title: $t('btn.accountsDisabled'),
+                    message: $t('msg.bulkDisableConfirm', {count: ids.length}),
+                    ok: {label: $t('btn.confirm'), color: 'negative'},
+                    cancel: {label: $t('btn.cancel'), color: 'white'}
+                }).onOk(run);
+            } else {
+                run();
+            }
+        },
+
+        bulkApplyRole() {
+            var ids = this.selectedIds();
+            if (ids.length === 0 || !this.bulkRoleValue) return;
+            this.bulkLoading = true;
+            CollabService.bulkRole(ids, this.bulkRoleValue)
+            .then(() => {
+                this.$refs.bulkRoleModal.hide();
+                this._afterBulk();
+            })
+            .catch(err => this._bulkError(err))
+            .finally(() => { this.bulkLoading = false; });
+        },
+
+        bulkApplyPermissions() {
+            var ids = this.selectedIds();
+            if (ids.length === 0 || this.bulkPermValues.length === 0) return;
+            var add = this.bulkPermMode === 'grant' ? this.bulkPermValues : [];
+            var remove = this.bulkPermMode === 'revoke' ? this.bulkPermValues : [];
+            this.bulkLoading = true;
+            CollabService.bulkPermissions(ids, add, remove)
+            .then(() => {
+                this.$refs.bulkPermModal.hide();
+                this.bulkPermValues = [];
+                this._afterBulk();
+            })
+            .catch(err => this._bulkError(err))
+            .finally(() => { this.bulkLoading = false; });
+        },
+
         summarisePermissions(perms) {
             if (!perms || !perms.length) return [];
             return perms
@@ -214,5 +309,7 @@ export default {
                 .map(p => PERM_SHORT_LABELS[p])
                 .slice(0, 4);
         },
+
+        formatDateTime: formatDateTimeCell,
     }
 }

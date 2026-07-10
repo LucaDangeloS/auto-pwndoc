@@ -7,6 +7,30 @@ module.exports = function(app) {
     var jwt = require('jsonwebtoken')
     var _ = require('lodash')
     var passwordpolicy = require('../lib/passwordpolicy')
+    var Settings = require('mongoose').model('Settings');
+    var mongoose = require('mongoose');
+
+    // At least one admin user must remain outside the excluded set
+    async function assertAdminRemains(excludedIds) {
+        var count = await User.countDocuments({role: 'admin', _id: {$nin: excludedIds}})
+        if (count === 0)
+            throw({fn: 'Forbidden', message: 'Cannot remove the admin role from the last admin user'})
+    }
+
+    // At least one enabled admin user must remain outside the excluded set
+    async function assertEnabledAdminRemains(excludedIds) {
+        var count = await User.countDocuments({role: 'admin', enabled: {$ne: false}, _id: {$nin: excludedIds}})
+        if (count === 0)
+            throw({fn: 'Forbidden', message: 'Cannot disable the last enabled admin user'})
+    }
+
+    function isAssignableRole(role) {
+        return typeof role === 'string' && Object.prototype.hasOwnProperty.call(acl.roles, role)
+    }
+
+    function validUserIds(userIds) {
+        return Array.isArray(userIds) && userIds.length > 0 && userIds.every(id => mongoose.isValidObjectId(id))
+    }
 
     function clearAuthCookies(res) {
         res.clearCookie('token', {secure: true, sameSite: 'strict', httpOnly: true})
@@ -186,7 +210,12 @@ module.exports = function(app) {
             return;
         }
 
-        User.cancelTotp(req.body.totpToken, req.decodedToken.username)
+        Settings.getAll()
+        .then(settings => {
+            if (settings && settings.authentication && settings.authentication.enforce2fa)
+                throw({fn: 'Forbidden', message: 'Two-factor authentication is enforced'});
+            return User.cancelTotp(req.body.totpToken, req.decodedToken.username);
+        })
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
     });
@@ -322,8 +351,87 @@ module.exports = function(app) {
         .catch(err => Response.Internal(res, err))
     });
 
+    // Bulk enable/disable users (admin only)
+    app.put("/api/users/bulk-status", acl.hasPermission('users:update'), async function(req, res) {
+        // #swagger.tags = ['User']
+
+        if (!validUserIds(req.body.userIds) || typeof req.body.enabled !== 'boolean') {
+            Response.BadParameters(res, 'Required parameters: userIds (array of valid ids), enabled (boolean)');
+            return;
+        }
+
+        try {
+            if (!req.body.enabled)
+                await assertEnabledAdminRemains(req.body.userIds);
+            await User.updateMany({_id: {$in: req.body.userIds}}, {$set: {enabled: req.body.enabled}});
+            Response.Ok(res, 'Users updated successfully');
+        }
+        catch (err) {
+            Response.Internal(res, err);
+        }
+    });
+
+    // Bulk set role on users (admin only)
+    app.put("/api/users/bulk-role", acl.hasPermission('users:update'), async function(req, res) {
+        // #swagger.tags = ['User']
+
+        if (!validUserIds(req.body.userIds) || !req.body.role) {
+            Response.BadParameters(res, 'Required parameters: userIds (array of valid ids), role');
+            return;
+        }
+        if (!isAssignableRole(req.body.role)) {
+            Response.BadParameters(res, 'Role does not exist');
+            return;
+        }
+
+        try {
+            if (req.body.role !== 'admin')
+                await assertAdminRemains(req.body.userIds);
+            await User.updateMany({_id: {$in: req.body.userIds}}, {$set: {role: req.body.role}});
+            Response.Ok(res, 'Users updated successfully');
+        }
+        catch (err) {
+            Response.Internal(res, err);
+        }
+    });
+
+    // Bulk grant/revoke extra permissions on users (admin only)
+    app.put("/api/users/bulk-permissions", acl.hasPermission('users:update'), async function(req, res) {
+        // #swagger.tags = ['User']
+
+        var add = Array.isArray(req.body.add) ? req.body.add : [];
+        var remove = Array.isArray(req.body.remove) ? req.body.remove : [];
+        var permissionPattern = /^[a-z0-9-]+:[a-z0-9-]+$/;
+
+        if (!validUserIds(req.body.userIds) || (add.length === 0 && remove.length === 0)) {
+            Response.BadParameters(res, 'Required parameters: userIds (array of valid ids) and add or remove (arrays of permissions)');
+            return;
+        }
+        var invalid = [...add, ...remove].find(p => typeof p !== 'string' || !permissionPattern.test(p));
+        if (invalid) {
+            Response.BadParameters(res, `Invalid permission: ${invalid}`);
+            return;
+        }
+        var overlap = add.filter(p => remove.includes(p));
+        if (overlap.length > 0) {
+            Response.BadParameters(res, 'add and remove cannot contain the same permission');
+            return;
+        }
+
+        try {
+            if (remove.length > 0)
+                await User.updateMany({_id: {$in: req.body.userIds}}, {$pull: {permissions: {$in: remove}}});
+            if (add.length > 0)
+                await User.updateMany({_id: {$in: req.body.userIds}}, {$addToSet: {permissions: {$each: add}}});
+            Response.Ok(res, 'Users updated successfully');
+        }
+        catch (err) {
+            Response.Internal(res, err);
+        }
+    });
+
     // Update any user (admin only)
-    app.put("/api/users/:id", acl.hasPermission('users:update'), function(req, res) {
+    app.put("/api/users/:id", acl.hasPermission('users:update'), async function(req, res) {
         // #swagger.tags = ['User']
 
         if (req.body.password && !passwordpolicy.strongPassword(req.body.password)){
@@ -331,7 +439,7 @@ module.exports = function(app) {
             return;
         }
         var user = {};
-    
+
         // Optionals params
         if (req.body.username) user.username = req.body.username;
         if (!_.isNil(req.body.password)) user.password = req.body.password;
@@ -341,8 +449,31 @@ module.exports = function(app) {
         if (!_.isNil(req.body.phone)) user.phone = req.body.phone;
         if (req.body.role) user.role = req.body.role;
         if (Array.isArray(req.body.permissions)) user.permissions = req.body.permissions;
+        if (req.body.sso) {
+            user.sso = {
+                provider: req.body.sso.provider || '',
+                subject: req.body.sso.subject || '',
+                email: req.body.sso.email || req.body.email || '',
+                linkedAt: req.body.sso.linkedAt || null
+            };
+        }
         if (typeof(req.body.totpEnabled) === 'boolean') user.totpEnabled = req.body.totpEnabled;
         if (typeof(req.body.enabled) === 'boolean') user.enabled = req.body.enabled;
+
+        try {
+            if (user.role && !isAssignableRole(user.role)) {
+                Response.BadParameters(res, 'Role does not exist');
+                return;
+            }
+            if (user.role && user.role !== 'admin')
+                await assertAdminRemains([req.params.id]);
+            if (user.enabled === false)
+                await assertEnabledAdminRemains([req.params.id]);
+        }
+        catch (err) {
+            Response.Internal(res, err);
+            return;
+        }
 
         User.updateUser(req.params.id, user)
         .then(msg => Response.Ok(res, msg))

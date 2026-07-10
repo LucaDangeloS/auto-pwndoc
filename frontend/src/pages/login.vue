@@ -145,6 +145,20 @@
                 <q-card-section align="center">
                     <q-btn :loading="loginLoading" color="blue" class="full-width" unelevated no-caps @click="getToken()">{{$t('login')}}</q-btn>
                 </q-card-section>
+                <template v-if="sso.enabled">
+                    <q-separator inset />
+                    <q-card-section align="center">
+                        <q-btn
+                        :disable="loginLoading"
+                        color="primary"
+                        outline
+                        class="full-width"
+                        icon="login"
+                        no-caps
+                        @click="startSsoLogin()"
+                        >{{$t('ssoLoginWith', { provider: sso.providerName })}}</q-btn>
+                    </q-card-section>
+                </template>
             </div>
         </q-card>
     </div>
@@ -173,6 +187,7 @@ export default defineComponent({
           step: 0,
           errors: {alert: "", username: "", password: "", firstname: "", lastname: ""},
           loginLoading: false,
+          sso: {enabled: false, providerName: 'SSO'},
       }
   },
 
@@ -180,7 +195,10 @@ export default defineComponent({
       if (this.$route.query.tokenError)
           if (this.$route.query.tokenError === "2") this.errors.alert = $t('err.expiredToken');
           else this.errors.alert = $t('err.invalidToken');
+      if (this.$route.query.ssoError)
+          this.errors.alert = $t('err.ssoLoginFailed');
       this.checkInit();
+      this.loadSsoConfig();
   },
 
   methods: {
@@ -210,6 +228,20 @@ export default defineComponent({
                   customClass: 'loading-error'})
               console.log(err)
           })
+      },
+
+      loadSsoConfig() {
+          UserService.getSsoConfig()
+          .then((res) => {
+              this.sso = res.data.datas || {enabled: false, providerName: 'SSO'};
+          })
+          .catch(() => {
+              this.sso = {enabled: false, providerName: 'SSO'};
+          });
+      },
+
+      startSsoLogin() {
+          UserService.startSsoLogin();
       },
 
        initUser() {

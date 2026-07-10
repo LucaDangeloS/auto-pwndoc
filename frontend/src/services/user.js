@@ -11,6 +11,7 @@ export default {
         firstname: "",
         lastname: "",
         totpEnabled: false,
+        forceTotpSetup: false,
         roles: ""
     },
 
@@ -77,6 +78,14 @@ export default {
         return ( api.get(`users/init`, {timeout: 10000}));
     },
 
+    getSsoConfig() {
+        return api.get('auth/sso/config');
+    },
+
+    startSsoLogin() {
+        window.location.assign(`${window.location.origin}/api/auth/sso/start`);
+    },
+
     isAuth() {
         if (this.user && this.user.username)
             return true
@@ -90,6 +99,7 @@ export default {
             role: "",
             firstname: "",
             lastname: "",
+            forceTotpSetup: false,
             roles: ""
         }
     },

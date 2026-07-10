@@ -17,6 +17,8 @@ export default async ({ urlPath, router, redirect }) => {
   // Call refreshToken when loading app and redirect to login if error
   try {
     await User.refreshToken()
+    if (User.user && User.user.forceTotpSetup && !urlPath.startsWith('/profile') && !urlPath.startsWith('/login'))
+      redirect('/profile?setup2fa=1')
   }
   catch(err) {
     if (!urlPath.startsWith('/login'))
@@ -32,6 +34,9 @@ export default async ({ urlPath, router, redirect }) => {
         next('/')
       else
         next()
+    }
+    else if (User.user && User.user.forceTotpSetup && to.path !== '/profile') {
+      next('/profile?setup2fa=1')
     }
     else {
       next()

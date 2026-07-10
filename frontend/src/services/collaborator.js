@@ -13,6 +13,18 @@ export default {
     return  api.put(`users/${collabId}`, collab)
   },
 
+  bulkStatus: function(userIds, enabled) {
+    return api.put('users/bulk-status', { userIds, enabled })
+  },
+
+  bulkRole: function(userIds, role) {
+    return api.put('users/bulk-role', { userIds, role })
+  },
+
+  bulkPermissions: function(userIds, add, remove) {
+    return api.put('users/bulk-permissions', { userIds, add, remove })
+  },
+
   deleteCollab: function(collabId) {
     return  api.delete(`users/${collabId}`)
   },

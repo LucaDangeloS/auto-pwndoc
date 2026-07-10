@@ -2,4 +2,8 @@
 
 <script src='./collaborators.js'></script>
 
-<style></style>
+<style>
+.users-table .q-table__middle {
+    overflow-x: auto;
+}
+</style>

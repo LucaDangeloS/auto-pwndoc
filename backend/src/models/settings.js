@@ -63,11 +63,13 @@ const SettingSchema = new Schema({
                 type: String,
                 enum: ['3.1', '4.0'],
                 default: '3.1'
-            }
+            },
+            enableSpellCheck: { type: Boolean, default: true }
         },
         private: {
             imageBorder: { type: Boolean, default: false },
-            imageBorderColor: { type: String, default: "#000000", validate: [colorValidator, 'Invalid color'] }
+            imageBorderColor: { type: String, default: "#000000", validate: [colorValidator, 'Invalid color'] },
+            languageToolUrl: { type: String, default: 'http://languagetool:8010' }
         }
      },
     reviews: {
@@ -92,6 +94,31 @@ const SettingSchema = new Schema({
       apiKey: { type: String, default: '' },
       apiKeyCreatedAt: { type: Date, default: null }
     },
+    authentication: {
+      enforce2fa: { type: Boolean, default: false },
+      sso: {
+        enabled: { type: Boolean, default: false },
+        public: {
+          providerId: { type: String, default: 'oauth2' },
+          providerName: { type: String, default: 'SSO' },
+          registrationEnabled: { type: Boolean, default: false },
+          autoLinkExistingUsers: { type: Boolean, default: false },
+          authorizationUrl: { type: String, default: '' },
+          tokenUrl: { type: String, default: '' },
+          userInfoUrl: { type: String, default: '' },
+          scope: { type: String, default: 'openid profile email' },
+          subjectClaim: { type: String, default: 'sub' },
+          usernameClaim: { type: String, default: 'preferred_username' },
+          firstnameClaim: { type: String, default: 'given_name' },
+          lastnameClaim: { type: String, default: 'family_name' },
+          emailClaim: { type: String, default: 'email' }
+        },
+        private: {
+          clientId: { type: String, default: '' },
+          clientSecret: { type: String, default: '' }
+        }
+      }
+    },
     api: {
       keys: [{
         name: { type: String, required: true },
@@ -111,7 +138,7 @@ const SettingSchema = new Schema({
         },
         model: { type: String, default: 'gpt-4o' },
         temperature: { type: Number, default: 0.7, min: 0, max: 2 },
-        maxTokens: { type: Number, default: 4096, min: 1, max: 128000 },
+        maxTokens: { type: Number, default: 32000, min: 1, max: 128000 },
         embeddingProvider: {
           type: String,
           enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible', 'openwebui'],
@@ -147,10 +174,6 @@ const SettingSchema = new Schema({
         },
         visionSystemPrompt: { type: String, default: '' },
         visionAnonymizeLlm: { type: Boolean, default: false },
-        visionAnonymizationPrompt: {
-          type: String,
-          default: () => require('../lib/vision-service').DEFAULT_VISION_ANONYMIZATION_PROMPT
-        },
         visionAnonymizeRegex: { type: Boolean, default: false },
         visionAnonymizeRegexRules: {
           type: [{
@@ -163,6 +186,14 @@ const SettingSchema = new Schema({
           }],
           default: () => require('../lib/vision-service').DEFAULT_REGEX_RULES.map(rule => ({ ...rule }))
         },
+        anonymizationPrompt: {
+          type: String,
+          default: () => require('../lib/vision-service').DEFAULT_INPUT_ANONYMIZATION_PROMPT
+        },
+        // When enabled, per-field generation-input anonymization pauses so the
+        // user can review/edit the anonymized context before it is sent to the
+        // generation model.
+        anonymizeReviewBeforeSend: { type: Boolean, default: false },
         generateSystemPrompt: { type: String, default: '' },
         generateUserPrompt: { type: String, default: '' },
         completeSystemPrompt: { type: String, default: '' },
@@ -206,7 +237,20 @@ const SettingSchema = new Schema({
         field_retestEvidence_completeSystemPrompt: { type: String, default: '' },
         field_retestEvidence_completeUserPrompt: { type: String, default: '' },
         field_retestEvidence_rewriteSystemPrompt: { type: String, default: '' },
-        field_retestEvidence_rewriteUserPrompt: { type: String, default: '' }
+        field_retestEvidence_rewriteUserPrompt: { type: String, default: '' },
+        // Per-field input anonymization: when enabled, the field's input context
+        // is redacted before it is sent to the generation model. Regex uses the
+        // shared visionAnonymizeRegexRules; llm uses anonymizationPrompt.
+        field_description_anonymizeRegex: { type: Boolean, default: false },
+        field_description_anonymizeLlm: { type: Boolean, default: false },
+        field_observation_anonymizeRegex: { type: Boolean, default: false },
+        field_observation_anonymizeLlm: { type: Boolean, default: false },
+        field_remediation_anonymizeRegex: { type: Boolean, default: false },
+        field_remediation_anonymizeLlm: { type: Boolean, default: false },
+        field_poc_anonymizeRegex: { type: Boolean, default: false },
+        field_poc_anonymizeLlm: { type: Boolean, default: false },
+        field_retestEvidence_anonymizeRegex: { type: Boolean, default: false },
+        field_retestEvidence_anonymizeLlm: { type: Boolean, default: false }
       },
       visionEnabled: { type: Boolean, default: false },
       visionPublic: {
@@ -215,7 +259,9 @@ const SettingSchema = new Schema({
           enum: ['openai', 'anthropic', 'ollama', 'azure-openai', 'openai-compatible', 'openwebui'],
           default: 'openai'
         },
-        visionModel: { type: String, default: 'gpt-4o' }
+        visionModel: { type: String, default: 'gpt-4o' },
+        visionTemperature: { type: Number, default: 0.7, min: 0, max: 2 },
+        visionMaxTokens: { type: Number, default: 32000, min: 1, max: 128000 }
       }
     }
 }, {strict: true});
@@ -237,9 +283,24 @@ SettingSchema.statics.getAll = () => {
 SettingSchema.statics.getPublic = () => {
     return new Promise((resolve, reject) => {
         const query = Settings.findOneAndUpdate({}, {$setOnInsert: {}}, {new: true, upsert: true, setDefaultsOnInsert: true});
-        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public mcp.enabled ai.enabled ai.embeddingEnabled ai.public ai.visionEnabled ai.visionPublic');
+        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public mcp.enabled authentication.enforce2fa authentication.sso.enabled authentication.sso.public ai.enabled ai.embeddingEnabled ai.public ai.visionEnabled ai.visionPublic ai.private');
         query.exec()
-            .then(settings => resolve(settings))
+            .then(settings => {
+                // Expose only derived anonymization booleans/flags; never the
+                // ai.private subtree itself.
+                const publicSettings = settings.toObject();
+                if (publicSettings.ai) {
+                    const priv = publicSettings.ai.private || {};
+                    publicSettings.ai.visionAnonymizationEnabled = !!(priv.visionAnonymizeLlm || priv.visionAnonymizeRegex);
+                    publicSettings.ai.anonymizeReviewBeforeSend = !!priv.anonymizeReviewBeforeSend;
+                    const ANON_FIELDS = ['description', 'observation', 'remediation', 'poc', 'retestEvidence'];
+                    publicSettings.ai.anonymizedFields = ANON_FIELDS.filter(f =>
+                        priv[`field_${f}_anonymizeRegex`] || priv[`field_${f}_anonymizeLlm`]
+                    );
+                    delete publicSettings.ai.private;
+                }
+                resolve(publicSettings);
+            })
             .catch(err => reject(err));
     });
 };

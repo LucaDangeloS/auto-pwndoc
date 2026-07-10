@@ -54,6 +54,7 @@
               ref="proposedEditor"
               class="ai-diff-pane ai-diff-pane-editable col"
               contenteditable="true"
+              spellcheck="false"
               role="textbox"
               aria-multiline="true"
               :aria-label="$t('aiReviewProposedEditable')"

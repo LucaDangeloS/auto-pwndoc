@@ -42,7 +42,10 @@ module.exports = function(app) {
         }
 
         Settings.update(req.body)
-        .then(msg => Response.Ok(res, msg))
+        .then(msg => {
+            require('../lib/languagetool-config').invalidateLanguageToolConfigCache();
+            Response.Ok(res, msg);
+        })
         .catch(err => Response.Internal(res, err));
     });
 
@@ -50,7 +53,10 @@ module.exports = function(app) {
         // #swagger.tags = ['Settings']
 
         Settings.restoreDefaults()
-        .then(msg => Response.Ok(res, msg))
+        .then(msg => {
+            require('../lib/languagetool-config').invalidateLanguageToolConfigCache();
+            Response.Ok(res, msg);
+        })
         .catch(err => Response.Internal(res, err));
     });
 

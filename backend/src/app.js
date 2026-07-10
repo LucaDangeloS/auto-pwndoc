@@ -52,7 +52,6 @@ require('./models/audit-archive');
 require('./models/company');
 require('./models/template');
 require('./models/vulnerability');
-require('./models/vulnerability-translation-group');
 require('./models/vulnerability-matching-run');
 require('./models/vulnerability-update');
 require('./models/language');
@@ -62,13 +61,20 @@ require('./models/custom-section');
 require('./models/custom-field');
 require('./models/image');
 require('./models/settings');
+require('./models/dictionary');
+require('./models/role');
 
 // Database migration (runs only when MIGRATE_FROM env var is set)
 const { runMigration } = require('./lib/migration');
 const { ensureDefaultAdmin } = require('./lib/seed-admin');
 runMigration()
   .catch(err => console.error('[migration] Unexpected error:', err))
-  .finally(() => ensureDefaultAdmin());
+  .finally(async () => {
+    await ensureDefaultAdmin();
+    // Load DB-stored custom roles into the ACL once migrations (incl. the
+    // roles.json seed) have run.
+    await require('./lib/auth').acl.reload();
+  });
 
 // Socket IO configuration
 io.on('connection', (socket) => {
@@ -127,14 +133,18 @@ app.use(cookieParser())
 
 // Routes import
 require('./routes/user')(app);
+require('./routes/auth')(app);
 require('./routes/audit')(app, io);
 require('./routes/audit-archive')(app);
 require('./routes/company')(app);
 require('./routes/vulnerability')(app);
 require('./routes/template')(app);
 require('./routes/data')(app);
+require('./routes/role')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
+require('./routes/spellcheck')(app);
+require('./routes/backup')(app);
 require('./routes/ai')(app);
 require('./routes/mcp')(app);
 

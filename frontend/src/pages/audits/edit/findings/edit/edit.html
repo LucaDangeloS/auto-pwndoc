@@ -14,6 +14,18 @@
       >
         <template #buttons>
           <q-btn
+            color="grey-7"
+            flat
+            class="q-mr-sm"
+            icon="comment"
+            no-caps
+            :disable="loading"
+            @click="showComments = true"
+          >
+            <q-badge v-if="findingCommentCount > 0" color="primary" floating>{{ findingCommentCount }}</q-badge>
+            <q-tooltip>{{ $t('comments') }}</q-tooltip>
+          </q-btn>
+          <q-btn
             color="orange"
             class="q-mr-sm"
             :label="$t('btn.backupFinding')"
@@ -59,6 +71,40 @@
         </template>
       </breadcrumb>
 
+      <q-banner v-if="draftRecovery.available" dense class="bg-warning text-dark q-mb-sm">
+        <template v-slot:avatar>
+          <q-icon name="history" color="dark" />
+        </template>
+        {{ $t('draftRecoveryMessage', { date: formatDraftDate(draftRecovery.savedAt) }) }}
+        <template v-slot:action>
+          <q-btn flat dense no-caps color="dark" icon="difference" :label="$t('draftRecoveryViewChanges')" @click="showDraftDiff = true" />
+          <q-btn flat dense no-caps color="dark" :label="$t('draftRecoveryDiscard')" @click="discardDraft()" />
+          <q-btn unelevated dense no-caps color="dark" text-color="white" :label="$t('draftRecoveryRestore')" @click="restoreDraft()" />
+        </template>
+      </q-banner>
+
+      <q-dialog v-model="showDraftDiff">
+        <q-card style="width: 900px; max-width: 95vw">
+          <q-card-section class="row items-center q-pb-none">
+            <q-icon name="history" size="sm" class="q-mr-sm" />
+            <span class="text-h6">{{ $t('draftRecoveryViewChanges') }}</span>
+            <q-space />
+            <q-btn icon="close" flat round dense v-close-popup />
+          </q-card-section>
+          <q-card-section class="q-pt-sm">
+            <div class="text-caption text-grey-7 q-mb-md">
+              {{ $t('draftRecoveryMessage', { date: formatDraftDate(draftRecovery.savedAt) }) }}
+            </div>
+            <draft-diff :current="draftDiffCurrent" :draft="(draftRecovery.data || {})" />
+          </q-card-section>
+          <q-separator />
+          <q-card-actions align="right">
+            <q-btn flat no-caps color="primary" :label="$t('draftRecoveryDiscard')" @click="discardDraft(); showDraftDiff = false" />
+            <q-btn unelevated no-caps color="primary" :label="$t('draftRecoveryRestore')" @click="restoreDraft(); showDraftDiff = false" />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
+
       <div class="row">
         <q-tabs
           v-model="selectedTab"
@@ -73,23 +119,34 @@
           <q-tab name="details" :label="$t('details')" />
           <template v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT">
             <q-separator vertical />
-            <q-toggle
+            <q-select
+              class="q-ml-md self-center"
+              style="min-width: 190px"
               v-model="finding.status"
               @update:model-value="markUserEdited"
-              :true-value="0"
-              :false-value="1"
-              checked-icon="check"
-              unchecked-icon="clear"
-              color="green"
+              :options="statusOptions"
               :disable="loading"
+              emit-value
+              map-options
+              dense
+              options-dense
+              borderless
             >
-              <template #default>
-                <span class="row items-center no-wrap q-ml-xs">
-                  {{ $t('completed') }}
-                  <template-hint template-var="status" :description="$t('templateHintFindingScope')" />
-                </span>
+              <template #prepend>
+                <q-icon :name="currentStatusMeta.icon" :color="currentStatusMeta.color" />
               </template>
-            </q-toggle>
+              <template #option="scope">
+                <q-item v-bind="scope.itemProps">
+                  <q-item-section avatar>
+                    <q-icon :name="scope.opt.icon" :color="scope.opt.color" />
+                  </q-item-section>
+                  <q-item-section>{{ scope.opt.label }}</q-item-section>
+                </q-item>
+              </template>
+              <template #after>
+                <template-hint template-var="status" :description="$t('templateHintFindingStatus')" />
+              </template>
+            </q-select>
           </template>
           <q-space />
         </q-tabs>
@@ -277,27 +334,28 @@
                   <q-card-section class="row items-center q-pb-xs">
                     <span class="row items-center text-subtitle2">
                       {{ $t('retestResult') }}
-                      <template-hint template-var="retest_passed" :description="$t('templateHintFindingScope')" class="q-ml-xs" />
+                      <template-hint template-var="retest_status" :description="$t('templateHintFindingScope')" class="q-ml-xs" />
                     </span>
                     <q-space />
                     <q-btn-toggle
-                      v-model="finding.retestPassed"
+                      v-model="finding.retestStatus"
                       @update:model-value="markUserEdited"
                       :options="[
-                        { label: $t('retestFailed'), value: false },
-                        { label: $t('retestPassed'), value: true }
+                        { label: $t('retestFailed'), value: 'ko' },
+                        { label: $t('retestPartial'), value: 'partial' },
+                        { label: $t('retestPassed'), value: 'ok' }
                       ]"
-                      :toggle-color="finding.retestPassed === true ? 'positive' : finding.retestPassed === false ? 'negative' : 'grey-5'"
+                      :toggle-color="finding.retestStatus === 'ok' ? 'positive' : finding.retestStatus === 'ko' ? 'negative' : finding.retestStatus === 'partial' ? 'warning' : 'grey-5'"
                       unelevated
                       rounded
                       no-caps
                       :disable="loading || frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     />
                     <q-btn
-                      v-if="finding.retestPassed !== null && !loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      v-if="finding.retestStatus !== 'unknown' && !loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                       flat dense round icon="clear" color="grey-6" size="sm"
                       class="q-ml-xs"
-                      @click="markUserEdited(); finding.retestPassed = null"
+                      @click="markUserEdited(); finding.retestStatus = 'unknown'"
                     >
                       <q-tooltip>{{ $t('retestClearResult') }}</q-tooltip>
                     </q-btn>
@@ -473,5 +531,23 @@
         @retry="similarVulnIsProofMode ? searchSimilarFromProofs() : searchSimilarVulns()"
         @close="onSimilarModalClose"
       />
+
+      <q-drawer v-model="showComments" side="right" bordered :width="360" overlay elevated>
+        <div class="q-pa-md">
+          <div class="row items-center q-mb-sm">
+            <div class="text-h6">{{ $t('comments') }}</div>
+            <q-space />
+            <q-btn flat dense round icon="close" @click="showComments = false" />
+          </div>
+          <comments-panel
+            v-if="localAudit && localAudit._id"
+            :audit-id="auditId"
+            :finding-id="findingId"
+            :comments="localAudit.comments || []"
+            :field-options="commentFieldOptions"
+            @refresh="getAudit()"
+          />
+        </div>
+      </q-drawer>
     </div>
   </template>

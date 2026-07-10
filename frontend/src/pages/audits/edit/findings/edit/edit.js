@@ -9,9 +9,12 @@ import SimilarVulnModal from 'components/similar-vuln-modal';
 import TemplateHint from 'components/template-hint';
 import AiActionBtn from 'components/ai-action-btn';
 import TaxonomyPicker from 'components/taxonomy-picker';
+import CommentsPanel from 'components/comments-panel';
+import DraftDiff from 'components/draft-diff';
 
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
+import DraftRecoveryService from '@/services/draftRecovery';
 import VulnService from '@/services/vulnerability';
 import AiService from '@/services/ai';
 import Utils from '@/services/utils';
@@ -45,7 +48,7 @@ export default {
         status: 1,
           poc: '',
         retestEvidence: '',
-        retestPassed: null,
+        retestStatus: 'unknown',
         scope: '',
         cvssv3: '',
         cvssv4: '',
@@ -54,6 +57,11 @@ export default {
         remediation: '',
       },
       localAudit: { language: '' },
+      showComments: false,
+      // Local draft recovery banner state
+      draftRecovery: { available: false, savedAt: null, data: null },
+      // Draft diff dialog (current server snapshot vs. stored draft)
+      showDraftDiff: false,
       // Deep clone of the server state — used for structural dirty comparison
       findingOrig: null,
       selectedTab: 'definition',
@@ -102,6 +110,8 @@ export default {
     TemplateHint,
     AiActionBtn,
     TaxonomyPicker,
+    CommentsPanel,
+    DraftDiff,
   },
 
   watch: {
@@ -126,6 +136,8 @@ export default {
     this._fetchFindingData();
 
     this.getAudit();
+
+    DraftRecoveryService.purgeOld();
 
     this.$socket.emit('menu', {
       menu: 'editFinding',
@@ -221,6 +233,38 @@ export default {
     aiVisionDisabledReason() {
       return aiDisabledReason(this.$settings, 'vision');
     },
+    statusOptions() {
+      return Utils.FINDING_STATUS.map((e) => ({
+        value: e.value,
+        label: this.$t(e.labelKey),
+        icon: e.icon,
+        color: e.color,
+      }));
+    },
+    currentStatusMeta() {
+      return Utils.getFindingStatusMeta(this.finding.status);
+    },
+    findingCommentCount() {
+      const comments = (this.localAudit && this.localAudit.comments) || [];
+      return comments.filter(c => String(c.findingId) === String(this.findingId) && !c.resolved).length;
+    },
+    commentFieldOptions() {
+      const opts = [
+        { value: 'title', label: this.$t('title') },
+        { value: 'description', label: this.$t('fieldDescription') },
+        { value: 'observation', label: this.$t('fieldObservation') },
+        { value: 'poc', label: this.$t('fieldPoc') },
+        { value: 'remediation', label: this.$t('fieldRemediation') },
+      ];
+      if (this.localAudit && this.localAudit.isRetest)
+        opts.push({ value: 'retestEvidence', label: this.$t('fieldRetestEvidence') });
+      opts.push({ value: 'general', label: this.$t('general') });
+      return opts;
+    },
+    // Current server-side snapshot the draft would overwrite; feeds the diff dialog.
+    draftDiffCurrent() {
+      return this._draftSnapshot();
+    },
   },
 
   methods: {
@@ -264,10 +308,11 @@ export default {
           ['description', 'observation', 'poc', 'retestEvidence', 'scope', 'remediation'].forEach(field => {
             this.finding[field] = this.finding[field] || '';
           });
-          if (this.finding.retestPassed === undefined) this.finding.retestPassed = null;
+          if (!this.finding.retestStatus) this.finding.retestStatus = 'unknown';
           this.finding.references = this.finding.references || [];
           this._fetchDone = true;
           this.loading = false;
+          this._checkDraft();
         })
         .catch((err) => {
           console.error('Error loading finding data:', err);
@@ -298,6 +343,7 @@ export default {
             this.findingOrig = this.$_.cloneDeep(this.finding);
             this.needSave = false;
             this._hasUserEdited = false;
+            this._clearDraft();
             Notify.create({
               message: $t('msg.findingUpdateOk'),
               color: 'positive',
@@ -326,6 +372,66 @@ export default {
       if (this.loading || this.findingOrig === null || this._baselining) return;
       this._hasUserEdited = true;
       this.needSave = !this.$_.isEqual(this.finding, this.findingOrig);
+      if (this.needSave) this._saveDraft();
+    },
+
+    // Fields that only persist on explicit Save (rich-text fields are handled by
+    // the collaborative editor, so they are intentionally excluded from drafts).
+    _draftSnapshot() {
+      return {
+        title: this.finding.title,
+        references: this.finding.references,
+        cvssv3: this.finding.cvssv3,
+        cvssv4: this.finding.cvssv4,
+        priority: this.finding.priority,
+        remediationComplexity: this.finding.remediationComplexity,
+        status: this.finding.status,
+        retestStatus: this.finding.retestStatus,
+        scope: this.finding.scope,
+        taxonomies: this.finding.taxonomies,
+      };
+    },
+
+    _saveDraft() {
+      if (!this.findingId) return;
+      DraftRecoveryService.save('finding', this.findingId, this._draftSnapshot());
+    },
+
+    _clearDraft() {
+      DraftRecoveryService.clear('finding', this.findingId);
+      this.draftRecovery = { available: false, savedAt: null, data: null };
+    },
+
+    // After load, offer recovery if a stored draft differs from the server copy.
+    async _checkDraft() {
+      if (!this.findingId) return;
+      const draft = await DraftRecoveryService.load('finding', this.findingId);
+      if (!draft || !draft.data) return;
+      const current = this._draftSnapshot();
+      if (this.$_.isEqual(draft.data, current)) {
+        // Draft matches what was saved server-side; nothing to recover
+        DraftRecoveryService.clear('finding', this.findingId);
+        return;
+      }
+      this.draftRecovery = { available: true, savedAt: draft.savedAt, data: draft.data };
+    },
+
+    restoreDraft() {
+      if (!this.draftRecovery.data) return;
+      Object.assign(this.finding, this.draftRecovery.data);
+      this._hasUserEdited = true;
+      this.needSave = true;
+      this.draftRecovery = { available: false, savedAt: null, data: null };
+    },
+
+    discardDraft() {
+      this._clearDraft();
+    },
+
+    formatDraftDate(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     },
 
     beforeTabTransition() {
@@ -455,7 +561,7 @@ export default {
         Utils.syncEditors(this.$refs);
         if (this.findingOrig) {
           this.findingOrig.retestEvidence = this.finding.retestEvidence;
-          this.findingOrig.retestPassed = this.finding.retestPassed;
+          this.findingOrig.retestStatus = this.finding.retestStatus;
         }
         this.retestTabVisited = true;
       } else if (this.selectedTab === 'details' && !this.detailsTabVisited) {
@@ -615,11 +721,17 @@ export default {
     },
 
     _resetProofCompletionSteps() {
-      this.proofCompletionSteps = {
+      const steps = {
         analyze: 'pending',
         generate: 'pending',
         search: 'pending',
       };
+      // The anonymization pass runs server-side inside the proof analysis
+      // request; show it as its own step only when it is configured.
+      if (this.$settings?.ai?.visionAnonymizationEnabled) {
+        steps.anonymize = 'pending';
+      }
+      this.proofCompletionSteps = steps;
     },
 
     _setProofCompletionStep(step, status) {
@@ -673,6 +785,9 @@ export default {
         this.proofVisionSummary = analysis.visionSummary || '';
         this.proofImageDescriptions = analysis.imageDescriptions || [];
         this._setProofCompletionStep('analyze', 'done');
+        if ('anonymize' in this.proofCompletionSteps) {
+          this._setProofCompletionStep('anonymize', 'done');
+        }
 
         this._setProofCompletionStep('generate', 'active');
         const completionResponse = await AiService.completeProofFields({

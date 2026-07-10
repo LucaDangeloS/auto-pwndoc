@@ -253,6 +253,17 @@ export default {
       .replace(/[\u0300-\u036f]/g, "");
   },
 
+  FINDING_STATUS: [
+    { value: 1, labelKey: 'statusInProgress', icon: 'edit', color: 'grey' },
+    { value: 2, labelKey: 'statusForReview', icon: 'rate_review', color: 'info' },
+    { value: 3, labelKey: 'statusImprovementNeeded', icon: 'warning', color: 'warning' },
+    { value: 0, labelKey: 'completed', icon: 'check', color: 'positive' },
+  ],
+
+  getFindingStatusMeta: function (status) {
+    return this.FINDING_STATUS.find((e) => e.value === status) || this.FINDING_STATUS[0];
+  },
+
   AUDIT_VIEW_STATE: {
     EDIT: 0,
     EDIT_READONLY: 1,
@@ -309,9 +320,15 @@ export default {
       return url;
     }
     
-    // If it's a local ID, build the API URL
+    // If it's already an absolute path, return it
+    if (url.startsWith('/')) {
+      return url;
+    }
+
+    // If it's a local ID, build the API URL (root-relative so it does not
+    // resolve under the current route, e.g. /audits/:id/findings/...)
     if (!url.startsWith('data:')) {
-      return `api/images/download/${url}`;
+      return `/api/images/download/${url}`;
     }
     
     // If it's base64, return it as is

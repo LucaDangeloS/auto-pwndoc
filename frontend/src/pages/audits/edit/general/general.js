@@ -109,6 +109,15 @@ export default {
                 { key: 'Low', label: this.$t('low'), color: colors.lowColor || '#008000' },
                 { key: 'Informative', label: this.$t('informative'), color: colors.noneColor || '#4a86e8' }
             ]
+        },
+
+        templateOptions: function() {
+            const templates = Array.isArray(this.templates) ? [...this.templates] : []
+            const templateId = this.templateId(this.audit?.template)
+            if (templateId && !templates.some(template => template._id === templateId)) {
+                templates.push({_id: templateId, name: this.$t('missingTemplate'), ext: ''})
+            }
+            return templates
         }
     },
 
@@ -164,6 +173,7 @@ export default {
             })
             .then((data) => {
                 this.audit = data.data.datas;
+                this.audit.template = this.templateId(this.audit.template);
                 this.auditOrig = this.$_.cloneDeep(this.audit);
                 this.getCollaborators();
                 this.getReviewers();
@@ -172,6 +182,11 @@ export default {
             .catch((err) => {              
                 console.log(err.response)
             })
+        },
+
+        templateId: function(template) {
+            if (!template) return "";
+            return typeof template === 'object' ? template._id || "" : template;
         },
 
         // Save Audit

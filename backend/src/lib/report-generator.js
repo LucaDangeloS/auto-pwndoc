@@ -1948,7 +1948,9 @@ async function prepAuditData(data, settings) {
             references_links: expressions.filters.links(finding.references || []),
             poc: await splitHTMLParagraphs(finding.poc),
             retest_evidence: await splitHTMLParagraphs(finding.retestEvidence),
-            retest_passed: finding.retestPassed === true ? true : finding.retestPassed === false ? false : null,
+            retest_status: finding.retestStatus || 'unknown',
+            // Legacy boolean alias kept for existing templates: ok -> true, ko -> false, else null
+            retest_passed: finding.retestStatus === 'ok' ? true : finding.retestStatus === 'ko' ? false : null,
             affected: finding.scope || "",
             //affected: stripParagraphTags(finding.scope) || [],
             status: finding.status || "",

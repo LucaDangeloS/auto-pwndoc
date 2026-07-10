@@ -268,7 +268,7 @@
                                                 :options="checklistStatusOptions"
                                                 size="sm"
                                                 spread no-caps
-                                                toggle-color="primary"
+                                                :toggle-color="checklistStatusColor(row.status)"
                                             />
                                         </td>
                                         <td>
@@ -348,10 +348,10 @@ export default defineComponent({
   data: function() {
       return {
           checklistStatusOptions: [
-              { label: this.$t('untested'), value: 'untested' },
-              { label: this.$t('pass'),     value: 'pass',  color: 'positive' },
-              { label: this.$t('fail'),     value: 'fail',  color: 'negative' },
-              { label: this.$t('na'),       value: 'na',    color: 'grey-7' }
+              { label: this.$t('untested'), value: 'untested', color: 'grey' },
+              { label: this.$t('pass'),     value: 'pass',  color: 'primary' },
+              { label: this.$t('fail'),     value: 'fail',  color: 'primary' },
+              { label: this.$t('na'),       value: 'na',    color: 'primary' }
           ]
       }
   },
@@ -423,6 +423,13 @@ export default defineComponent({
           row.status = value
           row.auto = false
           this.eventPropagation()
+      },
+
+      checklistStatusColor: function(status) {
+          if (status === 'pass') return 'positive'
+          if (status === 'fail') return 'negative'
+          if (status === 'na') return 'warning'
+          return 'grey'
       },
 
       normalizeTemplateKey: function(label) {

@@ -28,8 +28,10 @@ Finding fields (all optional except title on create):
   cvssv4                (string) CVSS 4.0 vector, e.g. "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N".
   priority              (integer 1-4) Remediation priority: 1=Low 2=Medium 3=High 4=Urgent.
   remediationComplexity (integer 1-3) Fix effort: 1=Low 2=Medium 3=High.
-  status                (integer) 0=Done/reviewed 1=Redacting/in-progress (default).
+  status                (integer) 0=Completed 1=In progress (default) 2=For review 3=Improvement needed.
   taxonomies            (array of {type, category, subcategory}) Vulnerability classification.
+  retestEvidence        (string, HTML) Retest observations for retest audits: what was retested and the observed result.
+  retestStatus          (string) Retest outcome: "ok"=fixed, "ko"=still vulnerable, "partial"=partially mitigated, "unknown"=not retested (default). Never set ok/ko/partial without explicit retest evidence.
 
 HTML FORMAT — CRITICAL: description, poc, observation, and remediation are rendered as HTML in the final report. Always write them as valid HTML, never as Markdown. Use <p> for paragraphs, <strong>/<em> for emphasis, <pre><code> for code blocks, <ul>/<ol>/<li> for lists, <a href="..."> for links. Example: "<p>The endpoint does not validate input.</p><pre><code>GET /api?id=1 OR 1=1</code></pre>"
 
@@ -316,7 +318,7 @@ These are defaults to keep new and edited content consistent with the existing r
                     priority: finding.priority,
                     remediationComplexity: finding.remediationComplexity,
                     status: finding.status,
-                    retestPassed: finding.retestPassed
+                    retestStatus: finding.retestStatus
                 };
             });
         }

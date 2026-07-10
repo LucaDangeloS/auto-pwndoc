@@ -21,6 +21,14 @@ export default {
     return  api.post(`audits/${auditId}/clone`, { name: newName })
   },
 
+  getRetest: function(auditId) {
+    return  api.get(`audits/${auditId}/retest`)
+  },
+
+  createRetest: function(auditId, newName) {
+    return  api.post(`audits/${auditId}/retest`, { name: newName })
+  },
+
   deleteAudit: function(auditId) {
     return  api.delete(`audits/${auditId}`)
   },
@@ -59,6 +67,18 @@ export default {
 
   deleteFinding: function(auditId, findingId) {
     return  api.delete(`audits/${auditId}/findings/${findingId}`)
+  },
+
+  createComment: function(auditId, comment) {
+    return  api.post(`audits/${auditId}/comments`, comment)
+  },
+
+  updateComment: function(auditId, commentId, comment) {
+    return  api.put(`audits/${auditId}/comments/${commentId}`, comment)
+  },
+
+  deleteComment: function(auditId, commentId) {
+    return  api.delete(`audits/${auditId}/comments/${commentId}`)
   },
 
   getSection: function(auditId, sectionId) {

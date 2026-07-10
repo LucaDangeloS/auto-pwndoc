@@ -53,7 +53,7 @@
                         :label="$t('template')"
                         stack-label
                         v-model="audit.template"
-                        :options="templates"
+                        :options="templateOptions"
                         option-value="_id"
                         option-label="name"
                         emit-value
@@ -230,12 +230,11 @@
                                 <template-hint
                                     template-var="{#is_retest}Retest-only content{/is_retest}"
                                     :description="$t('templateHintRetestConditional')"
-                                    :examples="['{^is_retest}Initial-audit content{/is_retest}', '{#findings}{#retest_passed}Passed retest: {title}{/retest_passed}{/findings}']"
+                                    :examples="['{^is_retest}Initial-audit content{/is_retest}', '{#findings}{title}: {retest_status}{/findings}']"
                                 />
                             </span>
                         </template>
                     </q-toggle>
-                    <span class="col text-caption text-grey-7">{{ $t('isRetestHint') }}</span>
                 </div>
             </q-card-section>
 

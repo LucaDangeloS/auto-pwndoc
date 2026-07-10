@@ -171,9 +171,15 @@
                   </q-item-section>
                 </q-item>
                 <q-list no-border>
+                  <div v-for="subGroup of categoryFindings.subGroups" :key="subGroup.subcategory">
+                  <q-item v-if="subGroup.subcategory" dense class="q-pl-lg q-pb-none" style="min-height: 24px">
+                    <q-item-section>
+                      <q-item-label caption class="text-weight-medium">{{subGroup.subcategory}}</q-item-label>
+                    </q-item-section>
+                  </q-item>
                   <draggable
-                  v-model="categoryFindings.findings"
-                  @end="moveFindingPosition($event, categoryFindings.category)"
+                  v-model="subGroup.findings"
+                  @end="moveFindingPosition($event, subGroup)"
                   handle=".handle"
                   ghost-class="drag-ghost"
                   item-key="_id"
@@ -208,8 +214,13 @@
                         <q-item-section>
                           <span>{{ finding.title }}</span>
                         </q-item-section>
-                        <q-item-section side v-if="finding.status === 0">
-                          <q-icon name="check" color="green" />
+                        <q-item-section side v-if="getFindingStatusMeta(finding).value !== 1">
+                          <q-icon
+                            :name="getFindingStatusMeta(finding).icon"
+                            :color="getFindingStatusMeta(finding).color"
+                          >
+                            <q-tooltip :delay="300">{{ $t(getFindingStatusMeta(finding).labelKey) }}</q-tooltip>
+                          </q-icon>
                         </q-item-section>
                       </q-item>
 
@@ -224,6 +235,7 @@
                     </div>
                   </template>
                 </draggable>
+                </div>
 
                 </q-list>
               </div>
@@ -335,18 +347,17 @@ export default defineComponent({
     'audit.findings': {
       handler(newVal, oldVal) {
         var result = _.chain(this.audit.findings)
-        .groupBy("category")
+        .groupBy(f => this.findingTaxonomyCategory(f))
         .map((value, key) => {
-          if (key === 'undefined') key = 'No Category'
           var sortOption = this.audit.sortFindings.find(option => option.category === key) // Get sort option saved in audit
-          
+
           if (!sortOption) { // no option for category in audit
             sortOption = this.vulnCategories.find(e => e.name === key) // Get sort option from default in vulnerability category
             if (sortOption) // found sort option from vuln categories
               sortOption.category = sortOption.name
             else // no default option or category don't exist
               sortOption = {category: key, sortValue: 'cvssScore', sortOrder: 'desc', sortAuto: true} // set a default sort option
-            
+
             this.audit.sortFindings.push({
               category: sortOption.category,
               sortValue: sortOption.sortValue,
@@ -354,17 +365,27 @@ export default defineComponent({
               sortAuto: sortOption.sortAuto
             })
           }
-          
+
           // Trier les vulnérabilités selon l'option de tri
           if (sortOption.sortAuto) {
             value = this.sortFindingsByOption(value, sortOption);
           }
-          
-          return {category: key, findings: value, sortOption: sortOption}
+
+          // Second grouping level: taxonomy subcategory (empty label groups first)
+          var subGroups = _.chain(value)
+          .groupBy(f => (f.taxonomies && f.taxonomies[0] && f.taxonomies[0].subcategory) || '')
+          .map((findings, subcategory) => ({subcategory, findings}))
+          .sortBy(group => group.subcategory)
+          .value()
+
+          return {category: key, findings: value, subGroups: subGroups, sortOption: sortOption}
         })
+        .sortBy('category')
         .value()
 
-        this.findingList = result
+        // Alphabetical category order, uncategorized findings last
+        this.findingList = result.filter(g => g.category !== 'No Category')
+          .concat(result.filter(g => g.category === 'No Category'))
       },
       deep: true,
       immediate: true
@@ -477,6 +498,10 @@ export default defineComponent({
       setTimeout(() => this.waitForCvss40(), 100);
     },
     
+    getFindingStatusMeta: function(finding) {
+      return Utils.getFindingStatusMeta(finding.status)
+    },
+
     getFindingColor: function(finding) {
       let severity = this.getFindingSeverity(finding)
 
@@ -500,6 +525,9 @@ export default defineComponent({
         }
       }
     },
+    findingTaxonomyCategory: function(finding) {
+      return (finding.taxonomies && finding.taxonomies[0] && finding.taxonomies[0].category) || 'No Category'
+    },
     filteredFindingUsers(findingId) {
       return this.findingUsers.filter(user => user.finding === findingId)
     },
@@ -521,10 +549,10 @@ export default defineComponent({
         cvss = window.CVSS40 ? window.CVSS40.calculateCVSSFromVector(finding.cvssv4) : null;
         if (cvss && cvss.success) {
           severity = cvss.baseSeverity;
-          
-          let category = finding.category || "No Category";
+
+          let category = this.findingTaxonomyCategory(finding);
           let sortOption = this.audit.sortFindings.find(e => e.category === category);
-          
+
           if (sortOption) {
             if (sortOption.sortValue === "cvssEnvironmentalScore")
               severity = cvss.environmentalSeverity;
@@ -537,8 +565,8 @@ export default defineComponent({
         cvss = CVSS31.calculateCVSSFromVector(finding.cvssv3);
         if (cvss.success) {
           severity = cvss.baseSeverity;
-          
-          let category = finding.category || "No Category";
+
+          let category = this.findingTaxonomyCategory(finding);
           let sortOption = this.audit.sortFindings.find(e => e.category === category);
           
           if (sortOption) {
@@ -799,30 +827,39 @@ export default defineComponent({
       return options
     },
 
-    moveFindingPosition: function(event, category) {
-      var index = this.audit.findings.findIndex(e => {
-        if (category === 'No Category')
-          return !e.category
-        else
-          return e.category === category
-      })
-      if (index > -1) {
-        var realOldIndex = event.oldIndex + index
-        var realNewIndex = event.newIndex + index
+    // Displayed groups (taxonomy category/subcategory) are not contiguous in
+    // audit.findings, so map the drag to real indexes through finding ids:
+    // place the moved finding next to its new neighbor within the subgroup.
+    moveFindingPosition: function(event, subGroup) {
+      if (event.oldIndex === event.newIndex) return
 
-        AuditService.updateAuditFindingPosition(this.auditId, {oldIndex: realOldIndex, newIndex: realNewIndex})
-        .then(msg => this.getAudit())
-        .catch(err => {
-          console.log(err.response.data.datas)
-          Notify.create({
-            message: err.response.data.datas || err.message,
-            color: 'negative',
-            textColor:'white',
-            position: 'top-right'
-          })
-          this.getAudit()
-        })
+      var moved = subGroup.findings[event.newIndex]
+      var oldIndex = this.audit.findings.findIndex(e => e._id === moved._id)
+      if (oldIndex < 0) return
+
+      var newIndex
+      if (event.newIndex > 0) {
+        var prevIndex = this.audit.findings.findIndex(e => e._id === subGroup.findings[event.newIndex - 1]._id)
+        newIndex = oldIndex > prevIndex ? prevIndex + 1 : prevIndex
       }
+      else {
+        var nextIndex = this.audit.findings.findIndex(e => e._id === subGroup.findings[1]._id)
+        newIndex = oldIndex < nextIndex ? nextIndex - 1 : nextIndex
+      }
+      if (newIndex < 0 || newIndex === oldIndex) return
+
+      AuditService.updateAuditFindingPosition(this.auditId, {oldIndex: oldIndex, newIndex: newIndex})
+      .then(msg => this.getAudit())
+      .catch(err => {
+        console.log(err.response.data.datas)
+        Notify.create({
+          message: err.response.data.datas || err.message,
+          color: 'negative',
+          textColor:'white',
+          position: 'top-right'
+        })
+        this.getAudit()
+      })
     },
 
     toggleAskReview: function() {

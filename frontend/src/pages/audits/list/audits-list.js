@@ -30,6 +30,7 @@ export default {
             // Datatable headers
             dtHeaders: [
                 { name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true },
+                { name: 'auditType', label: $t('auditType'), field: 'auditType', align: 'left', sortable: true },
                 { name: 'company', label: $t('company'), field: row => row.company.name, align: 'left', sortable: true },
                 { name: 'language', label: $t('language'), field: 'language', align: 'left', sortable: true },
                 { name: 'users', label: $t('participants'), field: 'users', align: 'left', sortable: false },
@@ -38,7 +39,7 @@ export default {
                 { name: 'reviews', label: $t('reviews'), field: 'reviews', align: 'left', sortable: false },
                 { name: 'action', label: '', field: 'action', align: 'left', sortable: false }
               ],              
-            visibleColumns: ['name', 'language', 'company', 'users', 'date', 'action'],
+            visibleColumns: ['name', 'auditType', 'language', 'company', 'users', 'date', 'action'],
             // Datatable pagination
             pagination: {
                 page: 1,
@@ -56,7 +57,7 @@ export default {
                 {label:'All', value:0}
             ],
             // Search filter
-            search: {finding: '', name: '', language: '', company: '', users: '', date: ''},
+            search: {finding: '', name: '', auditType: '', language: '', company: '', users: '', date: ''},
             myAudits: false,
             displayConnected: false,
             displayReadyForReview: false,
@@ -291,6 +292,27 @@ export default {
             .onOk(() => this.deleteAudit(audit._id))
         },
 
+        // Create a linked retest audit from an existing audit
+        confirmCreateRetest: function(audit) {
+            Dialog.create({
+                title: $t('createRetest'),
+                message: $t('msg.createRetestConfirm', {name: audit.name}),
+                ok: {label: $t('btn.confirm'), color: 'deep-purple-5'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
+            })
+            .onOk(() => {
+                AuditService.createRetest(audit._id)
+                .then((response) => {
+                    this.getAudits();
+                    this.$router.push('/audits/' + response.data.datas.audit._id);
+                    Notify.create({message: $t('msg.retestCreatedOk'), color: 'positive', textColor: 'white', position: 'top-right'});
+                })
+                .catch((err) => {
+                    Notify.create({message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right'});
+                });
+            });
+        },
+
         // Convert blob to text
         BlobReader: function(data) {
             const fileReader = new FileReader();
@@ -390,6 +412,7 @@ export default {
             var username = this.UserService.user.username.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 
             var nameTerm = (terms.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            var auditTypeTerm = (terms.auditType || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
             var languageTerm = (terms.language)? terms.language.toLowerCase(): ""
             var companyTerm = (terms.company)? terms.company.toLowerCase(): ""
             var usersTerm = (terms.users || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -397,12 +420,14 @@ export default {
 
             return rows && rows.filter(row => {
                 var name = (row.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                var auditType = (row.auditType || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                 var language = (row.language)? row.language.toLowerCase(): ""
                 var companyName = (row.company)? row.company.name.toLowerCase(): ""
                 var users = this.convertParticipants(row).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                 var date = (row.createdAt)? row.createdAt.split('T')[0]: "";
 
                 return name.indexOf(nameTerm) > -1 &&
+                    auditType.indexOf(auditTypeTerm) > -1 &&
                     language.indexOf(languageTerm) > -1 &&
                     (!companyTerm || companyTerm === companyName) &&
                     users.indexOf(usersTerm) > -1 &&

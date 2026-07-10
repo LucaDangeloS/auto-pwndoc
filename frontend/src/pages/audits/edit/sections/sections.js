@@ -40,9 +40,9 @@ export default {
             ],
             statusOptions: [
                 {label: $t('checklistStatusUntested'), value: 'untested', color: 'grey'},
-                {label: $t('checklistStatusPass'),     value: 'pass',     color: 'positive'},
-                {label: $t('checklistStatusFail'),     value: 'fail',     color: 'negative'},
-                {label: $t('checklistStatusNa'),       value: 'na',       color: 'warning'}
+                {label: $t('checklistStatusPass'),     value: 'pass',     color: 'primary'},
+                {label: $t('checklistStatusFail'),     value: 'fail',     color: 'primary'},
+                {label: $t('checklistStatusNa'),       value: 'na',       color: 'primary'}
             ]
         }
     },

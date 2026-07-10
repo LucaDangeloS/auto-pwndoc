@@ -56,7 +56,7 @@ Other details like affected assets, CVSS, etc.
 
 ### Actions
 
-Toggle the `Completed` checkbox will mark the finding as done.
+Each finding has a status selectable from a dropdown: `In progress` (default), `For review`, `Improvement needed` and `Completed`. The current status is displayed as an icon next to the finding in the left sidebar.
 
 ![Finding Completed](/_images/finding_completed.png)
 

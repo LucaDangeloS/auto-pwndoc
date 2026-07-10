@@ -23,8 +23,8 @@ The core goal remains the same - more time to **Pwn**, less time to **Doc** - bu
 ### Retest support
 
 - Audits can be flagged as retests (`isRetest`).
-- Findings gain a **Retest Evidence** tab and a `retestPassed` boolean.
-- Dedicated report template variables: `audit.is_retest`, `finding.retest_evidence`, `finding.retest_passed`.
+- Findings gain a **Retest Evidence** tab and a `retestStatus` outcome (`ok` / `ko` / `partial` / `unknown`).
+- Dedicated report template variables: `audit.is_retest`, `finding.retest_evidence`, `finding.retest_status` (plus the legacy `finding.retest_passed` boolean alias).
 
 ### Executive summary section
 

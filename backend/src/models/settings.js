@@ -3,6 +3,7 @@ var Schema = mongoose.Schema;
 var fs = require('fs');
 var _ = require('lodash');
 var Utils = require('../lib/utils.js');
+var { DEFAULT_MCP_GUIDANCE } = require('../lib/mcp-guidance');
 
 // https://stackoverflow.com/questions/25822289/what-is-the-best-way-to-store-color-hex-values-in-mongodb-mongoose
 const colorValidator = (v) => (/^#([0-9a-f]{3}){1,2}$/i).test(v);
@@ -92,7 +93,15 @@ const SettingSchema = new Schema({
     mcp: {
       enabled: { type: Boolean, default: false },
       apiKey: { type: String, default: '' },
-      apiKeyCreatedAt: { type: Date, default: null }
+      apiKeyCreatedAt: { type: Date, default: null },
+      guidance: {
+        general: { type: String, default: DEFAULT_MCP_GUIDANCE.general },
+        evidence: { type: String, default: DEFAULT_MCP_GUIDANCE.evidence },
+        html: { type: String, default: DEFAULT_MCP_GUIDANCE.html },
+        fieldStyle: { type: String, default: DEFAULT_MCP_GUIDANCE.fieldStyle },
+        libraryUsage: { type: String, default: DEFAULT_MCP_GUIDANCE.libraryUsage },
+        findingFields: { type: String, default: DEFAULT_MCP_GUIDANCE.findingFields }
+      }
     },
     authentication: {
       enforce2fa: { type: Boolean, default: false },

@@ -54,6 +54,40 @@ const DEFAULT_VISION_REGEX_RULES = [
     { name: 'Common hostnames', pattern: '\\b(?:server|host|dc|ad|ws|pc|laptop|desktop|node|worker|master|slave|db|sql|web|app|api|proxy|vpn|fw|firewall|router|switch|lb)\\d*[-\\w]*', flags: 'gi', replacement: '[HOST_REDACTED]', enabled: true }
 ];
 
+const DEFAULT_MCP_GUIDANCE = {
+    general: `This server edits penetration-test audits. When you create or change finding content, match the style the rest of the report is written in, unless the user explicitly asks for something different.
+
+Use formal, impersonal, technically precise language. Executive and severity prose may be slightly more management-facing. These are defaults to keep new and edited content consistent with the existing report; explicit user instructions always take precedence.`,
+    evidence: `Ground every statement in evidence actually present in the audit or finding. Do not invent affected assets, endpoints, software versions, CVEs, credentials, payloads, observed responses, exploitation results, severities, or CVSS values. Use conditional language for consequences that are not explicitly confirmed.
+
+The poc field is the primary evidence field. Always populate it when documenting a finding, and keep it limited to the tested entry point or service, the action performed, and the observable result.`,
+    html: `Write finding text fields as valid HTML, never Markdown. This applies to description, poc, observation, remediation, and retestEvidence.
+
+Use <p> for paragraphs, <strong>/<em> for emphasis, <pre><code> for code blocks, <ul>/<ol>/<li> for lists, and <a href="..."> for links. Keep literal commands, requests, payloads, and values inside <code> or <pre><code>.`,
+    fieldStyle: `Per-field house style:
+- description: ~90-140 words, normally two short paragraphs. Cover the vulnerable condition, why it is insecure, a realistic attack scenario, and the principal potential impact. Do not include reproduction steps or remediation.
+- observation: ~45-90 words recording only target-specific conditions actually observed. Do not include generic theory, reproduction steps, or remediation. Leave blank if there is no evidence for it.
+- poc: a concise, reproducible sequence with the tested entry point or service, the action performed, and the observable result. Evidence only.
+- remediation: one short recommendation paragraph, then 3-5 actionable <li> items ordered from the definitive fix to secure configuration/least privilege, compensating controls, and validation. Recommend a currently supported vendor-fixed release without inventing a version number.
+- retestEvidence: state what was retested, the observed result, and whether the original weakness remains reproducible, distinguishing a full correction from a partial mitigation. Never infer pass/fail without explicit retest evidence.`,
+    libraryUsage: `Prefer existing library wording before writing a finding from scratch. Use search_similar_vulnerabilities or list_vulnerabilities to find a relevant entry, then apply_vulnerability_to_finding when the library entry matches the finding context. After applying library content, adjust only the target-specific evidence and wording that the user or audit evidence supports.`,
+    findingFields: `Finding fields (all optional except title on create):
+  title                 (string, plain text) Vulnerability title.
+  description           (string, HTML) What the vulnerability is and how it was identified.
+  poc                   (string, HTML) Proof of concept: reproduction steps, tool output, payloads, screenshots.
+  observation           (string, HTML) Additional analyst notes or context. Leave blank unless the user explicitly asks for it.
+  remediation           (string, HTML) Recommended fix or mitigation.
+  references            (array of strings) URLs or identifiers such as CVEs, CWEs, or security advisories.
+  cvssv3                (string) CVSS 3.1 vector, e.g. "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H".
+  cvssv4                (string) CVSS 4.0 vector, e.g. "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N".
+  priority              (integer 1-4) Remediation priority: 1=Low 2=Medium 3=High 4=Urgent.
+  remediationComplexity (integer 1-3) Fix effort: 1=Low 2=Medium 3=High.
+  status                (integer) 0=Completed 1=In progress (default) 2=For review 3=Improvement needed.
+  taxonomies            (array of {type, category, subcategory}) Vulnerability classification.
+  retestEvidence        (string, HTML) Retest observations for retest audits: what was retested and the observed result.
+  retestStatus          (string) Retest outcome: "ok"=fixed, "ko"=still vulnerable, "partial"=partially mitigated, "unknown"=not retested (default). Never set ok/ko/partial without explicit retest evidence.`
+};
+
 function safeClipboard(text) {
     if (navigator.clipboard && window.isSecureContext) {
         return navigator.clipboard.writeText(text);
@@ -395,7 +429,7 @@ export default {
                 danger:{enabled:false,public:{nbdaydelete: 0}},
                 reviews:{enabled:false},
                 authentication:{enforce2fa:false,sso:{enabled:false,public:{providerId:'oauth2',providerName:'SSO',registrationEnabled:false,autoLinkExistingUsers:false,authorizationUrl:'',tokenUrl:'',userInfoUrl:'',scope:'openid profile email',subjectClaim:'sub',usernameClaim:'preferred_username',firstnameClaim:'given_name',lastnameClaim:'family_name',emailClaim:'email'},private:{clientId:'',clientSecret:''}}},
-                mcp:{enabled:false,apiKey:'',apiKeyCreatedAt:null,appUrl:''},
+                mcp:{enabled:false,apiKey:'',apiKeyCreatedAt:null,appUrl:'',guidance:{...DEFAULT_MCP_GUIDANCE}},
                 ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:32000,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8,vulnerabilityProcessing:{autoTranslateOnSave:false,matchThreshold:0.35}},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o',visionTemperature:0.7,visionMaxTokens:32000},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:DEFAULT_VISION_SYSTEM_PROMPT,visionAnonymizeLlm:false,visionAnonymizeRegex:false,anonymizeReviewBeforeSend:false,visionAnonymizeRegexRules:DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})),generateSystemPrompt:'',generateUserPrompt:'',completeSystemPrompt:'',completeUserPrompt:'',rewriteSystemPrompt:'',rewriteUserPrompt:'',fillProofsSystemPrompt:'',fillProofsUserPrompt:'',executiveSummarySystemPrompt:'',executiveSummaryUserPrompt:'',severitySummarySystemPrompt:'',severitySummaryUserPrompt:'',vulnerabilityTranslationSystemPrompt:'',vulnerabilityTranslationUserPrompt:'',field_description_generateSystemPrompt:'',field_description_completeSystemPrompt:'',field_description_rewriteSystemPrompt:'',field_observation_generateSystemPrompt:'',field_observation_completeSystemPrompt:'',field_observation_rewriteSystemPrompt:'',field_remediation_generateSystemPrompt:'',field_remediation_completeSystemPrompt:'',field_remediation_rewriteSystemPrompt:'',field_poc_generateSystemPrompt:'',field_poc_completeSystemPrompt:'',field_poc_rewriteSystemPrompt:'',field_retestEvidence_generateSystemPrompt:'',field_retestEvidence_completeSystemPrompt:'',field_retestEvidence_rewriteSystemPrompt:''}},
                 report:{enabled:true,public:{chartTheme:{...DEFAULT_CHART_THEME},enableSpellCheck:true},private:{languageToolUrl:''}}
             },
@@ -416,11 +450,7 @@ export default {
             sectionObserver: null,
             scrollingTo: null,
             settingsSections: [
-                { id: 'section-general', label: 'generalSettings', children: [
-                    { id: 'sub-general-language', label: 'changeDisplayLanguage' },
-                    { id: 'sub-general-cvss-temporal', label: 'extendCvssTemporalEnvironment' },
-                    { id: 'sub-general-cvss-version', label: 'defaultCvssVersion' }
-                ] },
+                { id: 'section-general', label: 'generalSettings', children: [] },
                 { id: 'section-authentication', label: 'authenticationSettings', children: [
                     { id: 'sub-auth-2fa', label: 'twoFactorEnforcement' },
                     { id: 'sub-auth-sso', label: 'ssoSettings' },
@@ -459,6 +489,7 @@ export default {
                 { id: 'section-mcp', label: 'mcpSettings', children: [
                     { id: 'sub-mcp-server', label: 'mcpServer' },
                     { id: 'sub-mcp-api-key', label: 'mcpApiKey' },
+                    { id: 'sub-mcp-guidance', label: 'mcpGuidanceTitle' },
                     { id: 'sub-mcp-sample-config', label: 'mcpSampleConfig' }
                 ] },
                 { id: 'section-actions', label: 'saveSettings' }
@@ -468,6 +499,7 @@ export default {
             apiKeyCreating: false,
             newlyCreatedKey: null,
             DEFAULT_PROMPTS,
+            DEFAULT_MCP_GUIDANCE,
             promptTags: ['{language}','{fieldName}','{findingTitle}','{findingDescription}','{findingPoc}','{findingPocVision}','{auditContext}','{similarVulnsBlock}','{text}','{auditName}','{severity}','{overallRisk}','{findingsDigest}','{visionSummary}','{imageRefsBlock}','{vulnDescription}','{fromLanguage}','{toLanguage}','{fromLocale}','{toLocale}'],
             vulnerabilityTranslationPromptHint: 'Tags: {fieldName}, {fromLanguage}, {toLanguage}, {fromLocale}, {toLocale}, {text}.',
             aiTest: {
@@ -523,6 +555,14 @@ export default {
                 { key: 'remediation',    labelKey: 'fieldRemediation',     icon: 'build' },
                 { key: 'poc',            labelKey: 'fieldPoc',             icon: 'bug_report' },
                 { key: 'retestEvidence', labelKey: 'fieldRetestEvidence',  icon: 'replay' }
+            ],
+            mcpGuidanceFields: [
+                { key: 'general', labelKey: 'mcpGuidanceGeneral', icon: 'article' },
+                { key: 'evidence', labelKey: 'mcpGuidanceEvidence', icon: 'fact_check' },
+                { key: 'html', labelKey: 'mcpGuidanceHtml', icon: 'code' },
+                { key: 'fieldStyle', labelKey: 'mcpGuidanceFieldStyle', icon: 'format_align_left' },
+                { key: 'libraryUsage', labelKey: 'mcpGuidanceLibraryUsage', icon: 'manage_search' },
+                { key: 'findingFields', labelKey: 'mcpGuidanceFindingFields', icon: 'schema' }
             ]
         }
     },
@@ -711,7 +751,7 @@ export default {
                       report: { enabled: true, public: { chartTheme: { ...DEFAULT_CHART_THEME }, enableSpellCheck: true }, private: { languageToolUrl: '' } },
                       reviews: { enabled: false, public: { minReviewers: 1 } },
                       authentication: { enforce2fa: false, sso: { enabled: false, public: { providerId: 'oauth2', providerName: 'SSO', registrationEnabled: false, autoLinkExistingUsers: false, authorizationUrl: '', tokenUrl: '', userInfoUrl: '', scope: 'openid profile email', subjectClaim: 'sub', usernameClaim: 'preferred_username', firstnameClaim: 'given_name', lastnameClaim: 'family_name', emailClaim: 'email' }, private: { clientId: '', clientSecret: '' } } },
-                      mcp: { enabled: false, apiKey: '', apiKeyCreatedAt: null, appUrl: '' },
+                      mcp: { enabled: false, apiKey: '', apiKeyCreatedAt: null, appUrl: '', guidance: { ...DEFAULT_MCP_GUIDANCE } },
                       ai: { enabled: false, embeddingEnabled: false, visionEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 32000, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8, vulnerabilityProcessing: { autoTranslateOnSave: false, matchThreshold: 0.35 } }, visionPublic: { visionProvider: 'openai', visionModel: 'gpt-4o', visionTemperature: 0.7, visionMaxTokens: 32000 }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionApiUrl: '', visionApiKey: '', visionAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionSystemPrompt: DEFAULT_VISION_SYSTEM_PROMPT, visionAnonymizeLlm: false,  visionAnonymizeRegex: false, anonymizeReviewBeforeSend: false, visionAnonymizeRegexRules: DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})), fillProofsSystemPrompt: '', fillProofsUserPrompt: '', executiveSummarySystemPrompt: '', executiveSummaryUserPrompt: '', severitySummarySystemPrompt: '', severitySummaryUserPrompt: '', vulnerabilityTranslationSystemPrompt: '', vulnerabilityTranslationUserPrompt: '', field_description_generateSystemPrompt: '', field_description_completeSystemPrompt: '', field_description_rewriteSystemPrompt: '', field_observation_generateSystemPrompt: '', field_observation_completeSystemPrompt: '', field_observation_rewriteSystemPrompt: '', field_remediation_generateSystemPrompt: '', field_remediation_completeSystemPrompt: '', field_remediation_rewriteSystemPrompt: '', field_poc_generateSystemPrompt: '', field_poc_completeSystemPrompt: '', field_poc_rewriteSystemPrompt: '', field_retestEvidence_generateSystemPrompt: '', field_retestEvidence_completeSystemPrompt: '', field_retestEvidence_rewriteSystemPrompt: '' } }
                     },
                     data.data.datas
@@ -740,6 +780,7 @@ export default {
                 promptFields.forEach(k => {
                     if (!this.settings.ai.private[k]) this.settings.ai.private[k] = DEFAULT_PROMPTS[k] || '';
                 });
+                this.settings.mcp.guidance = this.$_.merge({}, DEFAULT_MCP_GUIDANCE, this.settings.mcp.guidance || {});
                 this.settingsOrig = this.$_.cloneDeep(this.settings);
                 this.loading = false
                 this.$nextTick(() => this.initSectionObserver());
@@ -796,6 +837,11 @@ export default {
 
         resetPromptToDefault: function(promptKey) {
             this.settings.ai.private[promptKey] = DEFAULT_PROMPTS[promptKey] || '';
+        },
+
+        resetMcpGuidanceToDefault: function(guidanceKey) {
+            if (!this.settings.mcp.guidance) this.settings.mcp.guidance = {};
+            this.settings.mcp.guidance[guidanceKey] = DEFAULT_MCP_GUIDANCE[guidanceKey] || '';
         },
 
         addVisionRegexRule: function() {

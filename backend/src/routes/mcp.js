@@ -8,6 +8,8 @@ module.exports = function(app) {
     var mcpAuth = require('../lib/mcp-auth');
     var CVSS31 = require('../lib/cvsscalc31');
     var CVSS40 = require('../lib/cvsscalc40');
+    var Settings = require('mongoose').model('Settings');
+    var { buildReportStyleGuide, buildFindingFieldsDoc } = require('../lib/mcp-guidance');
 
     var SERVER_INFO = {
         name: 'autopwndoc-mcp',
@@ -15,45 +17,6 @@ module.exports = function(app) {
     };
 
     var PROTOCOL_VERSION = '2025-03-26';
-
-    var FINDING_FIELDS_DOC = `\
-Finding fields (all optional except title on create):
-  title                 (string, plain text) Vulnerability title.
-  description           (string, HTML) What the vulnerability is and how it was identified.
-  poc                   (string, HTML) Proof of concept — reproduction steps, tool output, payloads, screenshots. This is the primary evidence field; always populate it when documenting a finding.
-  observation           (string, HTML) Additional analyst notes or context. Leave blank unless the user explicitly asks for it.
-  remediation           (string, HTML) Recommended fix or mitigation.
-  references            (array of strings) URLs or identifiers such as CVEs, CWEs, or security advisories.
-  cvssv3                (string) CVSS 3.1 vector, e.g. "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H".
-  cvssv4                (string) CVSS 4.0 vector, e.g. "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N".
-  priority              (integer 1-4) Remediation priority: 1=Low 2=Medium 3=High 4=Urgent.
-  remediationComplexity (integer 1-3) Fix effort: 1=Low 2=Medium 3=High.
-  status                (integer) 0=Completed 1=In progress (default) 2=For review 3=Improvement needed.
-  taxonomies            (array of {type, category, subcategory}) Vulnerability classification.
-  retestEvidence        (string, HTML) Retest observations for retest audits: what was retested and the observed result.
-  retestStatus          (string) Retest outcome: "ok"=fixed, "ko"=still vulnerable, "partial"=partially mitigated, "unknown"=not retested (default). Never set ok/ko/partial without explicit retest evidence.
-
-HTML FORMAT — CRITICAL: description, poc, observation, and remediation are rendered as HTML in the final report. Always write them as valid HTML, never as Markdown. Use <p> for paragraphs, <strong>/<em> for emphasis, <pre><code> for code blocks, <ul>/<ol>/<li> for lists, <a href="..."> for links. Example: "<p>The endpoint does not validate input.</p><pre><code>GET /api?id=1 OR 1=1</code></pre>"
-
-STYLE (default, advisory): unless the user asks for something different, match how findings are normally written in these reports — formal, impersonal, evidence-grounded prose. Do not invent assets, endpoints, versions, CVEs, credentials, payloads, responses, exploitation results, or CVSS values; use conditional language for unconfirmed consequences. Per field: description ~90-140 words, normally two paragraphs, no proof steps or remediation; observation ~45-90 words of target-specific observed facts only (blank if none); poc a concise reproducible sequence (entry point, action, observable result) with literal values in <code>; remediation a short recommendation paragraph then 3-5 ordered <li> items (definitive fix -> hardening/least privilege -> compensating controls -> validation); retest evidence states what was retested and whether the weakness remains, never inferring pass/fail without explicit retest facts. See the server instructions for the full guide.`;
-
-    var REPORT_STYLE_GUIDE = `\
-This server edits penetration-test audits. When you create or change finding content, match the style the rest of the report is written in, unless the user explicitly asks for something different — then follow the user.
-
-General conventions:
-- Write finding text (description, poc, observation, remediation, retestEvidence) as HTML, never Markdown.
-- Use formal, impersonal, technically precise language; executive/severity prose may be slightly more management-facing.
-- Ground every statement in evidence actually present in the audit or finding. Do not invent affected assets, endpoints, software versions, CVEs, credentials, payloads, observed responses, exploitation results, severities, or CVSS values. Use conditional language for consequences that are not explicitly confirmed.
-- Prefer existing library wording: search_similar_vulnerabilities / apply_vulnerability_to_finding before writing a finding from scratch.
-
-Per-field house style:
-- description: ~90-140 words, normally two short paragraphs (lists only when they materially help). Cover the vulnerable condition, why it is insecure, a realistic attack scenario, and the principal potential impact. No reproduction steps or remediation.
-- observation: ~45-90 words recording only target-specific conditions actually observed. No generic theory, reproduction steps, or remediation. Leave blank if there is no evidence for it.
-- poc: a concise, reproducible sequence — the tested entry point or service, the action performed, and the observable result. Keep literal commands, requests, and values inside <code>. Evidence only.
-- remediation: one short recommendation paragraph, then 3-5 actionable <li> items ordered from the definitive fix to secure configuration/least privilege, compensating controls, and validation. Recommend a currently supported vendor-fixed release without inventing a version number. Do not restate the description or impact.
-- retestEvidence: state what was retested, the observed result, and whether the original weakness remains reproducible, distinguishing a full correction from a partial mitigation. Never infer pass/fail without explicit retest evidence.
-
-These are defaults to keep new and edited content consistent with the existing report. Explicit user instructions always take precedence.`;
 
     function firstTaxonomy(row) {
         return (row && Array.isArray(row.taxonomies) && row.taxonomies[0]) || {};
@@ -75,8 +38,9 @@ These are defaults to keep new and edited content consistent with the existing r
         return { cvssScore: null, severity: 'N/A' };
     }
 
-    var tools = [
-        {
+    function buildTools(findingFieldsDoc) {
+        return [
+            {
             name: 'list_audits',
             description: 'List audits visible to the MCP service account. Optionally filter by finding title. Returns id, name, date, client, language, template, type, state, creator, and collaborators for each audit.',
             inputSchema: {
@@ -149,7 +113,7 @@ These are defaults to keep new and edited content consistent with the existing r
         },
         {
             name: 'create_finding',
-            description: `Create a new finding (vulnerability) in an audit. The fields object must include title.\n\n${FINDING_FIELDS_DOC}`,
+            description: `Create a new finding (vulnerability) in an audit. The fields object must include title.\n\n${findingFieldsDoc}`,
             inputSchema: {
                 type: 'object',
                 required: ['auditId', 'fields'],
@@ -158,7 +122,7 @@ These are defaults to keep new and edited content consistent with the existing r
         },
         {
             name: 'update_finding',
-            description: `Update any editable field of a finding. Only the fields provided are changed; omitted fields are left as-is. Call get_finding first to see the current state.\n\n${FINDING_FIELDS_DOC}`,
+            description: `Update any editable field of a finding. Only the fields provided are changed; omitted fields are left as-is. Call get_finding first to see the current state.\n\n${findingFieldsDoc}`,
             inputSchema: {
                 type: 'object',
                 required: ['auditId', 'findingId', 'fields'],
@@ -200,7 +164,8 @@ These are defaults to keep new and edited content consistent with the existing r
                 properties: { auditId: { type: 'string' }, findingId: { type: 'string' }, vulnerabilityId: { type: 'string' }, locale: { type: 'string', description: 'Locale to use, e.g. "en-US". Defaults to the first available locale.' } }
             }
         }
-    ];
+        ];
+    }
 
     function response(id, result) {
         return { jsonrpc: '2.0', id: id === undefined ? null : id, result };
@@ -376,6 +341,11 @@ These are defaults to keep new and edited content consistent with the existing r
         throw new Error('Unknown tool: ' + name);
     }
 
+    async function getMcpGuidance() {
+        var settings = await Settings.getAll();
+        return settings && settings.mcp && settings.mcp.guidance;
+    }
+
     async function handleMessage(message) {
         if (!message || message.jsonrpc !== '2.0') return errorResponse(message && message.id, -32600, 'Invalid Request');
         if (!message.method) return errorResponse(message.id, -32600, 'Missing method');
@@ -383,18 +353,20 @@ These are defaults to keep new and edited content consistent with the existing r
 
         try {
             if (message.method === 'initialize') {
+                var guidance = await getMcpGuidance();
                 return response(message.id, {
                     protocolVersion: PROTOCOL_VERSION,
                     capabilities: { tools: {} },
                     serverInfo: SERVER_INFO,
-                    instructions: REPORT_STYLE_GUIDE
+                    instructions: buildReportStyleGuide(guidance)
                 });
             }
             if (message.method === 'ping') {
                 return response(message.id, {});
             }
             if (message.method === 'tools/list') {
-                return response(message.id, { tools });
+                var toolGuidance = await getMcpGuidance();
+                return response(message.id, { tools: buildTools(buildFindingFieldsDoc(toolGuidance)) });
             }
             if (message.method === 'tools/call') {
                 var params = message.params || {};

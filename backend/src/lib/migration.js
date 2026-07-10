@@ -23,6 +23,7 @@
  */
 
 const mongoose = require('mongoose');
+const { DEFAULT_MCP_GUIDANCE } = require('./mcp-guidance');
 
 const USER_ID_MAP = new Map();
 
@@ -1391,6 +1392,32 @@ const STEPS = [
             }
 
             console.log(`[migration] backfill-vulnerability-source-locale: ${updated} vulnerabilities updated`);
+        },
+    },
+
+    // Step 36: Backfill editable MCP client guidance fields. These defaults
+    // were previously hardcoded in the MCP route and are now stored in settings
+    // so administrators can tune the context exposed to MCP clients.
+    {
+        id: 36,
+        name: 'backfill-mcp-guidance-settings',
+        async run(_srcDb, dstDb) {
+            const settingsCol = dstDb.collection('settings');
+            const settings = await settingsCol.findOne({}) || {};
+            const guidance = (settings.mcp && settings.mcp.guidance) || {};
+            const set = {};
+
+            Object.keys(DEFAULT_MCP_GUIDANCE).forEach(key => {
+                if (typeof guidance[key] !== 'string' || !guidance[key].trim()) {
+                    set[`mcp.guidance.${key}`] = DEFAULT_MCP_GUIDANCE[key];
+                }
+            });
+
+            if (Object.keys(set).length) {
+                await settingsCol.updateOne({}, { $set: set }, { upsert: true });
+            }
+
+            console.log(`[migration] backfill-mcp-guidance-settings: ${Object.keys(set).length} fields initialized`);
         },
     },
 

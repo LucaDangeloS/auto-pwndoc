@@ -1864,6 +1864,46 @@
             <q-separator />
 
             <q-card-section>
+                <div class="text-bold" id="sub-mcp-guidance">{{$t('mcpGuidanceTitle')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('mcpGuidanceDescription')}}</div>
+            </q-card-section>
+            <q-card-section>
+                <div class="row q-col-gutter-md">
+                    <div class="col-12" v-for="field in mcpGuidanceFields" :key="field.key">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <div class="row items-center q-gutter-sm text-subtitle2">
+                                <q-icon :name="field.icon" color="grey-7" />
+                                <span>{{$t(field.labelKey)}}</span>
+                            </div>
+                            <q-btn
+                                flat
+                                dense
+                                size="sm"
+                                icon="restart_alt"
+                                color="grey-7"
+                                :label="$t('resetToDefault')"
+                                :disable="!canEdit"
+                                @click="resetMcpGuidanceToDefault(field.key)"
+                            >
+                                <q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip>
+                            </q-btn>
+                        </div>
+                        <q-input
+                            v-model="settings.mcp.guidance[field.key]"
+                            type="textarea"
+                            outlined
+                            autogrow
+                            :readonly="!canEdit"
+                            spellcheck="false"
+                            hide-bottom-space
+                        />
+                    </div>
+                </div>
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section>
                 <div class="text-bold" id="sub-mcp-sample-config">{{$t('mcpSampleConfig')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('mcpSampleConfigHint')}}</div>
             </q-card-section>

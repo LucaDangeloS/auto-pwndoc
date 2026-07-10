@@ -957,6 +957,443 @@ const STEPS = [
         },
     },
 
+    // Step 26: Add SSO authentication settings and user link fields
+    // Existing users remain local-password accounts until an admin links an SSO
+    // identity or the SSO email auto-link option links exactly one matching user.
+    {
+        id: 26,
+        name: 'add-sso-authentication-settings',
+        async run(_srcDb, dstDb) {
+            const settingsCol = dstDb.collection('settings');
+            const defaultSso = {
+                enabled: false,
+                public: {
+                    providerId: 'oauth2',
+                    providerName: 'SSO',
+                    registrationEnabled: false,
+                    autoLinkExistingUsers: false,
+                    authorizationUrl: '',
+                    tokenUrl: '',
+                    userInfoUrl: '',
+                    scope: 'openid profile email',
+                    subjectClaim: 'sub',
+                    usernameClaim: 'preferred_username',
+                    firstnameClaim: 'given_name',
+                    lastnameClaim: 'family_name',
+                    emailClaim: 'email',
+                },
+                private: {
+                    clientId: '',
+                    clientSecret: '',
+                },
+            };
+            await settingsCol.updateOne({}, {$setOnInsert: {authentication: {sso: defaultSso}}}, {upsert: true});
+            await settingsCol.updateMany({'authentication.sso': {$exists: false}}, {$set: {'authentication.sso': defaultSso}});
+
+            const users = dstDb.collection('users');
+            const result = await users.updateMany(
+                {sso: {$exists: false}},
+                {$set: {sso: {provider: '', subject: '', email: '', linkedAt: null}}}
+            );
+
+            console.log(`[migration] add-sso-authentication-settings: ${result.modifiedCount || 0} users initialized`);
+        },
+    },
+
+    // Step 27: Add enforced 2FA setting and user login timestamp
+    // `authentication.enforce2fa` prompts users without TOTP to complete setup
+    // after login. `lastLoginAt` records successful interactive logins.
+    {
+        id: 27,
+        name: 'add-enforced-2fa-and-user-login-timestamps',
+        async run(_srcDb, dstDb) {
+            const settingsCol = dstDb.collection('settings');
+            await settingsCol.updateOne(
+                {},
+                {$setOnInsert: {'authentication.enforce2fa': false}},
+                {upsert: true}
+            );
+            await settingsCol.updateMany(
+                {'authentication.enforce2fa': {$exists: false}},
+                {$set: {'authentication.enforce2fa': false}}
+            );
+
+            const users = dstDb.collection('users');
+            const result = await users.updateMany(
+                {lastLoginAt: {$exists: false}},
+                {$set: {lastLoginAt: null}}
+            );
+
+            console.log(`[migration] add-enforced-2fa-and-user-login-timestamps: ${result.modifiedCount || 0} users initialized`);
+        },
+    },
+
+    // Step 28: Seed DB-backed custom roles from config/roles.json
+    // Roles management moved from the static roles.json file to the `roles`
+    // collection (model backend/src/models/role.js, managed via /api/data/roles).
+    // Existing file-defined roles are seeded once; the file remains only as an
+    // ACL fallback for databases that have not run this step yet.
+    {
+        id: 28,
+        name: 'seed-db-roles-from-roles-json',
+        async run(_srcDb, dstDb) {
+            let fileRoles = {};
+            try {
+                fileRoles = require('../config/roles.json');
+            } catch (_) {
+                console.log('[migration] seed-db-roles: no roles.json found, nothing to seed');
+                return;
+            }
+
+            const rolesCol = dstDb.collection('roles');
+            let seeded = 0;
+            for (const [name, def] of Object.entries(fileRoles)) {
+                if (name === 'user' || name === 'admin') continue;
+                const existing = await rolesCol.findOne({name});
+                if (existing) continue;
+                await rolesCol.insertOne({
+                    name,
+                    displayName: name.charAt(0).toUpperCase() + name.slice(1),
+                    description: '',
+                    allows: Array.isArray(def.allows) ? def.allows : [],
+                    inherits: Array.isArray(def.inherits) ? def.inherits.filter(r => r === 'user') : [],
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                });
+                seeded++;
+            }
+            console.log(`[migration] seed-db-roles: ${seeded} roles seeded from roles.json`);
+        },
+    },
+
+    // Step 29: Replace finding.retestPassed (Boolean|null) with
+    // finding.retestStatus (enum 'ok'|'ko'|'partial'|'unknown').
+    // true -> 'ok', false -> 'ko', null/missing -> 'unknown'.
+    {
+        id: 29,
+        name: 'replace-retestPassed-with-retestStatus',
+        async run(_srcDb, dstDb) {
+            const audits = dstDb.collection('audits');
+
+            const rOk = await audits.updateMany(
+                { 'findings.retestPassed': true },
+                { $set: { 'findings.$[f].retestStatus': 'ok' } },
+                { arrayFilters: [{ 'f.retestPassed': true }] }
+            );
+            const rKo = await audits.updateMany(
+                { 'findings.retestPassed': false },
+                { $set: { 'findings.$[f].retestStatus': 'ko' } },
+                { arrayFilters: [{ 'f.retestPassed': false }] }
+            );
+            const rUnknown = await audits.updateMany(
+                { findings: { $exists: true, $ne: [] } },
+                { $set: { 'findings.$[f].retestStatus': 'unknown' } },
+                { arrayFilters: [{ 'f.retestStatus': { $exists: false } }] }
+            );
+            const rUnset = await audits.updateMany(
+                { 'findings.retestPassed': { $exists: true } },
+                { $unset: { 'findings.$[f].retestPassed': '' } },
+                { arrayFilters: [{ 'f.retestPassed': { $exists: true } }] }
+            );
+
+            console.log(`[migration] retestStatus: ok on ${rOk.modifiedCount} audits, ko on ${rKo.modifiedCount}, unknown backfill on ${rUnknown.modifiedCount}, retestPassed removed on ${rUnset.modifiedCount}`);
+        },
+    },
+
+    {
+        id: 30,
+        name: 'seed-per-field-input-anonymization-settings',
+        async run(_srcDb, dstDb) {
+            const settingsCol = dstDb.collection('settings');
+            const visionService = require('./vision-service');
+            const FIELDS = ['description', 'observation', 'remediation', 'poc', 'retestEvidence'];
+
+            const doc = await settingsCol.findOne({});
+            if (!doc) {
+                console.log('[migration] no settings document yet — schema defaults will apply on first read');
+                return;
+            }
+
+            const priv = (doc.ai && doc.ai.private) || {};
+            const toSet = {};
+            if (priv.anonymizationPrompt === undefined) {
+                toSet['ai.private.anonymizationPrompt'] = visionService.DEFAULT_INPUT_ANONYMIZATION_PROMPT;
+            }
+            for (const f of FIELDS) {
+                if (priv[`field_${f}_anonymizeRegex`] === undefined) toSet[`ai.private.field_${f}_anonymizeRegex`] = false;
+                if (priv[`field_${f}_anonymizeLlm`] === undefined) toSet[`ai.private.field_${f}_anonymizeLlm`] = false;
+            }
+
+            if (Object.keys(toSet).length > 0) {
+                await settingsCol.updateOne({ _id: doc._id }, { $set: toSet });
+                console.log(`[migration] seeded ${Object.keys(toSet).length} per-field input-anonymization settings`);
+            } else {
+                console.log('[migration] per-field input-anonymization settings already present');
+            }
+        },
+    },
+
+    {
+        id: 31,
+        name: 'split-ai-model-params-and-raise-max-tokens-default',
+        async run(_srcDb, dstDb) {
+            const settingsCol = dstDb.collection('settings');
+
+            const doc = await settingsCol.findOne({});
+            if (!doc) {
+                console.log('[migration] no settings document yet — schema defaults will apply on first read');
+                return;
+            }
+
+            const pub = (doc.ai && doc.ai.public) || {};
+            const visionPub = (doc.ai && doc.ai.visionPublic) || {};
+            const toSet = {};
+
+            // Raise the generation maxTokens only when it still holds the old
+            // schema default (4096); a custom value is kept as-is.
+            if (pub.maxTokens === undefined || pub.maxTokens === 4096) {
+                toSet['ai.public.maxTokens'] = 32000;
+            }
+
+            // Seed the new per-vision-model generation parameters.
+            if (visionPub.visionTemperature === undefined) toSet['ai.visionPublic.visionTemperature'] = 0.7;
+            if (visionPub.visionMaxTokens === undefined) toSet['ai.visionPublic.visionMaxTokens'] = 32000;
+
+            if (Object.keys(toSet).length > 0) {
+                await settingsCol.updateOne({ _id: doc._id }, { $set: toSet });
+                console.log(`[migration] applied ${Object.keys(toSet).length} AI model parameter settings`);
+            } else {
+                console.log('[migration] AI model parameter settings already present');
+            }
+        },
+    },
+
+    {
+        id: 32,
+        name: 'seed-anonymize-review-before-send-setting',
+        async run(_srcDb, dstDb) {
+            const settingsCol = dstDb.collection('settings');
+
+            const doc = await settingsCol.findOne({});
+            if (!doc) {
+                console.log('[migration] no settings document yet — schema defaults will apply on first read');
+                return;
+            }
+
+            const priv = (doc.ai && doc.ai.private) || {};
+            if (priv.anonymizeReviewBeforeSend === undefined) {
+                await settingsCol.updateOne({ _id: doc._id }, { $set: { 'ai.private.anonymizeReviewBeforeSend': false } });
+                console.log('[migration] seeded ai.private.anonymizeReviewBeforeSend = false');
+            } else {
+                console.log('[migration] anonymizeReviewBeforeSend already present');
+            }
+        },
+    },
+
+    {
+        id: 33,
+        name: 'remove-languagetool-premium-fields',
+        async run(_srcDb, dstDb) {
+            const settingsCol = dstDb.collection('settings');
+            const result = await settingsCol.updateOne(
+                {},
+                { $unset: { 'report.private.languageToolApiKey': '', 'report.private.languageToolUsername': '' } }
+            );
+            if (result.modifiedCount > 0) {
+                console.log('[migration] removed LanguageTool Premium fields (apiKey, username)');
+            } else {
+                console.log('[migration] no LanguageTool Premium fields to remove');
+            }
+        },
+    },
+
+    // Step 34: Fold vulnerability translation groups into single documents.
+    // The VulnerabilityTranslationGroup collection linked SEPARATE vulnerability
+    // documents as translations of each other. The app now uses only pwndoc's
+    // native model (one document, one details[] entry per language), so each
+    // group is collapsed into its source document:
+    //   - the linked document's locale detail physically moves into the source
+    //     document's details[] (carrying the member's sync metadata);
+    //   - group.sourceLocale becomes document.sourceLocale;
+    //   - pending VulnerabilityUpdate proposals follow the moved locale;
+    //   - the linked document is deleted once it holds no languages;
+    //   - shared-metadata conflicts (e.g. differing CVSS) keep the SOURCE
+    //     document's values and are logged for manual review;
+    //   - if the source document already holds the linked locale inline, the
+    //     linked document's content is preserved as a pending-review update
+    //     instead of overwriting anything.
+    // Finally the translation-group collection is dropped.
+    {
+        id: 34,
+        name: 'fold-translation-groups-into-documents',
+        async run(_srcDb, dstDb) {
+            const existing = await dstDb.listCollections({ name: 'vulnerabilitytranslationgroups' }).toArray();
+            if (existing.length === 0) {
+                console.log('[migration] translation groups: collection absent, nothing to fold');
+                return;
+            }
+
+            const groupsCol = dstDb.collection('vulnerabilitytranslationgroups');
+            const vulnsCol = dstDb.collection('vulnerabilities');
+            const updatesCol = dstDb.collection('vulnerabilityupdates');
+
+            const groups = await groupsCol.find({}).toArray();
+            const METADATA_FIELDS = ['cvssv3', 'cvssv4', 'priority', 'remediationComplexity', 'taxonomies'];
+            let folded = 0;
+            let deletedDocs = 0;
+            let collisions = 0;
+            let skipped = 0;
+            const conflicts = [];
+
+            const titleOf = (doc, locale) => {
+                const d = (doc.details || []).find(x => x.locale === locale && x.title);
+                return d ? d.title : '?';
+            };
+
+            for (const group of groups) {
+                const members = (group.members || []).filter(m => m.vulnerability);
+                const canonicalId = group.sourceVulnerability || (members[0] && members[0].vulnerability);
+                const canonical = canonicalId ? await vulnsCol.findOne({ _id: canonicalId }) : null;
+                if (!canonical) {
+                    skipped++;
+                    continue;
+                }
+
+                const details = canonical.details || [];
+                const canonicalSet = {};
+                if (group.sourceLocale) canonicalSet.sourceLocale = group.sourceLocale;
+
+                for (const member of members) {
+                    if (String(member.vulnerability) === String(canonical._id)) {
+                        // Sync metadata for a locale that already lives in the
+                        // canonical document itself.
+                        const own = details.find(d => d.locale === member.locale && d.title);
+                        if (own) {
+                            if (member.lastEditedAt) own.lastEditedAt = member.lastEditedAt;
+                            own.syncStatus = member.syncStatus || '';
+                        }
+                        continue;
+                    }
+
+                    const other = await vulnsCol.findOne({ _id: member.vulnerability });
+                    if (!other) continue;
+
+                    const detailIdx = (other.details || []).findIndex(d => d.locale === member.locale && d.title);
+                    if (detailIdx !== -1) {
+                        const movedDetail = other.details[detailIdx];
+                        if (member.lastEditedAt) movedDetail.lastEditedAt = member.lastEditedAt;
+                        movedDetail.syncStatus = member.syncStatus || '';
+
+                        if (details.some(d => d.locale === member.locale && d.title)) {
+                            // Locale collision: canonical already has this language
+                            // inline. Keep the inline version, preserve the linked
+                            // document's content as a pending-review proposal.
+                            collisions++;
+                            const creator = canonical.creator || other.creator
+                                || (await dstDb.collection('users').findOne({}))._id;
+                            await updatesCol.insertOne({
+                                vulnerability: canonical._id,
+                                creator: creator,
+                                cvssv3: other.cvssv3 || undefined,
+                                cvssv4: other.cvssv4 || undefined,
+                                priority: other.priority || undefined,
+                                remediationComplexity: other.remediationComplexity || undefined,
+                                references: movedDetail.references || [],
+                                taxonomies: other.taxonomies || [],
+                                locale: member.locale,
+                                title: movedDetail.title,
+                                description: movedDetail.description,
+                                observation: movedDetail.observation,
+                                remediation: movedDetail.remediation,
+                                customFields: movedDetail.customFields || [],
+                                createdAt: new Date(),
+                                updatedAt: new Date(),
+                            });
+                            canonicalSet.status = 2; // flag: has pending updates
+                        } else {
+                            for (const field of METADATA_FIELDS) {
+                                const a = JSON.stringify(canonical[field] === undefined ? null : canonical[field]);
+                                const b = JSON.stringify(other[field] === undefined ? null : other[field]);
+                                if (a !== b) {
+                                    conflicts.push({
+                                        vulnerability: titleOf(canonical, group.sourceLocale) !== '?'
+                                            ? titleOf(canonical, group.sourceLocale)
+                                            : String(canonical._id),
+                                        field: field,
+                                        kept: canonical[field],
+                                        dropped: other[field],
+                                    });
+                                }
+                            }
+                            details.push(movedDetail);
+                            await updatesCol.updateMany(
+                                { vulnerability: other._id, locale: member.locale },
+                                { $set: { vulnerability: canonical._id } }
+                            );
+                        }
+                        other.details.splice(detailIdx, 1);
+                    }
+
+                    const remaining = (other.details || []).filter(d => d.locale && d.title);
+                    if (remaining.length === 0) {
+                        await updatesCol.deleteMany({ vulnerability: other._id });
+                        await vulnsCol.deleteOne({ _id: other._id });
+                        deletedDocs++;
+                    } else {
+                        await vulnsCol.updateOne({ _id: other._id }, { $set: { details: other.details } });
+                    }
+                }
+
+                canonicalSet.details = details;
+                await vulnsCol.updateOne({ _id: canonical._id }, { $set: canonicalSet });
+                folded++;
+            }
+
+            await groupsCol.drop().catch(() => {});
+
+            console.log(`[migration] translation groups folded: ${folded} groups, ${deletedDocs} documents merged away, ${collisions} locale collisions preserved as pending-review updates, ${skipped} skipped (missing source doc)`);
+            if (conflicts.length) {
+                console.log(`[migration] ${conflicts.length} shared-metadata conflicts kept the source document's value — review manually:`);
+                conflicts.forEach(c => {
+                    console.log(`[migration]   "${c.vulnerability}" ${c.field}: kept ${JSON.stringify(c.kept)} / dropped ${JSON.stringify(c.dropped)}`);
+                });
+            }
+            console.log('[migration] note: if AI embeddings are enabled, run a vulnerability reindex to purge rows of merged-away documents');
+        },
+    },
+
+    // Step 35: Ensure every vulnerability document with language details has a
+    // valid sourceLocale. Empty or stale values make translation sync fall back
+    // to details[] order in some paths and disable stale/synced tracking in
+    // others, so normalize them to the first valid language detail.
+    {
+        id: 35,
+        name: 'backfill-vulnerability-source-locale',
+        async run(_srcDb, dstDb) {
+            const vulnsCol = dstDb.collection('vulnerabilities');
+            const cursor = vulnsCol.find({});
+            let updated = 0;
+
+            while (await cursor.hasNext()) {
+                const vuln = await cursor.next();
+                const locales = (vuln.details || [])
+                    .filter(detail => detail && detail.locale && detail.title)
+                    .map(detail => detail.locale);
+                const sourceLocale = locales.includes(vuln.sourceLocale) ? vuln.sourceLocale : (locales[0] || '');
+
+                if ((vuln.sourceLocale || '') !== sourceLocale) {
+                    await vulnsCol.updateOne(
+                        { _id: vuln._id },
+                        { $set: { sourceLocale } }
+                    );
+                    updated++;
+                }
+            }
+
+            console.log(`[migration] backfill-vulnerability-source-locale: ${updated} vulnerabilities updated`);
+        },
+    },
+
 ];
 
 // Runner

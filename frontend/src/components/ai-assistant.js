@@ -83,6 +83,29 @@ async function runAiCommand(editor, action, text, fieldName, aiContext, selectio
 
     try {
         const payload = buildAiPayload(action, text, fieldName, aiContext)
+
+        // Optional "review anonymized input before sending" safeguard: preview
+        // the anonymized context, let the user accept/edit/reject it, then send
+        // the approved values so generation uses exactly what was reviewed.
+        const review = options && options.review
+        if (review && review.needed && typeof review.requestApproval === 'function') {
+            const previewResp = await AiService.anonymizePreview(
+                { fieldName: fieldName || '', context: payload.context, text: payload.text },
+                controller.signal
+            )
+            const anon = previewResp && previewResp.data ? previewResp.data.datas : null
+            if (anon && anon.anonymized) {
+                const approved = await review.requestApproval(anon)
+                if (!approved) {
+                    // User rejected — cancel the request without generating.
+                    editor.setEditable(true)
+                    return
+                }
+                payload.context.anonymizationReviewed = true
+                payload.context.approvedAnonymization = approved
+            }
+        }
+
         const html = await requestAiHtml(payload, controller.signal)
         if (!html) throw new Error($t('aiEmptyResponse'))
 

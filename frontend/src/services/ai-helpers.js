@@ -73,6 +73,15 @@ export function notifySuccess(messageKey, params) {
     })
 }
 
+export function notifyInfo(messageKey, params) {
+    Notify.create({
+        ...NOTIFY_DEFAULTS,
+        message: $t(messageKey, params),
+        color: 'info',
+        timeout: 4000
+    })
+}
+
 export function isAbortError(err) {
     if (!err) return false
     if (err.name === 'CanceledError' || err.name === 'AbortError') return true

@@ -203,6 +203,8 @@
 .settings-nav
     position: sticky
     top: 70px
+    max-height: calc(100vh - 90px)
+    overflow-y: auto
 
     .q-item
         border-radius: 0 8px 8px 0
@@ -211,6 +213,15 @@
         margin-bottom: 2px
         border-left: 3px solid transparent
         transition: all 0.15s ease
+
+    .settings-nav-sub
+        min-height: 30px
+        padding-left: 26px
+        padding-top: 2px
+        padding-bottom: 2px
+
+        .q-item__label
+            opacity: 0.85
 
 .settings-nav-active
     border-left-color: $secondary !important

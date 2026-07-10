@@ -30,6 +30,14 @@
               </q-item-section>
               <q-item-section>{{ $t('proofCompletionStepAnalyze') }}</q-item-section>
             </q-item>
+            <q-item v-if="proofSteps && proofSteps.anonymize" :class="proofStepClass('anonymize')">
+              <q-item-section avatar>
+                <q-icon v-if="proofStepDone('anonymize')" name="check_circle" color="positive" size="22px" />
+                <q-spinner v-else-if="proofStepActive('anonymize')" size="20px" color="primary" />
+                <q-icon v-else name="radio_button_unchecked" color="grey-6" size="22px" />
+              </q-item-section>
+              <q-item-section>{{ $t('proofCompletionStepAnonymize') }}</q-item-section>
+            </q-item>
             <q-item :class="proofStepClass('generate')">
               <q-item-section avatar>
                 <q-icon v-if="proofStepDone('generate')" name="check_circle" color="positive" size="22px" />
@@ -100,7 +108,7 @@
               :active="selectedIndex === i"
               active-class="bg-primary text-white"
               @click="selectResult(i)"
-              class="rounded-borders q-mb-xs"
+              class="similar-vuln-result-item rounded-borders q-mb-xs"
               role="option"
               :aria-selected="selectedIndex === i"
             >
@@ -108,17 +116,12 @@
                 <q-item-label lines="2">
                   {{ r.generatedFromProof ? $t('proofGeneratedCandidate') : (r.title || $t('untitled')) }}
                 </q-item-label>
-                <q-item-label caption>
-                  <template v-if="r.generatedFromProof">
-                    <span>{{ $t('proofGeneratedCandidateCaption') }}</span>
-                  </template>
-                  <template v-else>
-                    <span v-if="r.category">{{ $t('type') }}: {{ r.category }} &bull; </span>
-                    <span>{{ $t('category') }}: <span v-if="r.vulnType">{{ r.vulnType }}</span><span v-else class="taxonomy-empty">-</span> &bull; </span>
-                    <span class="text-weight-medium">
-                      {{ $t('similarVulnDistance') }}: {{ r.distance != null ? r.distance.toFixed(3) : 'N/A' }}
-                    </span>
-                  </template>
+                <q-item-label v-if="!r.generatedFromProof" caption>
+                  <span v-if="r.category">{{ $t('type') }}: {{ r.category }} &bull; </span>
+                  <span>{{ $t('category') }}: <span v-if="r.vulnType">{{ r.vulnType }}</span><span v-else class="taxonomy-empty">-</span> &bull; </span>
+                  <span class="text-weight-medium">
+                    {{ $t('similarVulnDistance') }}: {{ r.distance != null ? r.distance.toFixed(3) : 'N/A' }}
+                  </span>
                 </q-item-label>
               </q-item-section>
               <q-item-section side>
@@ -505,6 +508,18 @@ export default defineComponent({
   &.proposed {
     border-color: rgba(var(--q-positive-rgb), 0.4);
     background: rgba(var(--q-positive-rgb), 0.04);
+  }
+}
+
+:deep(.similar-vuln-result-item.q-item--active) {
+  .q-item__label,
+  .q-item__label--caption,
+  .q-item__section--side {
+    color: #fff;
+  }
+
+  .taxonomy-empty {
+    color: rgba(255, 255, 255, 0.8);
   }
 }
 

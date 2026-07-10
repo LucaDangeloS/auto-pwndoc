@@ -5,6 +5,10 @@ export default {
         return api.post('ai/generate', payload, { signal })
     },
 
+    anonymizePreview(payload, signal) {
+        return api.post('ai/anonymize-preview', payload, { signal })
+    },
+
     searchSimilar(query, locale, signal) {
         return api.post('ai/search-similar', { query, locale }, { signal })
     },

@@ -583,8 +583,9 @@
   v-if="editor"
   :editor="editor"
   :tippy-options="{ placement: 'bottom', animation: 'fade' }"
+  :should-show="({ editor }) => shouldShowSpellcheck({ editor })"
 >
-  <section class="bubble-menu-section-container">
+  <section :class="['bubble-menu-section-container', matchIssueType ? 'lt-' + matchIssueType : '']">
     <section class="message-section">
       {{ matchMessage }}
     </section>
@@ -597,6 +598,19 @@
       >
         {{ replacement.value }}
       </article>
+    </section>
+    <section class="bubble-footer">
+      <q-btn
+        v-if="canAddToDictionary"
+        text-color="blue-grey"
+        outline
+        dense
+        no-caps
+        size="sm"
+        icon="star"
+        :label="$t('tooltip.addToDict')"
+        @click="ignoreSuggestion"
+      />
     </section>
   </section>
 </bubble-menu>
@@ -622,6 +636,12 @@
       :proposed-html="aiReview.proposedHtml"
       @apply="applyAiReview"
       @regenerate="regenerateAi"
+    />
+    <ai-anonymization-review
+      v-model="aiAnonReview.open"
+      :fields="aiAnonReview.fields"
+      @send="onAnonReviewSend"
+      @reject="onAnonReviewReject"
     />
   </q-card>
 </template>
@@ -651,7 +671,9 @@ import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
 import { AiAssistantExtension, applyAiResult, cancelAiCommand } from './ai-assistant';
+import { notifyInfo } from '@/services/ai-helpers';
 import AiDiffModal from './ai-diff-modal.vue';
+import AiAnonymizationReview from './ai-anonymization-review.vue';
 import AiOverlay from './ai-overlay.vue';
 
 // TipTap v3 - Collaboration extensions
@@ -696,7 +718,6 @@ import ImageService from "@/services/image";
 const match = ref(null)
 
 
-const updateHtmlLanguageTool = () => navigator.clipboard.writeText(editor.value.getHTML())
 
 
 export default defineComponent({
@@ -761,6 +782,7 @@ export default defineComponent({
     EditorContent,
     BubbleMenu,
     AiDiffModal,
+    AiAnonymizationReview,
     AiOverlay
   },
 
@@ -785,6 +807,11 @@ export default defineComponent({
         previousHtml: '',
         proposedHtml: '',
         selectionRange: null,
+      },
+      aiAnonReview: {
+        open: false,
+        fields: {},
+        resolve: null,
       },
       aiCurrentAction: '',
       stickyConfig: {
@@ -816,14 +843,6 @@ export default defineComponent({
   },
 
   mounted() {
-
-    const updateMatch = this.updateMatch;
-
-
-
-    const proofread = () => this.editor.commands.proofread()
-
-
 
     if (this.modelValue === undefined || this.modelValue === null) {
       this.$emit('update:modelValue', '');
@@ -877,10 +896,9 @@ export default defineComponent({
         }),
         Figure,
         LanguageTool.configure({
-         apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
-          //apiUrl: `https://127.0.0.1:8443/v2/check`, 
-          language: 'auto',   
-          automaticMode: true, // 1 second delay before verification
+          language: 'auto',
+          automaticMode: true,
+          active: this.spellcheckEnabled,
         }),
         AiAssistantExtension,
       ]
@@ -923,7 +941,6 @@ export default defineComponent({
       editable: false,
       extensions: extensionEditor ,
       onUpdate: ({editor}) => {
-        setTimeout(() => updateMatch(editor))
         this.countChange++
         if (this._userActive && this.state && this.initialeDataUpdated) {
           // The user has physically interacted with this editor, so a document
@@ -941,9 +958,6 @@ export default defineComponent({
         }
         if (this.noSync) return;
         this.updateHTML();
-      },
-      onSelectionUpdate({ editor }) {
-        setTimeout(() => updateMatch(editor))
       },
       disableInputRules: true,
       disablePasteRules: true,
@@ -1006,6 +1020,13 @@ export default defineComponent({
       return this.$t('aiDisabledReasonGlobal');
     },
 
+    anonReviewNeeded() {
+      const ai = this.$settings && this.$settings.ai;
+      return !!(ai && ai.anonymizeReviewBeforeSend
+        && Array.isArray(ai.anonymizedFields)
+        && ai.anonymizedFields.includes(this.fieldName));
+    },
+
     aiOverlayLabel() {
       if (!this.aiCurrentAction) return this.$t('aiGenerating');
       if (this.aiCurrentAction === 'generate') return this.$t('aiGeneratingAction');
@@ -1018,12 +1039,20 @@ export default defineComponent({
       return this.editor ? this.editor.extensionStorage.languagetool.match.value : null;
     },
     matchMessage() {
-     // console.log('matchmessage',this.match.message,this.match)
       return this.match?.message || 'No Message';
     },
+    matchIssueType() {
+      return this.match?.rule?.issueType || null;
+    },
     replacements() {
-      //console.log('remplacements',this.match.replacements,this.match)
       return this.match?.replacements || [];
+    },
+    spellcheckEnabled() {
+      return !!(this.$settings?.report?.public?.enableSpellCheck) &&
+        sessionStorage.getItem('autoCorrectionEnabled') !== 'false';
+    },
+    canAddToDictionary() {
+      return UserService.isAllowed('spellcheck:create');
     },
     formatIcon: function () {
       if (this.editor.isActive("paragraph")) return "fa fa-paragraph";
@@ -1083,12 +1112,31 @@ export default defineComponent({
   },
 
   methods: {
-    acceptSuggestion(sug)  {
-      this.editor.commands.insertContent(sug.value)
+    shouldShowSpellcheck({ editor }) {
+      const storage = editor.extensionStorage.languagetool
+      if (!storage) return false
+      const match = storage.match.value
+      const matchRange = storage.matchRange
+      if (!match || !matchRange) return false
+      // Only show the popup when it was activated by clicking an error span
+      if (!storage.matchActivated) return false
+      // Hide if the decoration was already removed (word corrected or ignored)
+      const decos = storage.decorationSet?.find(matchRange.from, matchRange.to)
+      return !!(decos && decos.length)
     },
-    updateMatch(editor) {
-
-
+    acceptSuggestion(sug)  {
+      const storage = this.editor.extensionStorage.languagetool
+      if (!storage.matchRange) return
+      // Remove the hint immediately, then replace the text at the match range
+      this.editor.commands.removeCurrentMatchDecoration()
+      this.editor.commands.insertContentAt(storage.matchRange, sug.value)
+      this.editor.commands.resetLanguageToolMatch()
+    },
+    ignoreSuggestion() {
+      // Adds the word to the shared dictionary and removes its decorations
+      this.editor.commands.removeCurrentMatchDecoration()
+      this.editor.commands.ignoreLanguageToolSuggestion()
+      this.editor.commands.resetLanguageToolMatch()
     },
     async updateInitialeValue(value){
 
@@ -1254,6 +1302,12 @@ export default defineComponent({
       if (!this.aiAvailable) return;
       this.aiLoading = true;
       this.aiCurrentAction = action;
+      if (this.anonReviewNeeded) {
+        notifyInfo('aiAnonReviewNotice');
+      }
+      const review = this.anonReviewNeeded
+        ? { needed: true, requestApproval: (anon) => this.requestAnonReview(anon) }
+        : null;
       const onResult = (result) => {
         if (this.aiReviewHandler) {
           this.aiReviewHandler({
@@ -1279,12 +1333,40 @@ export default defineComponent({
         this.aiCurrentAction = '';
       };
       if (action === 'generate') {
-        this.editor.commands.aiGenerate(this.fieldName, this.aiContext, { onResult, onDone });
+        this.editor.commands.aiGenerate(this.fieldName, this.aiContext, { onResult, onDone, review });
       } else if (action === 'complete') {
-        this.editor.commands.aiComplete(this.fieldName, this.aiContext, { onResult, onDone });
+        this.editor.commands.aiComplete(this.fieldName, this.aiContext, { onResult, onDone, review });
       } else if (action === 'rewrite') {
-        this.editor.commands.aiRewrite(this.fieldName, this.aiContext, { onResult, onDone });
+        this.editor.commands.aiRewrite(this.fieldName, this.aiContext, { onResult, onDone, review });
       }
+    },
+
+    requestAnonReview(anon) {
+      // Pause the loading overlay while the user reviews the anonymized context.
+      this.aiLoading = false;
+      return new Promise((resolve) => {
+        this.aiAnonReview = {
+          open: true,
+          fields: (anon && anon.fields) || {},
+          resolve,
+        };
+      });
+    },
+
+    onAnonReviewSend(approvedFields) {
+      const resolve = this.aiAnonReview.resolve;
+      this.aiAnonReview = { open: false, fields: {}, resolve: null };
+      // Resume the overlay for the actual generation request.
+      this.aiLoading = true;
+      if (resolve) resolve(approvedFields);
+    },
+
+    onAnonReviewReject() {
+      const resolve = this.aiAnonReview.resolve;
+      this.aiAnonReview = { open: false, fields: {}, resolve: null };
+      this.aiLoading = false;
+      this.aiCurrentAction = '';
+      if (resolve) resolve(null);
     },
     cancelAi() {
       if (!this.editor) return;
@@ -1789,6 +1871,19 @@ pre .diffadd {
       max-width: fit-content;
     }
   }
+
+  .bubble-footer {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.75em;
+  }
+}
+
+.body--dark .bubble-menu > .bubble-menu-section-container {
+  background-color: #1d1d1d;
+  color: white;
 }
 
 </style>

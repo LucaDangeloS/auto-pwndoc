@@ -325,6 +325,31 @@ module.exports = function(app) {
         }
     });
 
+    app.post('/api/ai/anonymize-preview', acl.hasPermission('audits:read'), async function(req, res) {
+        try {
+            var aiSettings = await getAiSettings();
+
+            if (!aiSettings || !aiSettings.enabled) {
+                return Response.Forbidden(res, 'AI features are not enabled');
+            }
+
+            var { fieldName, context, text } = req.body;
+            var mergedContext = Object.assign({}, context || {});
+            if (text !== undefined) mergedContext.text = text;
+
+            var result = await aiService.anonymizeContext({
+                fieldName: fieldName || '',
+                context: mergedContext,
+                aiSettings
+            });
+
+            return Response.Ok(res, result);
+        } catch (err) {
+            console.error('[AI] Anonymization preview error:', err.message);
+            return Response.Internal(res, err.message || 'Anonymization preview failed');
+        }
+    });
+
     app.post('/api/ai/search-similar', acl.hasPermission('vulnerabilities:read'), async function(req, res) {
         try {
             var aiSettings = await getAiSettings();

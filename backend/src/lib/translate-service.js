@@ -65,7 +65,7 @@ function buildChatModel(aiSettings) {
     var provider = pub.provider || 'openai';
     var model = pub.model || 'gpt-4o';
     var temperature = pub.temperature !== undefined ? pub.temperature : 0.3;
-    var maxTokens = pub.maxTokens || 4096;
+    var maxTokens = pub.maxTokens || 32000;
     var apiUrl = priv.apiUrl || '';
     var apiKey = priv.apiKey || '';
     var azure = priv.azure || {};

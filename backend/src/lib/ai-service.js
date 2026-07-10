@@ -750,6 +750,92 @@ function buildSimilarVulnsBlock(similarVulns) {
     return `\nSimilar vulnerabilities from our database for reference:\n${lines}\n`;
 }
 
+// Runs the anonymization model over a single plain-text context string, asking
+// it to return the same text with only sensitive tokens redacted. Best-effort:
+// on any failure it returns the value it received (already regex-redacted when
+// regex anonymization also ran), so generation is never blocked.
+async function anonymizeWithLlm(value, prompt, chatModel) {
+    if (!value || !chatModel) return value;
+    try {
+        const response = await chatModel.invoke([
+            new SystemMessage(prompt),
+            new HumanMessage(String(value))
+        ]);
+        const redacted = extractResponseText(response, false).trim();
+        return redacted || value;
+    } catch (err) {
+        console.error('[AI] Input anonymization failed:', err.message);
+        return value;
+    }
+}
+
+// Fields whose generation supports per-field input anonymization.
+const ANONYMIZABLE_FIELDS = ['description', 'observation', 'remediation', 'poc', 'retestEvidence'];
+
+// The context values that get anonymized before being sent to the generation
+// model, in the order the review UI presents them.
+const ANONYMIZABLE_CONTEXT_KEYS = ['findingTitle', 'findingDescription', 'findingPoc', 'auditContext', 'text'];
+
+// Produce the processed + anonymized context values for a field, without
+// running generation. Used by the "review before send" preview and mirrors the
+// exact transforms `generate()` applies, so approved values feed straight back
+// into generation.
+async function anonymizeContext({ fieldName, context, aiSettings }) {
+    const priv = (aiSettings && aiSettings.private) || {};
+    const pub = (aiSettings && aiSettings.public) || {};
+    const supported = ANONYMIZABLE_FIELDS.includes(fieldName);
+    const anonymizeRegex = supported && Boolean(priv[`field_${fieldName}_anonymizeRegex`]);
+    const anonymizeLlm = supported && Boolean(priv[`field_${fieldName}_anonymizeLlm`]);
+
+    const processed = {
+        findingTitle: truncateContext(context && context.findingTitle, CONTEXT_LIMITS.findingTitle),
+        findingDescription: htmlToContextText(context && context.findingDescription, CONTEXT_LIMITS.findingDescription),
+        findingPoc: htmlToContextText(context && context.findingPoc, CONTEXT_LIMITS.findingPoc),
+        auditContext: htmlToContextText(context && context.auditContext, CONTEXT_LIMITS.auditContext),
+        text: htmlToContextText(context && context.text, CONTEXT_LIMITS.text)
+    };
+
+    if (!anonymizeRegex && !anonymizeLlm) {
+        return { anonymized: false, regex: false, llm: false, fields: processed };
+    }
+
+    const visionService = require('./vision-service');
+    const regexRules = Array.isArray(priv.visionAnonymizeRegexRules) ? priv.visionAnonymizeRegexRules : undefined;
+    const anonPrompt = priv.anonymizationPrompt || visionService.DEFAULT_INPUT_ANONYMIZATION_PROMPT;
+    const anonModel = anonymizeLlm ? buildChatModel({
+        provider: pub.provider || 'openai',
+        model: pub.model || 'gpt-4o',
+        temperature: 0,
+        maxTokens: pub.maxTokens || 32000,
+        apiUrl: priv.apiUrl || '',
+        apiKey: priv.apiKey || '',
+        azure: priv.azure || {}
+    }) : null;
+
+    const anonymizeValue = async (value) => {
+        if (!value) return value;
+        let out = value;
+        if (anonymizeRegex) out = visionService.anonymizeWithRegex(out, regexRules);
+        if (anonymizeLlm) out = await anonymizeWithLlm(out, anonPrompt, anonModel);
+        return out;
+    };
+
+    const [findingTitle, findingDescription, findingPoc, auditContext, textOut] = await Promise.all([
+        anonymizeValue(processed.findingTitle),
+        anonymizeValue(processed.findingDescription),
+        anonymizeValue(processed.findingPoc),
+        anonymizeValue(processed.auditContext),
+        anonymizeValue(processed.text)
+    ]);
+
+    return {
+        anonymized: true,
+        regex: anonymizeRegex,
+        llm: anonymizeLlm,
+        fields: { findingTitle, findingDescription, findingPoc, auditContext, text: textOut }
+    };
+}
+
 async function generate({ action, text, fieldName, context, aiSettings }) {
     const pub = aiSettings.public;
     const priv = aiSettings.private;
@@ -758,7 +844,7 @@ async function generate({ action, text, fieldName, context, aiSettings }) {
         provider: pub.provider || 'openai',
         model: pub.model || 'gpt-4o',
         temperature: pub.temperature !== undefined ? pub.temperature : 0.7,
-        maxTokens: pub.maxTokens || 4096,
+        maxTokens: pub.maxTokens || 32000,
         apiUrl: priv.apiUrl || '',
         apiKey: priv.apiKey || '',
         azure: priv.azure || {}
@@ -786,6 +872,49 @@ async function generate({ action, text, fieldName, context, aiSettings }) {
     const language = localeToLanguage(locale);
 
     const SUPPORTED_FIELDS = ['description', 'observation', 'remediation', 'poc', 'retestEvidence'];
+
+    // Per-field input anonymization: redact the field's untrusted text context
+    // before it is sent to the generation model. Regex runs locally with the
+    // shared vision regex rules; the LLM pass uses a deterministic model and the
+    // structure-preserving anonymization prompt.
+    let contentText = htmlToContextText(text, CONTEXT_LIMITS.text);
+    let anonTitle = findingTitle;
+    let anonFindingDescription = findingDescription;
+    let anonFindingPoc = findingPoc;
+    let anonAuditContext = auditContext;
+
+    const anonymizeRegex = SUPPORTED_FIELDS.includes(fieldName) && Boolean(priv[`field_${fieldName}_anonymizeRegex`]);
+    const anonymizeLlm = SUPPORTED_FIELDS.includes(fieldName) && Boolean(priv[`field_${fieldName}_anonymizeLlm`]);
+    if (context && context.anonymizationReviewed && context.approvedAnonymization) {
+        // The user already reviewed (and possibly edited) the anonymized context
+        // in the "review before send" step; use those values verbatim and skip
+        // re-anonymization so their edits are honored.
+        const approved = context.approvedAnonymization;
+        if (approved.findingTitle !== undefined) anonTitle = approved.findingTitle;
+        if (approved.findingDescription !== undefined) anonFindingDescription = approved.findingDescription;
+        if (approved.findingPoc !== undefined) anonFindingPoc = approved.findingPoc;
+        if (approved.auditContext !== undefined) anonAuditContext = approved.auditContext;
+        if (approved.text !== undefined) contentText = approved.text;
+    } else if (anonymizeRegex || anonymizeLlm) {
+        const visionService = require('./vision-service');
+        const regexRules = Array.isArray(priv.visionAnonymizeRegexRules) ? priv.visionAnonymizeRegexRules : undefined;
+        const anonPrompt = priv.anonymizationPrompt || visionService.DEFAULT_INPUT_ANONYMIZATION_PROMPT;
+        const anonModel = anonymizeLlm ? buildChatModel({ ...aiConfig, temperature: 0 }) : null;
+        const anonymizeValue = async (value) => {
+            if (!value) return value;
+            let out = value;
+            if (anonymizeRegex) out = visionService.anonymizeWithRegex(out, regexRules);
+            if (anonymizeLlm) out = await anonymizeWithLlm(out, anonPrompt, anonModel);
+            return out;
+        };
+        [anonTitle, anonFindingDescription, anonFindingPoc, anonAuditContext, contentText] = await Promise.all([
+            anonymizeValue(findingTitle),
+            anonymizeValue(findingDescription),
+            anonymizeValue(findingPoc),
+            anonymizeValue(auditContext),
+            anonymizeValue(contentText)
+        ]);
+    }
 
     let systemTemplate, userTemplate;
     if (action === 'generate') {
@@ -885,8 +1014,8 @@ Do not invent CVEs, vendor advisories, or product-specific references unless the
 
     const templateVars = {
         fieldName,
-        findingTitle,
-        text: htmlToContextText(text, CONTEXT_LIMITS.text),
+        findingTitle: anonTitle,
+        text: contentText,
         similarVulnsBlock,
         visionSummary,
         vulnDescription,
@@ -897,15 +1026,15 @@ Do not invent CVEs, vendor advisories, or product-specific references unless the
         severityPrefix,
         overallRisk,
         findingsDigest,
-        findingDescription,
-        findingPoc,
+        findingDescription: anonFindingDescription,
+        findingPoc: anonFindingPoc,
         findingPocVision,
-        auditContext,
+        auditContext: anonAuditContext,
         language
     };
 
     const hasUntrustedContext = Boolean(
-        findingDescription || findingPoc || findingPocVision || auditContext || findingsDigest || templateVars.text
+        anonFindingDescription || anonFindingPoc || findingPocVision || anonAuditContext || findingsDigest || templateVars.text
     );
     const systemContent = fillTemplate(systemTemplate, templateVars) +
         (hasUntrustedContext ? UNTRUSTED_CONTEXT_INSTRUCTION : '');
@@ -945,6 +1074,9 @@ Do not invent CVEs, vendor advisories, or product-specific references unless the
 
 module.exports = {
     generate,
+    anonymizeContext,
+    ANONYMIZABLE_FIELDS,
+    ANONYMIZABLE_CONTEXT_KEYS,
     _getDefaultSystemPrompt: key => DEFAULT_SYSTEM_PROMPTS[key],
     _getDefaultUserPrompt: key => DEFAULT_USER_PROMPTS[key],
     _fillTemplate: fillTemplate,

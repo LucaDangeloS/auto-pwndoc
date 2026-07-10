@@ -2,18 +2,36 @@
 
     <div class="col-md-2 gt-sm q-mt-md q-pr-md">
         <q-list class="settings-nav" dense>
-            <q-item
-                v-for="s in settingsSections"
-                :key="s.id"
-                clickable
-                :active="activeSection === s.id"
-                active-class="settings-nav-active"
-                @click="scrollTo(s.id)"
-            >
-                <q-item-section>
-                    <q-item-label class="text-body2 text-weight-medium">{{$t(s.label)}}</q-item-label>
-                </q-item-section>
-            </q-item>
+            <template v-for="s in settingsSections" :key="s.id">
+                <q-item
+                    clickable
+                    :active="activeSection === s.id"
+                    active-class="settings-nav-active"
+                    @click="scrollTo(s.id)"
+                >
+                    <q-item-section>
+                        <q-item-label class="text-body2 text-weight-medium">{{$t(s.label)}}</q-item-label>
+                    </q-item-section>
+                </q-item>
+                <q-slide-transition>
+                    <div v-show="isSectionExpanded(s)">
+                        <q-item
+                            v-for="c in (s.children || [])"
+                            :key="c.id"
+                            clickable
+                            dense
+                            :active="activeSection === c.id"
+                            active-class="settings-nav-active"
+                            class="settings-nav-sub"
+                            @click="scrollTo(c.id)"
+                        >
+                            <q-item-section>
+                                <q-item-label class="text-caption">{{$t(c.label)}}</q-item-label>
+                            </q-item-section>
+                        </q-item>
+                    </div>
+                </q-slide-transition>
+            </template>
         </q-list>
     </div>
 
@@ -28,9 +46,8 @@
               </q-item>
           </q-card-section>
           <q-card-section>
-            <div class="text-bold">{{$t('changeDisplayLanguage')}}</div>
+            <div class="text-bold" id="sub-general-language">{{$t('changeDisplayLanguage')}}</div>
             <br/>
-            <div class="text-grey-8">{{$t('changeDisplayLanguageInfo')}}</div>
             <br/>
             <q-item>
               <q-item-section class="col-md-2">
@@ -39,7 +56,7 @@
             </q-item>
           </q-card-section>
           <q-card-section>
-            <div class="text-bold">{{$t('extendCvssTemporalEnvironment')}}</div>
+            <div class="text-bold" id="sub-general-cvss-temporal">{{$t('extendCvssTemporalEnvironment')}}</div>
             <q-item>
                 <q-item-section class="col-md-2">
                     <q-toggle :label="$t('btn.enable')" v-model="settings.report.public.extendCvssTemporalEnvironment" />
@@ -47,7 +64,7 @@
             </q-item>
           </q-card-section>
           <q-card-section>
-            <div class="text-bold">{{$t('defaultCvssVersion')}}</div>
+            <div class="text-bold" id="sub-general-cvss-version">{{$t('defaultCvssVersion')}}</div>
             <br/>
             <div class="text-grey-8">{{$t('defaultCvssVersionInfo')}}</div>
             <br/>
@@ -69,6 +86,96 @@
         </q-card-section>
         </q-card>
 
+        <q-card id="section-authentication" v-if="UserService.isAllowed('settings:read')" class="q-my-md">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section>
+                        <div class="text-h6">{{$t('authenticationSettings')}}</div>
+                    </q-item-section>
+                </q-item>
+            </q-card-section>
+
+            <q-card-section>
+                <div class="text-bold" id="sub-auth-2fa">{{$t('twoFactorEnforcement')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('twoFactorEnforcementInfo')}}</div>
+                <q-toggle
+                    class="q-mt-sm"
+                    v-model="settings.authentication.enforce2fa"
+                    :label="$t('twoFactorEnforcementToggle')"
+                    :disable="!canEdit"
+                />
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section>
+                <div class="row items-center q-col-gutter-sm">
+                    <div class="col">
+                        <div class="text-bold" id="sub-auth-sso">{{$t('ssoSettings')}}</div>
+                    </div>
+                    <div class="col-auto">
+                        <q-toggle
+                            color="primary"
+                            keep-color
+                            v-model="settings.authentication.sso.enabled"
+                            :label="$t('ssoEnable')"
+                            :disable="!canEdit"
+                        />
+                    </div>
+                </div>
+                <div class="row q-col-gutter-md q-mt-sm">
+                    <q-input class="col-12 col-md-6" :label="$t('ssoProviderId')" v-model="settings.authentication.sso.public.providerId" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    <q-input class="col-12 col-md-6" :label="$t('ssoProviderName')" v-model="settings.authentication.sso.public.providerName" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    <q-input class="col-12" :label="$t('ssoCallbackUrl')" :model-value="ssoCallbackUrl" outlined readonly>
+                        <template v-slot:append>
+                            <q-btn flat round dense size="sm" icon="content_copy" :aria-label="$t('mcpCopyConfig')" @click="copyText(ssoCallbackUrl)">
+                                <q-tooltip>{{ $t('mcpCopyConfig') }}</q-tooltip>
+                            </q-btn>
+                        </template>
+                    </q-input>
+                    <q-input class="col-12" :label="$t('ssoAuthorizationUrl')" v-model="settings.authentication.sso.public.authorizationUrl" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    <q-input class="col-12 col-md-6" :label="$t('ssoTokenUrl')" v-model="settings.authentication.sso.public.tokenUrl" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    <q-input class="col-12 col-md-6" :label="$t('ssoUserInfoUrl')" v-model="settings.authentication.sso.public.userInfoUrl" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    <q-input class="col-12 col-md-6" :label="$t('ssoClientId')" v-model="settings.authentication.sso.private.clientId" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    <q-input class="col-12 col-md-6" :label="$t('ssoClientSecret')" v-model="settings.authentication.sso.private.clientSecret" outlined :type="showSsoClientSecret ? 'text' : 'password'" :disable="!canEdit || !settings.authentication.sso.enabled">
+                        <template v-slot:append>
+                            <q-btn flat round dense size="sm" :icon="showSsoClientSecret ? 'visibility_off' : 'visibility'" :aria-label="showSsoClientSecret ? $t('aiHideApiKey') : $t('aiShowApiKey')" @click="showSsoClientSecret = !showSsoClientSecret">
+                                <q-tooltip>{{ showSsoClientSecret ? $t('aiHideApiKey') : $t('aiShowApiKey') }}</q-tooltip>
+                            </q-btn>
+                        </template>
+                    </q-input>
+                    <q-input class="col-12" :label="$t('ssoScope')" v-model="settings.authentication.sso.public.scope" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                </div>
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section>
+                <div class="text-bold" id="sub-auth-sso-registration">{{$t('ssoRegistration')}}</div>
+                <div class="row q-col-gutter-md q-mt-sm">
+                    <div class="col-12 col-md-6">
+                        <q-toggle v-model="settings.authentication.sso.public.registrationEnabled" :label="$t('ssoAllowRegistration')" :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <q-toggle v-model="settings.authentication.sso.public.autoLinkExistingUsers" :label="$t('ssoAutoLinkExistingUsers')" :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    </div>
+                </div>
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section>
+                <div class="text-bold" id="sub-auth-sso-claims">{{$t('ssoClaims')}}</div>
+                <div class="row q-col-gutter-md q-mt-sm">
+                    <q-input class="col-12 col-md-4" :label="$t('ssoSubjectClaim')" v-model="settings.authentication.sso.public.subjectClaim" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    <q-input class="col-12 col-md-4" :label="$t('ssoUsernameClaim')" v-model="settings.authentication.sso.public.usernameClaim" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    <q-input class="col-12 col-md-4" :label="$t('ssoEmailClaim')" v-model="settings.authentication.sso.public.emailClaim" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    <q-input class="col-12 col-md-6" :label="$t('ssoFirstnameClaim')" v-model="settings.authentication.sso.public.firstnameClaim" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                    <q-input class="col-12 col-md-6" :label="$t('ssoLastnameClaim')" v-model="settings.authentication.sso.public.lastnameClaim" outlined :disable="!canEdit || !settings.authentication.sso.enabled" />
+                </div>
+            </q-card-section>
+        </q-card>
+
 <!-- Danger Settings START  -->
 <q-card id="section-danger" v-if="UserService.isAllowed('settings:read')" class="q-my-mg">
     <q-card-section class="q-py-none bg-blue-grey-5 text-white">
@@ -87,7 +194,7 @@
         </q-item>
     </q-card-section>
     <q-card-section>
-        <div class="text-bold">{{$t('autoDeleteReport')}}</div>
+        <div class="text-bold" id="sub-danger-autodelete">{{$t('autoDeleteReport')}}</div>
         <br/>
         <q-item>
             <q-item-section class="col-2">
@@ -114,9 +221,7 @@
             </q-card-section>
             <div v-if="UserService.isAllowed('settings:update')">
                 <q-card-section>
-                    <div class="text-bold">{{$t('reportsImagesBorder')}}</div>
-                    <br/>
-                    <div class="text-grey-8">{{$t('addBorderToImages')}}</div>
+                    <div class="text-bold" id="sub-reports-images-border">{{$t('reportsImagesBorder')}}</div>
                     <br/>
                     <q-item>
                         <q-item-section class="col-md-2">
@@ -139,9 +244,91 @@
                 </q-card-section>
                 <q-separator />
                 <q-card-section>
-                    <div class="text-bold">{{$t('cvssColors')}}</div>
+                    <div class="text-bold" id="sub-reports-spellcheck">{{$t('spellcheckSettings')}}</div>
                     <br/>
-                    <div class="text-grey-8">{{$t('changeCvssColorsDescription')}}</div>
+                    <div class="text-grey-8">{{$t('spellcheckSettingsDescription')}}</div>
+                    <br/>
+                    <q-item>
+                        <q-item-section class="col-md-3">
+                            <q-toggle :label="$t('enableSpellcheck')" v-model="settings.report.public.enableSpellCheck" :disable="!canEdit" />
+                        </q-item-section>
+                    </q-item>
+                    <q-item>
+                        <q-item-section class="col-md-5 col-12">
+                            <q-input
+                                :label="$t('languageToolUrl')"
+                                v-model="settings.report.private.languageToolUrl"
+                                outlined
+                                :disable="!canEdit || !settings.report.public.enableSpellCheck"
+                                :hint="$t('languageToolUrlHint')"
+                                spellcheck="false"
+                            />
+                        </q-item-section>
+                    </q-item>
+                    <q-item>
+                        <q-item-section class="col-md-3">
+                            <q-btn
+                                color="secondary"
+                                no-caps
+                                unelevated
+                                :loading="spellcheckTest.loading"
+                                :disable="!settings.report.public.enableSpellCheck || !settings.report.private.languageToolUrl"
+                                :label="$t('btn.testConnection')"
+                                @click="testSpellcheckConnection"
+                            />
+                        </q-item-section>
+                        <q-item-section v-if="spellcheckTest.result">
+                            <q-banner dense rounded :class="spellcheckTest.result.reachable && spellcheckTest.result.isLanguageTool ? 'bg-positive text-white' : 'bg-negative text-white'">
+                                <template v-if="spellcheckTest.result.error">{{spellcheckTest.result.error}}</template>
+                                <template v-else-if="!spellcheckTest.result.reachable">{{$t('spellcheckTestUnreachable')}}</template>
+                                <template v-else-if="!spellcheckTest.result.isLanguageTool">{{$t('spellcheckTestNotLanguageTool')}}</template>
+                                <template v-else>{{$t('spellcheckTestOk')}}</template>
+                            </q-banner>
+                        </q-item-section>
+                    </q-item>
+                    <br/>
+                    <div class="text-bold" id="sub-reports-dictionary">{{$t('spellcheckDictionary')}}</div>
+                    <br/>
+                    <div class="text-grey-8">{{$t('spellcheckDictionaryDescription')}}</div>
+                    <br/>
+                    <q-item>
+                        <q-item-section class="col-md-4 col-12">
+                            <q-input
+                                :label="$t('spellcheckAddWord')"
+                                v-model="newDictWord"
+                                outlined
+                                dense
+                                :disable="!canEdit"
+                                spellcheck="false"
+                                @keyup.enter="addDictWord"
+                            >
+                                <template v-slot:append>
+                                    <q-btn flat dense icon="add" color="dark" :disable="!canEdit || !newDictWord.trim()" @click="addDictWord" />
+                                </template>
+                            </q-input>
+                        </q-item-section>
+                    </q-item>
+                    <q-item v-if="dictWords.length > 0">
+                        <q-item-section>
+                            <div class="row q-gutter-xs">
+                                <q-chip
+                                    v-for="word in dictWords"
+                                    :key="word"
+                                    :removable="canEdit"
+                                    dense
+                                    color="primary"
+                                    text-color="white"
+                                    @remove="removeDictWord(word)"
+                                >
+                                    {{word}}
+                                </q-chip>
+                            </div>
+                        </q-item-section>
+                    </q-item>
+                </q-card-section>
+                <q-separator />
+                <q-card-section>
+                    <div class="text-bold" id="sub-reports-cvss-colors">{{$t('cvssColors')}}</div>
                     <br/>
                     <q-list>
                         <q-item>
@@ -239,9 +426,7 @@
                 <q-separator />
 <!-- remediation complexity color -->
                 <q-card-section>
-                    <div class="text-bold">{{$t('remediationColorsComplexity')}}</div>
-                    <br/>
-                    <div class="text-grey-8">{{$t('changeRemediationColorsDescriptionComplexity')}}</div>
+                    <div class="text-bold" id="sub-reports-remediation-complexity">{{$t('remediationColorsComplexity')}}</div>
                     <br/>
                     <q-list>
                         <q-item>
@@ -304,9 +489,7 @@
 <!-- Remediation complexity color end -->
 <!-- remediation priority color start -->
                 <q-card-section>
-                    <div class="text-bold">{{$t('remediationColorsPriority')}}</div>
-                    <br/>
-                    <div class="text-grey-8">{{$t('changeRemediationColorsDescriptionPriority')}}</div>
+                    <div class="text-bold" id="sub-reports-remediation-priority">{{$t('remediationColorsPriority')}}</div>
                     <br/>
                     <q-list>
                         <q-item>
@@ -386,7 +569,7 @@
                 <q-separator />
 <!-- Remediation priority color end -->
                 <q-card-section>
-                    <div class="text-bold">{{$t('captions')}}</div>
+                    <div class="text-bold" id="sub-reports-captions">{{$t('captions')}}</div>
                     <br/>
                     <div class="text-grey-8">{{$t('captionsDescription')}}</div>
                     <br/>
@@ -410,7 +593,7 @@
                 </q-card-section>
                 <q-separator />
                 <q-card-section>
-                    <div class="text-bold">{{$t('chartTheme')}}</div>
+                    <div class="text-bold" id="sub-reports-chart-theme">{{$t('chartTheme')}}</div>
                     <br/>
                     <div class="text-grey-8">{{$t('chartThemeDescription')}}</div>
                     <br/>
@@ -533,7 +716,7 @@
             </q-card-section>
             <q-separator />
             <q-card-section class="settings-review-section">
-                <div class="text-bold q-mb-md">{{$t('auditUpdateAfterApproval')}}</div>
+                <div class="text-bold q-mb-md" id="sub-reviews-audit-update">{{$t('auditUpdateAfterApproval')}}</div>
                 <div class="text-grey-8 settings-review-copy">
                     {{$t('changeApproveBehaviorIfAuditUpdated')}}
                 </div>
@@ -557,7 +740,7 @@
             </q-card-section>
             <q-separator />
             <q-card-section class="settings-review-section">
-                <div class="text-bold q-mb-md">{{$t('mandatoryReview')}}</div>
+                <div class="text-bold q-mb-md" id="sub-reviews-mandatory">{{$t('mandatoryReview')}}</div>
                 <div class="text-grey-8 settings-review-copy" v-html="$t('mandatoryReviewInfo')"></div>
             </q-card-section>
             <q-card-section class="settings-review-section">
@@ -606,7 +789,7 @@
             <!-- ── Generation Provider ── -->
             <q-separator />
             <q-card-section>
-                <div class="text-bold">{{$t('aiProvider')}}</div>
+                <div class="text-bold" id="sub-ai-provider">{{$t('aiProvider')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('aiProviderDescription')}}</div>
             </q-card-section>
             <q-card-section class="q-col-gutter-md row">
@@ -626,7 +809,6 @@
                     v-model="settings.ai.public.model"
                     outlined
                     :disable="!canEdit || !settings.ai.enabled"
-                    :hint="$t('aiModelHint')"
                 />
                 <q-select
                     v-else
@@ -639,7 +821,6 @@
                     options-sanitize
                     outlined
                     :disable="!canEdit || !settings.ai.enabled"
-                    :hint="$t('aiModelHint')"
                     @popup-show="loadModelList('generation')"
                 >
                     <template v-slot:append>
@@ -702,6 +883,35 @@
                 />
             </q-card-section>
 
+            <!-- Generation model parameters -->
+            <q-card-section class="q-col-gutter-md row q-pt-none">
+                <div class="col-12 col-md-6">
+                    <div class="text-caption text-grey-8 q-mb-sm">
+                        {{$t('aiTemperature')}}: <strong>{{settings.ai.public.temperature}}</strong>
+                    </div>
+                    <q-slider
+                        v-model="settings.ai.public.temperature"
+                        :min="0" :max="2" :step="0.1"
+                        color="primary"
+                        :disable="!canEdit || !settings.ai.enabled"
+                    />
+                    <div class="row justify-between text-caption text-grey-6">
+                        <span>0 — precise</span>
+                        <span>2 — creative</span>
+                    </div>
+                </div>
+                <q-input
+                    class="col-12 col-md-6"
+                    :label="$t('aiMaxTokens')"
+                    v-model.number="settings.ai.public.maxTokens"
+                    type="number"
+                    outlined
+                    :min="1"
+                    :max="128000"
+                    :disable="!canEdit || !settings.ai.enabled"
+                />
+            </q-card-section>
+
             <!-- Test generation -->
             <q-card-section class="q-pt-none">
                 <div class="row items-start q-gutter-sm ai-test-row">
@@ -735,7 +945,7 @@
             <q-separator />
             <q-card-section>
                 <div class="row items-center justify-between">
-                    <div class="text-bold">{{$t('aiEmbeddingSection')}}</div>
+                    <div class="text-bold" id="sub-ai-embedding">{{$t('aiEmbeddingSection')}}</div>
                     <q-toggle color="primary" keep-color :disable="!canEdit || !settings.ai.enabled" v-model="settings.ai.embeddingEnabled" :label="$t('btn.enable')" />
                 </div>
                 <div class="text-grey-8 q-mt-xs">{{$t('aiEmbeddingDescription')}}</div>
@@ -906,7 +1116,7 @@
             <q-card-section>
                 <div class="row items-center justify-between">
                     <div>
-                        <div class="text-bold">{{$t('aiVulnerabilityProcessing')}}</div>
+                        <div class="text-bold" id="sub-ai-vuln-processing">{{$t('aiVulnerabilityProcessing')}}</div>
                         <div class="text-grey-8 q-mt-xs">{{$t('aiVulnerabilityProcessingDescription')}}</div>
                     </div>
                     <q-toggle
@@ -934,7 +1144,7 @@
             <q-separator />
             <q-card-section>
                 <div class="row items-center justify-between">
-                    <div class="text-bold">{{$t('aiVisionSection')}}</div>
+                    <div class="text-bold" id="sub-ai-vision">{{$t('aiVisionSection')}}</div>
                     <q-toggle color="primary" keep-color :disable="!canEdit || !settings.ai.enabled" v-model="settings.ai.visionEnabled" :label="$t('btn.enable')" />
                 </div>
                 <div class="text-grey-8 q-mt-xs">{{$t('aiVisionDescription')}}</div>
@@ -1032,6 +1242,35 @@
                 />
             </q-card-section>
 
+            <!-- Vision model parameters -->
+            <q-card-section class="q-col-gutter-md row q-pt-none">
+                <div class="col-12 col-md-6">
+                    <div class="text-caption text-grey-8 q-mb-sm">
+                        {{$t('aiTemperature')}}: <strong>{{settings.ai.visionPublic.visionTemperature}}</strong>
+                    </div>
+                    <q-slider
+                        v-model="settings.ai.visionPublic.visionTemperature"
+                        :min="0" :max="2" :step="0.1"
+                        color="primary"
+                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                    />
+                    <div class="row justify-between text-caption text-grey-6">
+                        <span>0 — precise</span>
+                        <span>2 — creative</span>
+                    </div>
+                </div>
+                <q-input
+                    class="col-12 col-md-6"
+                    :label="$t('aiMaxTokens')"
+                    v-model.number="settings.ai.visionPublic.visionMaxTokens"
+                    type="number"
+                    outlined
+                    :min="1"
+                    :max="128000"
+                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
+                />
+            </q-card-section>
+
             <!-- Test vision -->
             <q-card-section class="q-pt-none">
                 <div class="row items-start q-gutter-sm ai-test-row">
@@ -1061,36 +1300,38 @@
                 </div>
             </q-card-section>
             <q-card-section>
-                <div class="text-bold">{{$t('aiVisionAnonymization')}}</div>
+                <div class="text-bold" id="sub-ai-vision-anon">{{$t('aiVisionAnonymization')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('aiVisionAnonymizationDescription')}}</div>
             </q-card-section>
             <q-card-section class="q-col-gutter-md row">
                 <div class="col-12 col-md-6">
                     <q-toggle :label="$t('aiVisionAnonymizeLlm')" v-model="settings.ai.private.visionAnonymizeLlm" color="primary" keep-color :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled" />
-                    <div class="text-caption text-grey-7 q-mt-xs">{{$t('aiVisionAnonymizeLlmHint')}}</div>
                 </div>
                 <div class="col-12 col-md-6">
                     <q-toggle :label="$t('aiVisionAnonymizeRegex')" v-model="settings.ai.private.visionAnonymizeRegex" color="primary" keep-color :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled" />
-                    <div class="text-caption text-grey-7 q-mt-xs">{{$t('aiVisionAnonymizeRegexHint')}}</div>
                 </div>
             </q-card-section>
-            <q-card-section v-if="settings.ai.private.visionAnonymizeLlm" class="q-pt-none">
+            <q-card-section class="q-pt-none">
+                <q-toggle :label="$t('aiAnonymizeReviewBeforeSend')" v-model="settings.ai.private.anonymizeReviewBeforeSend" color="primary" keep-color :disable="!canEdit || !settings.ai.enabled" />
+                <div class="text-caption text-grey-7 q-mt-xs">{{$t('aiAnonymizeReviewBeforeSendHint')}}</div>
+            </q-card-section>
+            <q-card-section v-if="anyLlmAnonymization" class="q-pt-none">
                 <div class="row items-center justify-between q-mb-xs">
-                    <span class="text-subtitle2">{{$t('aiVisionAnonymizationPrompt')}}</span>
+                    <span class="text-subtitle2">{{$t('aiAnonymizationPrompt')}}</span>
                     <q-btn
                         flat dense size="sm" icon="restart_alt" color="primary"
                         :label="$t('resetToDefault')"
-                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
-                        @click="resetPromptToDefault('visionAnonymizationPrompt')"
-                    />
+                        :disable="!canEdit || !settings.ai.enabled"
+                        @click="resetPromptToDefault('anonymizationPrompt')"
+                    ><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
                 </div>
                 <q-input
-                    v-model="settings.ai.private.visionAnonymizationPrompt"
+                    v-model="settings.ai.private.anonymizationPrompt"
                     outlined
                     type="textarea"
                     autogrow
-                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
-                    :hint="$t('aiVisionAnonymizationPromptHint')"
+                    :disable="!canEdit || !settings.ai.enabled"
+                    :hint="$t('aiAnonymizationPromptHint')"
                 />
             </q-card-section>
             <q-card-section v-if="settings.ai.private.visionAnonymizeRegex" class="q-pt-none">
@@ -1131,43 +1372,10 @@
                     {{$t('aiVisionRegexNoRules')}}
                 </div>
             </q-card-section>
-            <!-- ── Generation Parameters ── -->
-            <q-separator />
-            <q-card-section>
-                <div class="text-bold">{{$t('aiGenerationParameters')}}</div>
-                <div class="text-grey-8 q-mt-xs">{{$t('aiGenerationParametersDescription')}}</div>
-            </q-card-section>
-            <q-card-section class="q-col-gutter-md row">
-                <div class="col-12 col-md-6">
-                    <div class="text-caption text-grey-8 q-mb-sm">
-                        {{$t('aiTemperature')}}: <strong>{{settings.ai.public.temperature}}</strong>
-                    </div>
-                    <q-slider
-                        v-model="settings.ai.public.temperature"
-                        :min="0" :max="2" :step="0.1"
-                        color="primary"
-                        :disable="!canEdit || !settings.ai.enabled"
-                    />
-                    <div class="row justify-between text-caption text-grey-6">
-                        <span>0 — precise</span>
-                        <span>2 — creative</span>
-                    </div>
-                </div>
-                <q-input
-                    class="col-12 col-md-6"
-                    :label="$t('aiMaxTokens')"
-                    v-model.number="settings.ai.public.maxTokens"
-                    type="number"
-                    outlined
-                    :min="1"
-                    :max="128000"
-                    :disable="!canEdit || !settings.ai.enabled"
-                />
-            </q-card-section>
             <!-- ── Advanced Prompts ── -->
             <q-separator />
             <q-card-section>
-                <div class="text-bold">{{$t('aiAdvancedSettings')}}</div>
+                <div class="text-bold" id="sub-ai-advanced">{{$t('aiAdvancedSettings')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('aiAdvancedSettingsDescription')}}</div>
             </q-card-section>
 
@@ -1214,7 +1422,6 @@
             <!-- Generate -->
             <q-expansion-item
                 :label="$t('aiPromptSectionGenerate')"
-                :caption="$t('aiPromptSectionGenerateCaption')"
                 icon="add_circle_outline"
                 header-class="text-weight-medium"
                 :disable="!canEdit || !settings.ai.enabled"
@@ -1240,7 +1447,6 @@
             <!-- Complete -->
             <q-expansion-item
                 :label="$t('aiPromptSectionComplete')"
-                :caption="$t('aiPromptSectionCompleteCaption')"
                 icon="edit_note"
                 header-class="text-weight-medium"
                 :disable="!canEdit || !settings.ai.enabled"
@@ -1266,7 +1472,6 @@
             <!-- Rewrite -->
             <q-expansion-item
                 :label="$t('aiPromptSectionRewrite')"
-                :caption="$t('aiPromptSectionRewriteCaption')"
                 icon="auto_fix_high"
                 header-class="text-weight-medium"
                 :disable="!canEdit || !settings.ai.enabled"
@@ -1292,7 +1497,6 @@
             <!-- Fill Proofs -->
             <q-expansion-item
                 :label="$t('aiPromptSectionFillProofs')"
-                :caption="$t('aiPromptSectionFillProofsCaption')"
                 icon="image_search"
                 header-class="text-weight-medium"
                 :disable="!canEdit || !settings.ai.enabled"
@@ -1318,7 +1522,6 @@
             <!-- Executive Summary -->
             <q-expansion-item
                 :label="$t('aiPromptSectionExecutiveSummary')"
-                :caption="$t('aiPromptSectionExecutiveSummaryCaption')"
                 icon="summarize"
                 header-class="text-weight-medium"
                 :disable="!canEdit || !settings.ai.enabled"
@@ -1344,7 +1547,6 @@
             <!-- Severity Summary -->
             <q-expansion-item
                 :label="$t('aiPromptSectionSeveritySummary')"
-                :caption="$t('aiPromptSectionSeveritySummaryCaption')"
                 icon="bar_chart"
                 header-class="text-weight-medium"
                 :disable="!canEdit || !settings.ai.enabled"
@@ -1370,7 +1572,6 @@
             <!-- Vulnerability Translation -->
             <q-expansion-item
                 :label="$t('aiPromptSectionVulnerabilityTranslation')"
-                :caption="$t('aiPromptSectionVulnerabilityTranslationCaption')"
                 icon="translate"
                 header-class="text-weight-medium"
                 :disable="!canEdit || !settings.ai.enabled"
@@ -1410,7 +1611,7 @@
             <!-- Per-field prompt overrides -->
             <q-separator />
             <q-card-section>
-                <div class="text-bold">{{$t('aiFieldPrompts')}}</div>
+                <div class="text-bold" id="sub-ai-field-prompts">{{$t('aiFieldPrompts')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('aiFieldPromptsDescription')}}</div>
             </q-card-section>
 
@@ -1418,12 +1619,33 @@
                 v-for="field in aiFieldPromptFields"
                 :key="field.key"
                 :label="$t(field.labelKey)"
-                :caption="$t('aiFieldPromptCaption')"
                 :icon="field.icon"
                 header-class="text-weight-medium q-pl-md"
                 :disable="!canEdit || !settings.ai.enabled"
             >
                     <q-card-section class="q-col-gutter-md row q-pt-sm q-pl-lg">
+                        <div class="col-12">
+                            <div class="text-caption text-grey-8 text-weight-medium q-mb-xs">{{$t('aiFieldAnonymization')}}</div>
+                            <div class="row q-col-gutter-md items-start">
+                                <div class="col-12 col-sm-6">
+                                    <q-toggle
+                                        :label="$t('aiFieldAnonymizeLlm')"
+                                        v-model="settings.ai.private['field_' + field.key + '_anonymizeLlm']"
+                                        color="accent" keep-color
+                                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.private.visionAnonymizeLlm"
+                                    />
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <q-toggle
+                                        :label="$t('aiFieldAnonymizeRegex')"
+                                        v-model="settings.ai.private['field_' + field.key + '_anonymizeRegex']"
+                                        color="secondary" keep-color
+                                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.private.visionAnonymizeRegex"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12"><q-separator /></div>
                         <div class="col-12">
                             <div class="text-caption text-grey-7 q-mb-sm">{{$t('aiFieldPromptInheritNote')}}</div>
                         </div>
@@ -1472,7 +1694,7 @@
             </q-card-section>
 
             <q-card-section>
-                <div class="text-bold">{{$t('apiKeysTitle')}}</div>
+                <div class="text-bold" id="sub-api-keys">{{$t('apiKeysTitle')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('apiKeysDescription')}}</div>
             </q-card-section>
 
@@ -1566,7 +1788,7 @@
             </q-card-section>
 
             <q-card-section>
-                <div class="text-bold">{{$t('mcpServer')}}</div>
+                <div class="text-bold" id="sub-mcp-server">{{$t('mcpServer')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('mcpServerDescription')}}</div>
             </q-card-section>
             <q-card-section>
@@ -1592,7 +1814,7 @@
             <q-separator />
 
             <q-card-section>
-                <div class="text-bold">{{$t('mcpApiKey')}}</div>
+                <div class="text-bold" id="sub-mcp-api-key">{{$t('mcpApiKey')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('mcpApiKeyHint')}}</div>
             </q-card-section>
             <q-card-section>
@@ -1642,7 +1864,7 @@
             <q-separator />
 
             <q-card-section>
-                <div class="text-bold">{{$t('mcpSampleConfig')}}</div>
+                <div class="text-bold" id="sub-mcp-sample-config">{{$t('mcpSampleConfig')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('mcpSampleConfigHint')}}</div>
             </q-card-section>
             <q-card-section>

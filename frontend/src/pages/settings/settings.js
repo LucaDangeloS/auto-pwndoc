@@ -3,6 +3,7 @@ import { Notify, Dialog } from 'quasar'
 import SettingsService from '@/services/settings'
 import UserService from '@/services/user'
 import AiService from '@/services/ai'
+import SpellcheckService from '@/services/spellcheck'
 import { notifyError, notifySuccess } from '@/services/ai-helpers'
 
 import { $t } from 'boot/i18n'
@@ -25,15 +26,24 @@ Produce a structured analysis with:
 
 Output plain text only. Do not use markdown headers or code fences.`;
 
-const DEFAULT_VISION_ANONYMIZATION_PROMPT = `IMPORTANT: You must anonymize all sensitive information in your output. Replace the following with [REDACTED]:
-- IP addresses (e.g. 192.168.1.1, 10.0.0.1)
-- URLs, including schemes, ports, paths, query strings, and fragments
-- Domain names and hostnames (e.g. example.com, server01.internal)
-- Email addresses
-- Usernames and account names
-- Passwords or credentials
-- API keys or tokens
-- Company or product names that could identify the target`;
+// Structure-preserving prompt for per-field generation-input anonymization.
+// Must mirror backend vision-service.DEFAULT_INPUT_ANONYMIZATION_PROMPT.
+const DEFAULT_INPUT_ANONYMIZATION_PROMPT = `You are a redaction engine. You receive a block of text and must return the EXACT SAME text with only the sensitive parts replaced by a labelled placeholder.
+
+Strict rules:
+- Do NOT alter the structure, wording, order, formatting, HTML tags, line breaks, or whitespace of the text. Preserve everything except the sensitive tokens exactly as received.
+- Do NOT summarize, rephrase, translate, explain, answer, complete, add, or remove any content. Your only edit is replacing sensitive values in place.
+- Replace each sensitive value with a clearly labelled placeholder:
+  - IP addresses (IPv4 and IPv6) -> [IP_REDACTED]
+  - URLs (scheme, host, port, path, query, fragment) -> [URL_REDACTED]
+  - Domain names and hostnames -> [DOMAIN_REDACTED]
+  - Email addresses -> [EMAIL_REDACTED]
+  - Usernames, account names, passwords, credentials, API keys, tokens, secrets -> [SECRET_REDACTED]
+  - Company, client, organization, product, or project names that identify the target -> [NAME_REDACTED]
+  - Other uniquely identifying data (physical addresses, phone numbers, personal names) -> [REDACTED]
+- Do NOT redact generic technical terms, vulnerability class names, CWE/CVE identifiers, HTTP methods or status codes, or common software names unless they uniquely identify the specific target.
+- Keep placeholders like [IMAGE 1 OMITTED] and [TRUNCATED] intact.
+- Output ONLY the redacted text. No preamble, no explanation, no quotes, no code fences.`;
 
 const DEFAULT_VISION_REGEX_RULES = [
     { name: 'URLs', pattern: '\\b(?:(?:https?|ftp):\\/\\/|www\\.)[A-Za-z0-9._~:/?#\\[\\]@!$&\'()*+,;=%-]*[A-Za-z0-9_~/#\\]=%-]', flags: 'gi', replacement: '[URL_REDACTED]', enabled: true },
@@ -80,7 +90,7 @@ function persistLastTestRuns(map) {
 
 const DEFAULT_PROMPTS = {
     visionSystemPrompt: DEFAULT_VISION_SYSTEM_PROMPT,
-    visionAnonymizationPrompt: DEFAULT_VISION_ANONYMIZATION_PROMPT,
+    anonymizationPrompt: DEFAULT_INPUT_ANONYMIZATION_PROMPT,
     generateSystemPrompt: `You are a cybersecurity expert writing professional penetration test reports.
 Generate clear, technical content for the "{fieldName}" section of a finding titled "{findingTitle}".
 If the requested field is "title", output one concise plain-text generic vulnerability-class title. Prefer CWE-style names over exploit narratives. Do not start with "Vulnerability of", "Vulnerabilidad de", "Issue in", or similar presentation wording.
@@ -384,15 +394,21 @@ export default {
             settings: {
                 danger:{enabled:false,public:{nbdaydelete: 0}},
                 reviews:{enabled:false},
+                authentication:{enforce2fa:false,sso:{enabled:false,public:{providerId:'oauth2',providerName:'SSO',registrationEnabled:false,autoLinkExistingUsers:false,authorizationUrl:'',tokenUrl:'',userInfoUrl:'',scope:'openid profile email',subjectClaim:'sub',usernameClaim:'preferred_username',firstnameClaim:'given_name',lastnameClaim:'family_name',emailClaim:'email'},private:{clientId:'',clientSecret:''}}},
                 mcp:{enabled:false,apiKey:'',apiKeyCreatedAt:null,appUrl:''},
-                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:4096,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8,vulnerabilityProcessing:{autoTranslateOnSave:false,matchThreshold:0.35}},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o'},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:DEFAULT_VISION_SYSTEM_PROMPT,visionAnonymizeLlm:false,visionAnonymizationPrompt:DEFAULT_VISION_ANONYMIZATION_PROMPT,visionAnonymizeRegex:false,visionAnonymizeRegexRules:DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})),generateSystemPrompt:'',generateUserPrompt:'',completeSystemPrompt:'',completeUserPrompt:'',rewriteSystemPrompt:'',rewriteUserPrompt:'',fillProofsSystemPrompt:'',fillProofsUserPrompt:'',executiveSummarySystemPrompt:'',executiveSummaryUserPrompt:'',severitySummarySystemPrompt:'',severitySummaryUserPrompt:'',vulnerabilityTranslationSystemPrompt:'',vulnerabilityTranslationUserPrompt:'',field_description_generateSystemPrompt:'',field_description_completeSystemPrompt:'',field_description_rewriteSystemPrompt:'',field_observation_generateSystemPrompt:'',field_observation_completeSystemPrompt:'',field_observation_rewriteSystemPrompt:'',field_remediation_generateSystemPrompt:'',field_remediation_completeSystemPrompt:'',field_remediation_rewriteSystemPrompt:'',field_poc_generateSystemPrompt:'',field_poc_completeSystemPrompt:'',field_poc_rewriteSystemPrompt:'',field_retestEvidence_generateSystemPrompt:'',field_retestEvidence_completeSystemPrompt:'',field_retestEvidence_rewriteSystemPrompt:''}},
-                report:{enabled:true,public:{chartTheme:{...DEFAULT_CHART_THEME}}}
+                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:32000,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8,vulnerabilityProcessing:{autoTranslateOnSave:false,matchThreshold:0.35}},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o',visionTemperature:0.7,visionMaxTokens:32000},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:DEFAULT_VISION_SYSTEM_PROMPT,visionAnonymizeLlm:false,visionAnonymizeRegex:false,anonymizeReviewBeforeSend:false,visionAnonymizeRegexRules:DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})),generateSystemPrompt:'',generateUserPrompt:'',completeSystemPrompt:'',completeUserPrompt:'',rewriteSystemPrompt:'',rewriteUserPrompt:'',fillProofsSystemPrompt:'',fillProofsUserPrompt:'',executiveSummarySystemPrompt:'',executiveSummaryUserPrompt:'',severitySummarySystemPrompt:'',severitySummaryUserPrompt:'',vulnerabilityTranslationSystemPrompt:'',vulnerabilityTranslationUserPrompt:'',field_description_generateSystemPrompt:'',field_description_completeSystemPrompt:'',field_description_rewriteSystemPrompt:'',field_observation_generateSystemPrompt:'',field_observation_completeSystemPrompt:'',field_observation_rewriteSystemPrompt:'',field_remediation_generateSystemPrompt:'',field_remediation_completeSystemPrompt:'',field_remediation_rewriteSystemPrompt:'',field_poc_generateSystemPrompt:'',field_poc_completeSystemPrompt:'',field_poc_rewriteSystemPrompt:'',field_retestEvidence_generateSystemPrompt:'',field_retestEvidence_completeSystemPrompt:'',field_retestEvidence_rewriteSystemPrompt:''}},
+                report:{enabled:true,public:{chartTheme:{...DEFAULT_CHART_THEME},enableSpellCheck:true},private:{languageToolUrl:''}}
             },
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false},mcp:{enabled:false},ai:{enabled:false}},
             canEdit: false,
+            spellcheckTest: { loading: false, result: null },
+            dictWords: [],
+            newDictWord: '',
+            dictLoading: false,
             showApiKey: false,
             showEmbeddingApiKey: false,
             showVisionApiKey: false,
+            showSsoClientSecret: false,
             showMcpApiKey: false,
             reindexing: false,
             reindexStarted: false,
@@ -400,13 +416,51 @@ export default {
             sectionObserver: null,
             scrollingTo: null,
             settingsSections: [
-                { id: 'section-general', label: 'generalSettings' },
-                { id: 'section-danger', label: 'dangerSettings' },
-                { id: 'section-reports', label: 'reports' },
-                { id: 'section-reviews', label: 'reviews' },
-                { id: 'section-ai', label: 'aiSettings' },
-                { id: 'section-api', label: 'apiSettings' },
-                { id: 'section-mcp', label: 'mcpSettings' },
+                { id: 'section-general', label: 'generalSettings', children: [
+                    { id: 'sub-general-language', label: 'changeDisplayLanguage' },
+                    { id: 'sub-general-cvss-temporal', label: 'extendCvssTemporalEnvironment' },
+                    { id: 'sub-general-cvss-version', label: 'defaultCvssVersion' }
+                ] },
+                { id: 'section-authentication', label: 'authenticationSettings', children: [
+                    { id: 'sub-auth-2fa', label: 'twoFactorEnforcement' },
+                    { id: 'sub-auth-sso', label: 'ssoSettings' },
+                    { id: 'sub-auth-sso-registration', label: 'ssoRegistration' },
+                    { id: 'sub-auth-sso-claims', label: 'ssoClaims' }
+                ] },
+                { id: 'section-danger', label: 'dangerSettings', children: [
+                    { id: 'sub-danger-autodelete', label: 'autoDeleteReport' }
+                ] },
+                { id: 'section-reports', label: 'reports', children: [
+                    { id: 'sub-reports-images-border', label: 'reportsImagesBorder' },
+                    { id: 'sub-reports-spellcheck', label: 'spellcheckSettings' },
+                    { id: 'sub-reports-dictionary', label: 'spellcheckDictionary' },
+                    { id: 'sub-reports-cvss-colors', label: 'cvssColors' },
+                    { id: 'sub-reports-remediation-complexity', label: 'remediationColorsComplexity' },
+                    { id: 'sub-reports-remediation-priority', label: 'remediationColorsPriority' },
+                    { id: 'sub-reports-captions', label: 'captions' },
+                    { id: 'sub-reports-chart-theme', label: 'chartTheme' }
+                ] },
+                { id: 'section-reviews', label: 'reviews', children: [
+                    { id: 'sub-reviews-audit-update', label: 'auditUpdateAfterApproval' },
+                    { id: 'sub-reviews-mandatory', label: 'mandatoryReview' }
+                ] },
+                { id: 'section-ai', label: 'aiSettings', children: [
+                    { id: 'sub-ai-provider', label: 'aiProvider' },
+                    { id: 'sub-ai-embedding', label: 'aiEmbeddingSection' },
+                    { id: 'sub-ai-vuln-processing', label: 'aiVulnerabilityProcessing' },
+                    { id: 'sub-ai-vision', label: 'aiVisionSection' },
+                    { id: 'sub-ai-vision-anon', label: 'aiVisionAnonymization' },
+                    { id: 'sub-ai-advanced', label: 'aiAdvancedSettings' },
+                    { id: 'sub-ai-field-prompts', label: 'aiFieldPrompts' }
+                ] },
+                { id: 'section-api', label: 'apiSettings', children: [
+                    { id: 'sub-api-keys', label: 'apiKeysTitle' }
+                ] },
+                { id: 'section-mcp', label: 'mcpSettings', children: [
+                    { id: 'sub-mcp-server', label: 'mcpServer' },
+                    { id: 'sub-mcp-api-key', label: 'mcpApiKey' },
+                    { id: 'sub-mcp-sample-config', label: 'mcpSampleConfig' }
+                ] },
                 { id: 'section-actions', label: 'saveSettings' }
             ],
             apiKeys: [],
@@ -481,7 +535,7 @@ export default {
             Dialog.create({
             title: $t('msg.thereAreUnsavedChanges'),
             message: $t('msg.doYouWantToLeave'),
-            ok: {label: $t('btn.comfirm'), color: 'negative'},
+            ok: {label: $t('btn.confirm'), color: 'negative'},
             cancel: {label: $t('btn.cancel'), color: 'white'}
             })
             .onOk(() => next())
@@ -491,6 +545,15 @@ export default {
     },
 
     computed: {
+        // True when any LLM anonymization is active (vision output or per-field
+        // generation input), so the shared anonymization prompt is editable.
+        anyLlmAnonymization: function() {
+            var priv = this.settings && this.settings.ai && this.settings.ai.private;
+            if (!priv) return false;
+            if (priv.visionAnonymizeLlm) return true;
+            return ['description', 'observation', 'remediation', 'poc', 'retestEvidence']
+                .some(function(f) { return priv['field_' + f + '_anonymizeLlm']; });
+        },
         aiDefaultUrl: function() {
             var defaults = {
                 'openai': 'https://api.openai.com/v1',
@@ -528,6 +591,10 @@ export default {
             var appUrl = (this.settings.mcp && this.settings.mcp.appUrl) || window.location.origin;
             return appUrl.replace(/\/$/, '') + '/api/mcp';
         },
+        ssoCallbackUrl: function() {
+            var appUrl = (this.settings.mcp && this.settings.mcp.appUrl) || window.location.origin;
+            return appUrl.replace(/\/$/, '') + '/api/auth/sso/callback';
+        },
         mcpClaudeConfig: function() {
             return JSON.stringify({
                 mcpServers: {
@@ -553,6 +620,7 @@ export default {
     mounted: function() {
         if (UserService.isAllowed('settings:read')) {
             this.getSettings()
+            this.loadDictionary()
             this.canEdit = this.UserService.isAllowed('settings:update');
             document.addEventListener('keydown', this._listener, false)
             // Pick up any reindex that was triggered by a different session
@@ -616,7 +684,18 @@ export default {
             this.settingsSections.forEach(function(s) {
                 var el = document.getElementById(s.id);
                 if (el) self.sectionObserver.observe(el);
+                (s.children || []).forEach(function(c) {
+                    var childEl = document.getElementById(c.id);
+                    if (childEl) self.sectionObserver.observe(childEl);
+                });
             });
+        },
+
+        // A section's subsections are shown when the section itself or one of its
+        // subsections is the active anchor (accordion behaviour).
+        isSectionExpanded: function(section) {
+            if (this.activeSection === section.id) return true;
+            return (section.children || []).some(function(c) { return c.id === this.activeSection; }, this);
         },
 
         getSettings: function() {
@@ -629,10 +708,11 @@ export default {
                 this.settings = this.$_.merge(
                     {
                       danger: { enabled: false, public:{nbdaydelete: 0}},
-                      report: { enabled: true, public: { chartTheme: { ...DEFAULT_CHART_THEME } } },
+                      report: { enabled: true, public: { chartTheme: { ...DEFAULT_CHART_THEME }, enableSpellCheck: true }, private: { languageToolUrl: '' } },
                       reviews: { enabled: false, public: { minReviewers: 1 } },
+                      authentication: { enforce2fa: false, sso: { enabled: false, public: { providerId: 'oauth2', providerName: 'SSO', registrationEnabled: false, autoLinkExistingUsers: false, authorizationUrl: '', tokenUrl: '', userInfoUrl: '', scope: 'openid profile email', subjectClaim: 'sub', usernameClaim: 'preferred_username', firstnameClaim: 'given_name', lastnameClaim: 'family_name', emailClaim: 'email' }, private: { clientId: '', clientSecret: '' } } },
                       mcp: { enabled: false, apiKey: '', apiKeyCreatedAt: null, appUrl: '' },
-                      ai: { enabled: false, embeddingEnabled: false, visionEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 4096, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8, vulnerabilityProcessing: { autoTranslateOnSave: false, matchThreshold: 0.35 } }, visionPublic: { visionProvider: 'openai', visionModel: 'gpt-4o' }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionApiUrl: '', visionApiKey: '', visionAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionSystemPrompt: DEFAULT_VISION_SYSTEM_PROMPT, visionAnonymizeLlm: false, visionAnonymizationPrompt: DEFAULT_VISION_ANONYMIZATION_PROMPT, visionAnonymizeRegex: false, visionAnonymizeRegexRules: DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})), fillProofsSystemPrompt: '', fillProofsUserPrompt: '', executiveSummarySystemPrompt: '', executiveSummaryUserPrompt: '', severitySummarySystemPrompt: '', severitySummaryUserPrompt: '', vulnerabilityTranslationSystemPrompt: '', vulnerabilityTranslationUserPrompt: '', field_description_generateSystemPrompt: '', field_description_completeSystemPrompt: '', field_description_rewriteSystemPrompt: '', field_observation_generateSystemPrompt: '', field_observation_completeSystemPrompt: '', field_observation_rewriteSystemPrompt: '', field_remediation_generateSystemPrompt: '', field_remediation_completeSystemPrompt: '', field_remediation_rewriteSystemPrompt: '', field_poc_generateSystemPrompt: '', field_poc_completeSystemPrompt: '', field_poc_rewriteSystemPrompt: '', field_retestEvidence_generateSystemPrompt: '', field_retestEvidence_completeSystemPrompt: '', field_retestEvidence_rewriteSystemPrompt: '' } }
+                      ai: { enabled: false, embeddingEnabled: false, visionEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 32000, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8, vulnerabilityProcessing: { autoTranslateOnSave: false, matchThreshold: 0.35 } }, visionPublic: { visionProvider: 'openai', visionModel: 'gpt-4o', visionTemperature: 0.7, visionMaxTokens: 32000 }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionApiUrl: '', visionApiKey: '', visionAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionSystemPrompt: DEFAULT_VISION_SYSTEM_PROMPT, visionAnonymizeLlm: false,  visionAnonymizeRegex: false, anonymizeReviewBeforeSend: false, visionAnonymizeRegexRules: DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})), fillProofsSystemPrompt: '', fillProofsUserPrompt: '', executiveSummarySystemPrompt: '', executiveSummaryUserPrompt: '', severitySummarySystemPrompt: '', severitySummaryUserPrompt: '', vulnerabilityTranslationSystemPrompt: '', vulnerabilityTranslationUserPrompt: '', field_description_generateSystemPrompt: '', field_description_completeSystemPrompt: '', field_description_rewriteSystemPrompt: '', field_observation_generateSystemPrompt: '', field_observation_completeSystemPrompt: '', field_observation_rewriteSystemPrompt: '', field_remediation_generateSystemPrompt: '', field_remediation_completeSystemPrompt: '', field_remediation_rewriteSystemPrompt: '', field_poc_generateSystemPrompt: '', field_poc_completeSystemPrompt: '', field_poc_rewriteSystemPrompt: '', field_retestEvidence_generateSystemPrompt: '', field_retestEvidence_completeSystemPrompt: '', field_retestEvidence_rewriteSystemPrompt: '' } }
                     },
                     data.data.datas
                   );
@@ -642,7 +722,7 @@ export default {
                     ? this.$_.cloneDeep(serverRegexRules)
                     : this.$_.cloneDeep(DEFAULT_VISION_REGEX_RULES);
                 const promptFields = [
-                    'visionSystemPrompt','visionAnonymizationPrompt',
+                    'visionSystemPrompt','anonymizationPrompt',
                     'generateSystemPrompt','generateUserPrompt',
                     'completeSystemPrompt','completeUserPrompt',
                     'rewriteSystemPrompt','rewriteUserPrompt',
@@ -1012,6 +1092,51 @@ export default {
             safeClipboard(text)
                 .then(() => notifySuccess('copied'))
                 .catch(() => notifyError(null, 'copyFailed'));
+        },
+
+        testSpellcheckConnection: function() {
+            this.spellcheckTest.loading = true;
+            this.spellcheckTest.result = null;
+            SpellcheckService.testConnection(
+                this.settings.report.private.languageToolUrl
+            )
+            .then((res) => {
+                this.spellcheckTest.result = res.data.datas;
+            })
+            .catch((err) => {
+                this.spellcheckTest.result = { reachable: false, isLanguageTool: false, error: err.response?.data?.datas || err.message };
+            })
+            .finally(() => { this.spellcheckTest.loading = false; });
+        },
+
+        loadDictionary: function() {
+            this.dictLoading = true;
+            SpellcheckService.getWords()
+            .then((res) => {
+                this.dictWords = (res.data.datas || []).map(e => e.word);
+            })
+            .catch(() => { /* silent: dictionary is optional */ })
+            .finally(() => { this.dictLoading = false; });
+        },
+
+        addDictWord: function() {
+            var word = (this.newDictWord || '').trim();
+            if (!word) return;
+            SpellcheckService.addWord(word)
+            .then(() => {
+                if (!this.dictWords.includes(word)) this.dictWords.push(word);
+                this.dictWords.sort((a, b) => a.localeCompare(b));
+                this.newDictWord = '';
+            })
+            .catch((err) => { notifyError(err); });
+        },
+
+        removeDictWord: function(word) {
+            SpellcheckService.deleteWord(word)
+            .then(() => {
+                this.dictWords = this.dictWords.filter(w => w !== word);
+            })
+            .catch((err) => { notifyError(err); });
         },
 
         unsavedChanges() {

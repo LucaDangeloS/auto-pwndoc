@@ -30,6 +30,28 @@ const DEFAULT_VISION_ANONYMIZATION_PROMPT = `IMPORTANT: You must anonymize all s
 - API keys or tokens
 - Company or product names that could identify the target`;
 
+// Structure-preserving prompt for the generation-input anonymization pass.
+// Unlike the vision prompt (which anonymizes the model's own analysis output),
+// this instructs the model to return the SAME text with only sensitive tokens
+// redacted, so the redacted text can be fed to the generation model unchanged
+// in structure.
+const DEFAULT_INPUT_ANONYMIZATION_PROMPT = `You are a redaction engine. You receive a block of text and must return the EXACT SAME text with only the sensitive parts replaced by a labelled placeholder.
+
+Strict rules:
+- Do NOT alter the structure, wording, order, formatting, HTML tags, line breaks, or whitespace of the text. Preserve everything except the sensitive tokens exactly as received.
+- Do NOT summarize, rephrase, translate, explain, answer, complete, add, or remove any content. Your only edit is replacing sensitive values in place.
+- Replace each sensitive value with a clearly labelled placeholder:
+  - IP addresses (IPv4 and IPv6) -> [IP_REDACTED]
+  - URLs (scheme, host, port, path, query, fragment) -> [URL_REDACTED]
+  - Domain names and hostnames -> [DOMAIN_REDACTED]
+  - Email addresses -> [EMAIL_REDACTED]
+  - Usernames, account names, passwords, credentials, API keys, tokens, secrets -> [SECRET_REDACTED]
+  - Company, client, organization, product, or project names that identify the target -> [NAME_REDACTED]
+  - Other uniquely identifying data (physical addresses, phone numbers, personal names) -> [REDACTED]
+- Do NOT redact generic technical terms, vulnerability class names, CWE/CVE identifiers, HTTP methods or status codes, or common software names unless they uniquely identify the specific target.
+- Keep placeholders like [IMAGE 1 OMITTED] and [TRUNCATED] intact.
+- Output ONLY the redacted text. No preamble, no explanation, no quotes, no code fences.`;
+
 const DEFAULT_REGEX_RULES = [
     { name: 'URLs', pattern: '\\b(?:(?:https?|ftp):\\/\\/|www\\.)[A-Za-z0-9._~:/?#\\[\\]@!$&\'()*+,;=%-]*[A-Za-z0-9_~/#\\]=%-]', flags: 'gi', replacement: '[URL_REDACTED]', enabled: true },
     { name: 'IPv4 addresses', pattern: '\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b', flags: 'g', replacement: '[IP_REDACTED]', enabled: true },
@@ -50,6 +72,8 @@ function buildVisionModel(aiSettings) {
     const priv = aiSettings.private || {};
     const provider = pub.visionProvider || 'openai';
     const model = pub.visionModel || 'gpt-4o';
+    const temperature = pub.visionTemperature !== undefined ? pub.visionTemperature : 0.7;
+    const maxTokens = pub.visionMaxTokens || 32000;
     const apiUrl = priv.visionApiUrl || '';
     const apiKey = priv.visionApiKey || '';
     const azure = priv.visionAzure || {};
@@ -58,6 +82,8 @@ function buildVisionModel(aiSettings) {
         case 'azure-openai':
             return new AzureChatOpenAI({
                 model: azure.deploymentName || model,
+                temperature: temperature,
+                maxTokens: maxTokens,
                 apiKey: apiKey || undefined,
                 azureOpenAIApiInstanceName: apiUrl ? new URL(apiUrl).hostname.split('.')[0] : undefined,
                 azureOpenAIApiDeploymentName: azure.deploymentName || model,
@@ -67,6 +93,8 @@ function buildVisionModel(aiSettings) {
         case 'ollama':
             return new ChatOpenAI({
                 model: model,
+                temperature: temperature,
+                maxTokens: maxTokens,
                 apiKey: 'ollama',
                 configuration: { baseURL: ensureV1(apiUrl || 'http://ollama:11434') }
             });
@@ -74,6 +102,8 @@ function buildVisionModel(aiSettings) {
         case 'anthropic':
             return new ChatOpenAI({
                 model: model,
+                temperature: temperature,
+                maxTokens: maxTokens,
                 apiKey: apiKey || 'anthropic',
                 configuration: { baseURL: ensureV1(apiUrl || 'https://api.anthropic.com') }
             });
@@ -81,6 +111,8 @@ function buildVisionModel(aiSettings) {
         case 'openai-compatible':
             return new ChatOpenAI({
                 model: model,
+                temperature: temperature,
+                maxTokens: maxTokens,
                 apiKey: apiKey || 'none',
                 configuration: { baseURL: ensureV1(apiUrl || 'http://localhost:11434') }
             });
@@ -88,8 +120,8 @@ function buildVisionModel(aiSettings) {
         case OpenWebUIProvider.PROVIDER:
             return new ChatOpenAI(OpenWebUIProvider.chatModelOptions({
                 model: model,
-                temperature: undefined,
-                maxTokens: undefined,
+                temperature: temperature,
+                maxTokens: maxTokens,
                 apiUrl: apiUrl,
                 apiKey: apiKey
             }));
@@ -98,6 +130,8 @@ function buildVisionModel(aiSettings) {
         default:
             return new ChatOpenAI({
                 model: model,
+                temperature: temperature,
+                maxTokens: maxTokens,
                 apiKey: apiKey || undefined,
                 configuration: apiUrl ? { baseURL: ensureV1(apiUrl) } : {}
             });
@@ -159,12 +193,26 @@ function compileRegexRule(rule) {
 }
 
 function buildVisionSystemContent(privateSettings = {}) {
-    const analysisPrompt = privateSettings.visionSystemPrompt || DEFAULT_VISION_SYSTEM_PROMPT;
-    if (!privateSettings.visionAnonymizeLlm) return analysisPrompt;
+    // LLM anonymization is now a separate redaction pass over the analysis
+    // output (see analyzeProofs), so the analysis prompt is returned unchanged.
+    return privateSettings.visionSystemPrompt || DEFAULT_VISION_SYSTEM_PROMPT;
+}
 
-    const anonymizationPrompt =
-        privateSettings.visionAnonymizationPrompt || DEFAULT_VISION_ANONYMIZATION_PROMPT;
-    return `${analysisPrompt}\n\n${anonymizationPrompt}`;
+// Best-effort standalone redaction pass: asks the model to return the same text
+// with only sensitive tokens redacted, using the shared anonymization prompt.
+async function anonymizeTextWithModel(text, prompt, chatModel) {
+    if (!text || !String(text).trim() || !chatModel) return text;
+    try {
+        const response = await chatModel.invoke([
+            new SystemMessage(prompt),
+            new HumanMessage(String(text))
+        ]);
+        const redacted = (response.content || '').toString().trim();
+        return redacted || text;
+    } catch (err) {
+        console.error('[Vision] LLM anonymization failed:', err.message);
+        return text;
+    }
 }
 
 function validateRegexRules(rules) {
@@ -229,9 +277,13 @@ function buildMessageContentFromSegments(segments, imageFetches) {
                 const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
                 const base64Data = base64Value.replace(/^data:[^;]+;base64,/, '');
 
+                // Standard LangChain base64 image block; the provider adapter
+                // converts it to the wire format the endpoint expects.
                 messageContent.push({
-                    type: 'image_url',
-                    image_url: { url: `data:${mimeType};base64,${base64Data}` }
+                    type: 'image',
+                    source_type: 'base64',
+                    mime_type: mimeType,
+                    data: base64Data
                 });
             } else {
                 messageContent.push({ type: 'text', text: `[Image ${seg.index} could not be loaded]` });
@@ -278,10 +330,7 @@ async function analyzeProofs(pocHtml, aiSettings) {
         ? priv.visionAnonymizeRegexRules
         : DEFAULT_REGEX_RULES;
 
-    const systemContent = buildVisionSystemContent({
-        ...priv,
-        visionAnonymizeLlm: anonymizeLlm
-    });
+    const systemContent = buildVisionSystemContent(priv);
 
     const messageContent = buildMessageContentFromSegments(segments, imageFetches);
 
@@ -293,6 +342,14 @@ async function analyzeProofs(pocHtml, aiSettings) {
 
     const response = await chatModel.invoke(messages);
     let rawOutput = (response.content || '').toString().trim();
+
+    // LLM anonymization runs as a separate redaction pass over the analysis
+    // output using the shared anonymization prompt (same one used for
+    // generation-input anonymization).
+    if (anonymizeLlm) {
+        const anonPrompt = priv.anonymizationPrompt || DEFAULT_INPUT_ANONYMIZATION_PROMPT;
+        rawOutput = await anonymizeTextWithModel(rawOutput, anonPrompt, chatModel);
+    }
 
     if (anonymizeRegex) {
         rawOutput = anonymizeWithRegex(rawOutput, anonymizeRegexRules);
@@ -322,5 +379,6 @@ module.exports = {
     buildVisionSystemContent,
     DEFAULT_REGEX_RULES,
     DEFAULT_VISION_SYSTEM_PROMPT,
-    DEFAULT_VISION_ANONYMIZATION_PROMPT
+    DEFAULT_VISION_ANONYMIZATION_PROMPT,
+    DEFAULT_INPUT_ANONYMIZATION_PROMPT
 };

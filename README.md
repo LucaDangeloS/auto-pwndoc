@@ -47,10 +47,10 @@ The core goal remains the same - more time to **Pwn**, less time to **Doc** - bu
 
 ### Inherited from PwnDoc-ng
 
-- TipTap 2 WYSIWYG editor with collaborative editing (Hocuspocus WebSocket)
+- TipTap 3 WYSIWYG editor with collaborative editing (Hocuspocus WebSocket)
 - Table support, syntax highlighting (CSS, JS, HTTP, TS, HTML, Bash, SQL, JSON)
 - Bar and pie charts in reports
-- Integrated spellchecker (LanguageTool via nginx proxy)
+- Integrated spellchecker (LanguageTool via the backend proxy)
 - CVSS 3.1 + 4.0 calculator
 - Reviewer workflow and approval states
 - Custom sections and custom fields
@@ -69,10 +69,10 @@ The core goal remains the same - more time to **Pwn**, less time to **Doc** - bu
 | Proof analysis | Vision LLM reads screenshots → narrates evidence |
 | Collaboration | Real-time multi-user editing (WebSocket) |
 | MCP server | AI agent access via JSON-RPC 2.0 |
-| Retest support | Evidence tab + passed/failed flag per finding |
+| Retest support | Retest evidence tab + ok/ko/partial/unknown outcome per finding |
 | Permissions | Role-based + per-permission granular grants |
 | Spellcheck | LanguageTool integration in editor |
-| Localisation | EN, ES, FR, DE, ZH report and UI locales |
+| Localisation | EN, ES, DE report and UI locales |
 
 ---
 

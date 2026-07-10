@@ -63,43 +63,6 @@ chartGenerator.generatePieChart = function (title, colorCrit, colorHigh, colorMe
                     </c:strCache>
                     </c:strRef>
                 </c:tx>
-                <c:val>
-                    <c:numLit>
-                    <c:formatCode>General</c:formatCode>
-                    <c:ptCount val="4"/>
-                    <c:pt idx="0">
-                        <c:v>${countCritical}</c:v>
-                    </c:pt>
-                    <c:pt idx="1">
-                        <c:v>${countHigh}</c:v>
-                    </c:pt>
-                    <c:pt idx="2">
-                        <c:v>${countMedium}</c:v>
-                    </c:pt>
-                    <c:pt idx="3">
-                        <c:v>${countLow}</c:v>
-                    </c:pt>
-                    </c:numLit>
-                </c:val>
-                <c:cat>
-                <c:strRef>
-                <c:strCache>
-                    <c:ptCount val="4"/>
-                    <c:pt idx="0">
-                    <c:v>${translate("Critical")}</c:v>
-                    </c:pt>
-                    <c:pt idx="1">
-                    <c:v>${translate("High")}</c:v>
-                    </c:pt>
-                    <c:pt idx="2">
-                    <c:v>${translate("Medium")}</c:v>
-                    </c:pt>
-                    <c:pt idx="3">
-                    <c:v>${translate("Low")}</c:v>
-                    </c:pt>
-                </c:strCache>
-                </c:strRef>
-            </c:cat>
                  <c:dPt>
                 <c:idx val="0"/>
                 <c:spPr>
@@ -132,15 +95,7 @@ chartGenerator.generatePieChart = function (title, colorCrit, colorHigh, colorMe
                     </a:solidFill>
                 </c:spPr>
             </c:dPt>
-                </c:ser>
                 <c:dLbls>
-                <c:showLegendKey val="0"/>
-                <c:showVal val="1"/>
-                <c:showCatName val="0"/>
-                <c:showSerName val="0"/>
-                <c:showPercent val="0"/>
-                <c:showBubbleSize val="0"/>
-                <c:showLeaderLines val="0"/>
                 <c:txPr>
             <a:bodyPr/>
             <a:lstStyle/>
@@ -154,7 +109,52 @@ chartGenerator.generatePieChart = function (title, colorCrit, colorHigh, colorMe
                 </a:pPr>
             </a:p>
         </c:txPr>
+                <c:showLegendKey val="0"/>
+                <c:showVal val="1"/>
+                <c:showCatName val="0"/>
+                <c:showSerName val="0"/>
+                <c:showPercent val="0"/>
+                <c:showBubbleSize val="0"/>
+                <c:showLeaderLines val="0"/>
                 </c:dLbls>
+                <c:cat>
+                <c:strRef>
+                <c:strCache>
+                    <c:ptCount val="4"/>
+                    <c:pt idx="0">
+                    <c:v>${translate("Critical")}</c:v>
+                    </c:pt>
+                    <c:pt idx="1">
+                    <c:v>${translate("High")}</c:v>
+                    </c:pt>
+                    <c:pt idx="2">
+                    <c:v>${translate("Medium")}</c:v>
+                    </c:pt>
+                    <c:pt idx="3">
+                    <c:v>${translate("Low")}</c:v>
+                    </c:pt>
+                </c:strCache>
+                </c:strRef>
+            </c:cat>
+                <c:val>
+                    <c:numLit>
+                    <c:formatCode>General</c:formatCode>
+                    <c:ptCount val="4"/>
+                    <c:pt idx="0">
+                        <c:v>${countCritical}</c:v>
+                    </c:pt>
+                    <c:pt idx="1">
+                        <c:v>${countHigh}</c:v>
+                    </c:pt>
+                    <c:pt idx="2">
+                        <c:v>${countMedium}</c:v>
+                    </c:pt>
+                    <c:pt idx="3">
+                        <c:v>${countLow}</c:v>
+                    </c:pt>
+                    </c:numLit>
+                </c:val>
+                </c:ser>
             </c:pieChart>
             </c:plotArea>
             <c:legend>
@@ -285,6 +285,8 @@ chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML,
             <a:effectLst/>
          </c:spPr>
           <c:invertIfNegative val="0"/>
+          ${pointColorsXml}
+          ${barDataLabelsXml}
           <c:cat>
             <c:strRef>
               <c:strCache>
@@ -300,9 +302,7 @@ chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML,
               </c:numCache>
             </c:numRef>
           </c:val>
-          ${pointColorsXml}
         </c:ser>
-       ${barDataLabelsXml}
         <c:gapWidth val="100"/>
         <c:axId val="568377344"/>
         <c:axId val="568375904"/>
@@ -366,7 +366,6 @@ chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML,
                 <a:schemeClr val="tx1">
                   <a:lumMod val="15000"/>
                   <a:lumOff val="85000"/>
-                  <a:srgbClr val="555555"/> 
                 </a:schemeClr>
               </a:solidFill>
               <a:round/>
@@ -463,14 +462,15 @@ function fontXml(size, color, bold) {
     </c:txPr>`;
 }
 
-function shapeXml(theme) {
+function shapeXml(theme, options = {}) {
     const fill = theme.plotAreaFill && theme.plotAreaFill !== 'none'
         ? `<a:solidFill><a:srgbClr val="${encodeHTMLEntities(theme.plotAreaFill)}"/></a:solidFill>`
         : '<a:noFill/>';
-    const line = theme.borderEnabled && theme.borderWidth > 0
+    const borderEnabled = theme.borderEnabled && theme.borderWidth > 0 && !options.noBorder;
+    const line = borderEnabled
         ? `<a:ln w="${Math.round(theme.borderWidth * 12700)}"><a:solidFill><a:srgbClr val="${encodeHTMLEntities(theme.borderColor)}"/></a:solidFill></a:ln>`
         : '<a:ln><a:noFill/></a:ln>';
-    const effect = theme.borderEnabled && theme.borderWidth > 0 ? '' : '<a:effectLst/>';
+    const effect = borderEnabled ? '' : '<a:effectLst/>';
     return `<c:spPr>${fill}${line}${effect}</c:spPr>`;
 }
 
@@ -515,7 +515,6 @@ function customDataLabelXml(index, text, size, color, bold) {
         <c:showSerName val="0"/>
         <c:showPercent val="0"/>
         <c:showBubbleSize val="0"/>
-        <c:showLeaderLines val="0"/>
     </c:dLbl>`;
 }
 
@@ -536,15 +535,15 @@ function dataLabelsXml(items, mode, size, color, bold, options = {}) {
 
     return `<c:dLbls>
         ${customXml}
-        <c:showLegendKey val="0"/>
         ${dataLabelNumberFormat(mode)}
+        ${fontXml(size, color, bold)}
+        <c:showLegendKey val="0"/>
         <c:showVal val="${labels.showVal}"/>
         <c:showCatName val="0"/>
         <c:showSerName val="0"/>
         <c:showPercent val="${labels.showPercent}"/>
         <c:showBubbleSize val="0"/>
         <c:showLeaderLines val="0"/>
-        ${fontXml(size, color, bold)}
     </c:dLbls>`;
 }
 
@@ -595,14 +594,13 @@ chartGenerator.generatePie3DChart = function({ title, severities, theme }) {
                     <c:idx val="0"/>
                     <c:order val="0"/>
                     <c:tx><c:strRef><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>${encodeHTMLEntities(title)}</c:v></c:pt></c:strCache></c:strRef></c:tx>
+                    ${colorsXml}
+                    ${dataLabelsXmlForPie}
                     <c:cat><c:strRef><c:strCache><c:ptCount val="${severities.length}"/>${labelsXml}</c:strCache></c:strRef></c:cat>
                     <c:val><c:numRef><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="${severities.length}"/>${valuesXml}</c:numCache></c:numRef></c:val>
-                    ${colorsXml}
                 </c:ser>
-                ${dataLabelsXmlForPie}
-                <c:firstSliceAng val="270"/>
             </c:pie3DChart>
-            ${shapeXml(theme)}
+            ${shapeXml(theme, {noBorder: true})}
         </c:plotArea>
         <c:legend>
             <c:legendPos val="${encodeHTMLEntities(theme.legendPosition)}"/>

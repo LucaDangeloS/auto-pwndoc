@@ -2,7 +2,8 @@
     <q-tabs v-model="selectedTab" no-caps align="left" indicator-color="primary" active-bg-color="grey-3" class="bg-white full-width">
         <q-tab name="vulnerabilities" default :label="$t('nav.vulnerabilities')" />
         <q-tab name="companies" :label="$t('companies')" />
-        <q-tab name="collaborators" :label="$t('collaborators')" />
+        <q-tab name="collaborators" :label="$t('users')" />
+        <q-tab v-if="UserService.isAllowed('backups:read')" name="backups" :label="$t('backups')" />
     </q-tabs>
     <div class="row">
         <q-tab-panels v-model="selectedTab" class="bg-transparent col-md-10 col-12 offset-md-1 q-mt-md" @before-transition="Utils.syncEditors($refs)">
@@ -125,7 +126,7 @@
             <q-tab-panel name="collaborators">
                 <q-card>
                     <q-card-section>
-                        <div class="text-grey-8">{{$t('collaborators')}}</div>
+                        <div class="text-grey-8">{{$t('users')}}</div>
                     </q-card-section>
                     <q-card-section class="row">
                         <div class="col-md-6 col-12" >
@@ -178,6 +179,58 @@
                             </q-item>
                         </div>
                     </q-card-section>-->
+                </q-card>
+            </q-tab-panel>
+
+            <q-tab-panel name="backups" v-if="UserService.isAllowed('backups:read')">
+                <q-card>
+                    <q-card-section>
+                        <div class="text-grey-8">{{$t('backupsDescription')}}</div>
+                    </q-card-section>
+                    <q-card-section class="row items-end q-col-gutter-md">
+                        <div class="col-12 col-md-6" v-if="UserService.isAllowed('backups:create')">
+                            <q-input v-model="backupName" :label="$t('backupName')" outlined dense :hint="$t('backupNameHint')" @keyup.enter="createBackup()" />
+                        </div>
+                        <div class="col-12 col-md-6" v-if="UserService.isAllowed('backups:create')">
+                            <q-btn :label="$t('createBackup')" color="secondary" no-caps unelevated :loading="backupLoading" @click="createBackup()" class="q-mr-sm" />
+                            <input ref="uploadBackupInput" value="" type="file" accept=".json" class="hidden" @change="uploadBackup($event.target.files)" />
+                            <q-btn :label="$t('uploadBackup')" color="primary" no-caps outline icon="upload" @click="$refs.uploadBackupInput.click()" />
+                        </div>
+                    </q-card-section>
+                    <q-separator />
+                    <q-card-section>
+                        <q-markup-table flat dense v-if="backups.length > 0">
+                            <thead>
+                                <tr>
+                                    <th class="text-left">{{$t('name')}}</th>
+                                    <th class="text-left">{{$t('date')}}</th>
+                                    <th class="text-right">{{$t('backupDocuments')}}</th>
+                                    <th class="text-right">{{$t('backupSize')}}</th>
+                                    <th class="text-right"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="b in backups" :key="b.slug">
+                                    <td class="text-left">{{b.name}}</td>
+                                    <td class="text-left">{{formatBackupDate(b.createdAt)}}</td>
+                                    <td class="text-right">{{b.documentCount}}</td>
+                                    <td class="text-right">{{formatBackupSize(b.sizeBytes)}}</td>
+                                    <td class="text-right" style="white-space: nowrap">
+                                        <q-btn flat dense size="sm" color="info" icon="download" @click="downloadBackup(b.slug)">
+                                            <q-tooltip>{{$t('tooltip.download')}}</q-tooltip>
+                                        </q-btn>
+                                        <q-btn v-if="UserService.isAllowed('backups:update')" flat dense size="sm" color="warning" icon="restore" @click="confirmRestoreBackup(b)">
+                                            <q-tooltip>{{$t('restoreBackup')}}</q-tooltip>
+                                        </q-btn>
+                                        <q-btn v-if="UserService.isAllowed('backups:delete')" flat dense size="sm" color="negative" icon="delete" @click="confirmDeleteBackup(b)">
+                                            <q-tooltip>{{$t('tooltip.delete')}}</q-tooltip>
+                                        </q-btn>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </q-markup-table>
+                        <div v-else class="text-grey-6 text-caption">{{$t('backupsEmpty')}}</div>
+                    </q-card-section>
                 </q-card>
             </q-tab-panel>
         </q-tab-panels>

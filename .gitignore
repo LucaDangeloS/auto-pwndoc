@@ -11,6 +11,8 @@ mongo-data*
 report-templates
 backend/audit-archives/*
 !backend/audit-archives/.gitkeep
+backups/
+backend/backups/
 custom-generator.js
 dist
 report_examples/

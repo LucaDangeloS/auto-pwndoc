@@ -13,6 +13,7 @@ import CompanyService from '@/services/company'
 import UserService from '@/services/user'
 import CollabService from '@/services/collaborator';
 import TemplateService from '@/services/template'
+import BackupService from '@/services/backup'
 
 import { $t } from '@/boot/i18n'
 
@@ -23,7 +24,11 @@ export default {
             Utils: Utils,
             vulnerabilities: [],
             selectedTab: "vulnerabilities",
-            user: null
+            user: null,
+            UserServiceRef: UserService,
+            backups: [],
+            backupName: '',
+            backupLoading: false,
         }
     },
 
@@ -40,6 +45,7 @@ export default {
             // still protects the destructive endpoints
             console.log(err);
         });
+        if (UserService.isAllowed('backups:read')) this.getBackups();
     },
 
     computed: {
@@ -571,7 +577,108 @@ export default {
                     })
                 })
             })
+        },
+
+        /* ===== BACKUPS ===== */
+
+        getBackups: function() {
+            BackupService.getBackups()
+            .then((res) => { this.backups = res.data.datas || []; })
+            .catch((err) => { console.log(err); });
+        },
+
+        createBackup: function() {
+            this.backupLoading = true;
+            BackupService.createBackup(this.backupName.trim() || 'backup')
+            .then(() => {
+                this.backupName = '';
+                this.getBackups();
+                Notify.create({message: $t('msg.backupCreatedOk'), color: 'positive', textColor: 'white', position: 'top-right'});
+            })
+            .catch((err) => { Notify.create({message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right'}); })
+            .finally(() => { this.backupLoading = false; });
+        },
+
+        downloadBackup: function(slug) {
+            BackupService.downloadBackup(slug)
+            .then((res) => {
+                const url = URL.createObjectURL(new Blob([res.data], {type: 'application/json'}));
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${slug}.json`;
+                document.body.appendChild(a);
+                a.click();
+                URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            })
+            .catch((err) => { Notify.create({message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right'}); });
+        },
+
+        uploadBackup: function(files) {
+            if (!files || !files.length) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                BackupService.uploadBackup(reader.result)
+                .then(() => {
+                    this.getBackups();
+                    Notify.create({message: $t('msg.backupUploadedOk'), color: 'positive', textColor: 'white', position: 'top-right'});
+                })
+                .catch((err) => { Notify.create({message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right'}); });
+            };
+            reader.readAsText(files[0]);
+            if (this.$refs.uploadBackupInput) this.$refs.uploadBackupInput.value = '';
+        },
+
+        confirmRestoreBackup: function(backup) {
+            Dialog.create({
+                title: $t('msg.restoreBackupTitle'),
+                message: $t('msg.restoreBackupConfirm', {name: backup.name}),
+                ok: {label: $t('btn.confirm'), color: 'negative'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
+            })
+            .onOk(() => {
+                this.backupLoading = true;
+                BackupService.restoreBackup(backup.slug)
+                .then((res) => {
+                    const d = res.data.datas || {};
+                    Notify.create({message: $t('msg.backupRestoredOk', {collections: d.collections, documents: d.documents}), color: 'positive', textColor: 'white', position: 'top-right', timeout: 6000});
+                })
+                .catch((err) => { Notify.create({message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right'}); })
+                .finally(() => { this.backupLoading = false; });
+            });
+        },
+
+        confirmDeleteBackup: function(backup) {
+            Dialog.create({
+                title: $t('msg.confirmSuppression'),
+                message: $t('msg.deleteBackupConfirm', {name: backup.name}),
+                ok: {label: $t('btn.confirm'), color: 'negative'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
+            })
+            .onOk(() => {
+                BackupService.deleteBackup(backup.slug)
+                .then(() => {
+                    this.getBackups();
+                    Notify.create({message: $t('msg.backupDeletedOk'), color: 'positive', textColor: 'white', position: 'top-right'});
+                })
+                .catch((err) => { Notify.create({message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right'}); });
+            });
+        },
+
+        formatBackupSize: function(bytes) {
+            if (!bytes) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let i = 0;
+            let size = bytes;
+            while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
+            return `${size.toFixed(1)} ${units[i]}`;
+        },
+
+        formatBackupDate: function(value) {
+            if (!value) return '';
+            const d = new Date(value);
+            return Number.isNaN(d.getTime()) ? '' : d.toLocaleString();
         }
-        
+
     }
 }

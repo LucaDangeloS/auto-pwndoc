@@ -780,12 +780,16 @@ const ANONYMIZABLE_CONTEXT_KEYS = ['findingTitle', 'findingDescription', 'findin
 // running generation. Used by the "review before send" preview and mirrors the
 // exact transforms `generate()` applies, so approved values feed straight back
 // into generation.
-async function anonymizeContext({ fieldName, context, aiSettings }) {
+async function anonymizeContext({ fieldName, fieldNames, context, aiSettings }) {
     const priv = (aiSettings && aiSettings.private) || {};
     const pub = (aiSettings && aiSettings.public) || {};
-    const supported = ANONYMIZABLE_FIELDS.includes(fieldName);
-    const anonymizeRegex = supported && Boolean(priv[`field_${fieldName}_anonymizeRegex`]);
-    const anonymizeLlm = supported && Boolean(priv[`field_${fieldName}_anonymizeLlm`]);
+    // A single field (per-field generation) or several (proof completion, which
+    // generates multiple fields from one shared context): anonymize with the
+    // union of the enabled per-field toggles.
+    const names = (Array.isArray(fieldNames) && fieldNames.length ? fieldNames : [fieldName])
+        .filter(f => ANONYMIZABLE_FIELDS.includes(f));
+    const anonymizeRegex = names.some(f => Boolean(priv[`field_${f}_anonymizeRegex`]));
+    const anonymizeLlm = names.some(f => Boolean(priv[`field_${f}_anonymizeLlm`]));
 
     const processed = {
         findingTitle: truncateContext(context && context.findingTitle, CONTEXT_LIMITS.findingTitle),

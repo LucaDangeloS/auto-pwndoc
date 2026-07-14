@@ -11,6 +11,7 @@ import AiActionBtn from 'components/ai-action-btn';
 import TaxonomyPicker from 'components/taxonomy-picker';
 import CommentsPanel from 'components/comments-panel';
 import DraftDiff from 'components/draft-diff';
+import AiAnonymizationReview from 'components/ai-anonymization-review';
 
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
@@ -98,6 +99,13 @@ export default {
       },
       cvssCalculatorKey: 0,
       _similarController: null,
+      // "Review anonymized input before sending" popup state for the
+      // complete-from-proof flow (mirrors the per-field review in editor.vue).
+      proofAnonReview: {
+        open: false,
+        fields: {},
+        resolve: null,
+      },
     };
   },
 
@@ -112,6 +120,7 @@ export default {
     TaxonomyPicker,
     CommentsPanel,
     DraftDiff,
+    AiAnonymizationReview,
   },
 
   watch: {
@@ -232,6 +241,15 @@ export default {
     },
     aiVisionDisabledReason() {
       return aiDisabledReason(this.$settings, 'vision');
+    },
+    // Proof completion generates description/remediation through the same
+    // per-field anonymization pipeline; when the "review before send" setting
+    // is on and any of those fields anonymizes its input, pause for review.
+    proofAnonReviewNeeded() {
+      const ai = this.$settings && this.$settings.ai;
+      if (!ai || !ai.anonymizeReviewBeforeSend) return false;
+      const anonymized = Array.isArray(ai.anonymizedFields) ? ai.anonymizedFields : [];
+      return ['description', 'remediation', 'poc'].some(f => anonymized.includes(f));
     },
     statusOptions() {
       return Utils.FINDING_STATUS.map((e) => ({
@@ -628,6 +646,9 @@ export default {
         try { this._similarController.abort(); } catch (_) { /* noop */ }
         this._similarController = null;
       }
+      // Close a pending anonymization review popup as a rejection so the
+      // awaiting flow settles.
+      if (this.proofAnonReview.resolve) this.onProofAnonReviewReject();
       this.similarVulnLoading = false;
       this._resetProofCompletionSteps();
     },
@@ -731,6 +752,11 @@ export default {
       if (this.$settings?.ai?.visionAnonymizationEnabled) {
         steps.anonymize = 'pending';
       }
+      // User review of the anonymized generation input happens between the
+      // analysis and generation steps.
+      if (this.proofAnonReviewNeeded) {
+        steps.review = 'pending';
+      }
       this.proofCompletionSteps = steps;
     },
 
@@ -789,10 +815,56 @@ export default {
           this._setProofCompletionStep('anonymize', 'done');
         }
 
+        // "Review anonymized input before sending": preview the anonymized
+        // generation context, let the user confirm/edit/reject it, and send
+        // the approved values so generation uses exactly what was reviewed.
+        let approvedAnonymization = null;
+        let approvedVisionSummary = this.proofVisionSummary;
+        if (this.proofAnonReviewNeeded) {
+          this._setProofCompletionStep('review', 'active');
+          const previewResponse = await AiService.anonymizePreview({
+            fieldNames: ['description', 'remediation', 'poc'],
+            proofCompletion: true,
+            context: {
+              findingTitle: payloadBase.findingTitle,
+              findingDescription: payloadBase.findingDescription,
+              findingPoc: payloadBase.pocHtml,
+              auditContext: payloadBase.auditContext,
+            },
+          }, this._similarController.signal);
+          const anon = previewResponse.data.datas || {};
+          if (anon.anonymized) {
+            const approved = await new Promise((resolve) => {
+              this.proofAnonReview = {
+                open: true,
+                fields: { ...(anon.fields || {}), visionSummary: this.proofVisionSummary },
+                resolve,
+              };
+            });
+            if (!approved) {
+              // User rejected — nothing is sent to the generation model.
+              this._setProofCompletionStep('review', 'pending');
+              this.similarVulnModalOpen = false;
+              notifyWarning('aiAnonReviewCancelled');
+              return;
+            }
+            // The flow may have been cancelled while the popup was open.
+            if (!this._similarController || this._similarController.signal.aborted) return;
+            approvedAnonymization = approved;
+            if (typeof approved.visionSummary === 'string') {
+              approvedVisionSummary = approved.visionSummary;
+            }
+          }
+          this._setProofCompletionStep('review', 'done');
+        }
+
         this._setProofCompletionStep('generate', 'active');
         const completionResponse = await AiService.completeProofFields({
           ...payloadBase,
-          visionSummary: this.proofVisionSummary,
+          visionSummary: approvedVisionSummary,
+          ...(approvedAnonymization
+            ? { anonymizationReviewed: true, approvedAnonymization }
+            : {}),
         }, this._similarController.signal);
         const completion = completionResponse.data.datas || {};
         const generated = completion.generatedResult ? [completion.generatedResult] : [];
@@ -825,6 +897,18 @@ export default {
 
     onProofResultSelected(result) {
       if (!this.similarVulnIsProofMode || !result) return;
+    },
+
+    onProofAnonReviewSend(approvedFields) {
+      const resolve = this.proofAnonReview.resolve;
+      this.proofAnonReview = { open: false, fields: {}, resolve: null };
+      if (resolve) resolve(approvedFields);
+    },
+
+    onProofAnonReviewReject() {
+      const resolve = this.proofAnonReview.resolve;
+      this.proofAnonReview = { open: false, fields: {}, resolve: null };
+      if (resolve) resolve(null);
     },
   },
 };

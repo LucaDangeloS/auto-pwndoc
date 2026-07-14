@@ -9,6 +9,7 @@ module.exports = function(app) {
     var OpenWebUIProvider = require('../lib/openwebui-provider');
     var Settings = require('mongoose').model('Settings');
     var CVSS40 = require('../lib/cvsscalc40');
+    var CVSS31 = require('../lib/cvsscalc31');
 
     async function getAiSettings() {
         var settings = await Settings.getAll();
@@ -114,24 +115,42 @@ module.exports = function(app) {
         return Array.isArray(value) && value.some(item => htmlToPlainText(item));
     }
 
+    function validateCvssVector(vector, version) {
+        try {
+            var parsed = version === '4.0'
+                ? CVSS40.calculateCVSSFromVector(vector)
+                : CVSS31.calculateCVSSFromVector(vector);
+            return parsed && parsed.success ? vector : '';
+        } catch (_) {
+            return '';
+        }
+    }
+
     function normalizeCvssVector(value, version) {
         var text = htmlToPlainText(value);
+        if (!text) return '';
         var prefix = version === '4.0' ? 'CVSS:4.0/' : 'CVSS:3.1/';
         var match = text.match(version === '4.0'
-            ? /CVSS:4\.0\/[A-Za-z0-9:\/._-]+/
-            : /CVSS:3\.1\/[A-Za-z0-9:\/._-]+/);
-        if (!match) return '';
-        var vector = match[0].replace(/[.,;:]+$/, '');
-        if (!vector.startsWith(prefix)) return '';
-        if (version === '4.0') {
-            try {
-                var parsed = CVSS40.calculateCVSSFromVector(vector);
-                return parsed && parsed.success ? vector : '';
-            } catch (_) {
-                return '';
-            }
+            ? /CVSS:4\.0\/[A-Za-z0-9:\/._-]+/i
+            : /CVSS:3\.1\/[A-Za-z0-9:\/._-]+/i);
+        var vector = match ? match[0] : '';
+        if (!vector) {
+            // Models often emit only the metric string, without the CVSS:x.y/ prefix.
+            var bare = text.match(version === '4.0'
+                ? /AV:[NALP]\/AC:[LH]\/AT:[NP]\/PR:[NLH]\/UI:[NPA]\/VC:[HLN]\/VI:[HLN]\/VA:[HLN]\/SC:[HLN]\/SI:[HLN]\/SA:[HLN][A-Za-z0-9:\/._-]*/i
+                : /AV:[NALP]\/AC:[LH]\/PR:[NLH]\/UI:[NR]\/S:[UC]\/C:[HLN]\/I:[HLN]\/A:[HLN]/i);
+            if (bare) vector = prefix + bare[0];
         }
-        return vector;
+        if (!vector) {
+            console.warn(`[AI] CVSS ${version} output contained no vector: ${text.slice(0, 160)}`);
+            return '';
+        }
+        vector = vector.toUpperCase().replace(/[.,;:]+$/, '');
+        var validated = validateCvssVector(vector, version);
+        if (!validated) {
+            console.warn(`[AI] CVSS ${version} vector failed validation: ${vector}`);
+        }
+        return validated;
     }
 
     function parseCvss31Vector(vector) {
@@ -195,7 +214,7 @@ module.exports = function(app) {
         return Boolean(htmlToPlainText(value));
     }
 
-    async function buildGeneratedProofResult({ pocHtml, locale, findingTitle, findingDescription, findingRemediation, findingReferences, findingCvssv3, findingCvssv4, auditContext, visionSummary, overwriteFilledFields }, aiSettings) {
+    async function buildGeneratedProofResult({ pocHtml, locale, findingTitle, findingDescription, findingRemediation, findingReferences, findingCvssv3, findingCvssv4, auditContext, visionSummary, overwriteFilledFields, anonymizationReviewed, approvedAnonymization }, aiSettings) {
         var shouldOverwrite = overwriteFilledFields !== false;
         var generationContext = {
             findingTitle: existingFieldForContext('title', findingTitle) || '',
@@ -206,20 +225,51 @@ module.exports = function(app) {
             proofCompletion: true,
             locale: locale || 'en'
         };
+        if (anonymizationReviewed && approvedAnonymization) {
+            // The user reviewed (and possibly edited) the anonymized context in
+            // the "review before send" step; generate() will use those values
+            // verbatim and skip re-anonymization.
+            generationContext.anonymizationReviewed = true;
+            generationContext.approvedAnonymization = approvedAnonymization;
+        }
+
+        // Score against the CVSS version the app is configured to use by
+        // default; the other version keeps its existing value (or, for 4.0,
+        // the metric conversion from the generated 3.1 vector).
+        var defaultCvssVersion = '3.1';
+        try {
+            var fullSettings = await Settings.getAll();
+            if (fullSettings && fullSettings.report && fullSettings.report.public && fullSettings.report.public.defaultCvssVersion) {
+                defaultCvssVersion = fullSettings.report.public.defaultCvssVersion;
+            }
+        } catch (_) { /* keep 3.1 */ }
+        var wantCvssV4 = defaultCvssVersion === '4.0';
 
         var generatedFields = await Promise.all([
             generateProofFieldMaybe('title', findingTitle, generationContext, aiSettings, shouldOverwrite),
             generateProofFieldMaybe('description', findingDescription, generationContext, aiSettings, shouldOverwrite),
             generateProofFieldMaybe('remediation', findingRemediation, generationContext, aiSettings, shouldOverwrite),
             generateProofFieldMaybe('references', findingReferences, generationContext, aiSettings, shouldOverwrite),
-            generateProofFieldMaybe('cvssv3', findingCvssv3, generationContext, aiSettings, shouldOverwrite),
-            generateProofFieldMaybe('cvssv4', findingCvssv4, generationContext, aiSettings, shouldOverwrite)
+            wantCvssV4
+                ? Promise.resolve(findingCvssv3 || '')
+                : generateProofFieldMaybe('cvssv3', findingCvssv3, generationContext, aiSettings, shouldOverwrite),
+            wantCvssV4
+                ? generateProofFieldMaybe('cvssv4', findingCvssv4, generationContext, aiSettings, shouldOverwrite)
+                : Promise.resolve(findingCvssv4 || '')
         ]);
         var references = Array.isArray(generatedFields[3]) ? generatedFields[3] : normalizeReferences(generatedFields[3]);
         var cvssv3 = normalizeCvssVector(generatedFields[4], '3.1') || findingCvssv3 || '';
+        if (!wantCvssV4 && !cvssv3) {
+            // The default-version score is the one the user asked for — retry
+            // once when the first attempt yields no usable vector.
+            cvssv3 = normalizeCvssVector(await generateProofField('cvssv3', generationContext, aiSettings), '3.1') || '';
+        }
         var cvssv4 = normalizeCvssVector(generatedFields[5], '4.0')
             || normalizeCvssVector(findingCvssv4, '4.0')
             || cvss31ToCvss40Fallback(cvssv3);
+        if (wantCvssV4 && !cvssv4) {
+            cvssv4 = normalizeCvssVector(await generateProofField('cvssv4', generationContext, aiSettings), '4.0') || '';
+        }
 
         return {
             vulnId: '__generated_from_proof__',
@@ -333,12 +383,20 @@ module.exports = function(app) {
                 return Response.Forbidden(res, 'AI features are not enabled');
             }
 
-            var { fieldName, context, text } = req.body;
+            var { fieldName, fieldNames, context, text, proofCompletion } = req.body;
             var mergedContext = Object.assign({}, context || {});
             if (text !== undefined) mergedContext.text = text;
+            if (proofCompletion) {
+                // Mirror buildGeneratedProofResult: weak/placeholder title and
+                // description are blanked before generation, so preview exactly
+                // what generation would receive.
+                mergedContext.findingTitle = existingFieldForContext('title', mergedContext.findingTitle) || '';
+                mergedContext.findingDescription = existingFieldForContext('description', mergedContext.findingDescription) || '';
+            }
 
             var result = await aiService.anonymizeContext({
                 fieldName: fieldName || '',
+                fieldNames: Array.isArray(fieldNames) ? fieldNames : undefined,
                 context: mergedContext,
                 aiSettings
             });
@@ -546,7 +604,9 @@ module.exports = function(app) {
                 findingCvssv3,
                 findingCvssv4,
                 auditContext,
-                overwriteFilledFields
+                overwriteFilledFields,
+                anonymizationReviewed,
+                approvedAnonymization
             } = req.body;
 
             if (!pocHtml) {
@@ -567,7 +627,9 @@ module.exports = function(app) {
                     findingCvssv4,
                     auditContext,
                     visionSummary: visionResult.visionSummary,
-                    overwriteFilledFields
+                    overwriteFilledFields,
+                    anonymizationReviewed,
+                    approvedAnonymization
                 }, aiSettings);
             } catch (genErr) {
                 console.error('[AI] Proof field generation failed:', genErr.message);
@@ -641,7 +703,9 @@ module.exports = function(app) {
                 findingCvssv4,
                 auditContext,
                 visionSummary,
-                overwriteFilledFields
+                overwriteFilledFields,
+                anonymizationReviewed,
+                approvedAnonymization
             } = req.body;
             if (!pocHtml) {
                 return Response.BadParameters(res, 'pocHtml is required');
@@ -658,7 +722,9 @@ module.exports = function(app) {
                 findingCvssv4,
                 auditContext,
                 visionSummary,
-                overwriteFilledFields
+                overwriteFilledFields,
+                anonymizationReviewed,
+                approvedAnonymization
             }, aiSettings);
             return Response.Ok(res, { generatedResult });
         } catch (err) {

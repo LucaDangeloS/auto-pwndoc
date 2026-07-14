@@ -532,6 +532,13 @@
         @close="onSimilarModalClose"
       />
 
+      <ai-anonymization-review
+        v-model="proofAnonReview.open"
+        :fields="proofAnonReview.fields"
+        @send="onProofAnonReviewSend"
+        @reject="onProofAnonReviewReject"
+      />
+
       <q-drawer v-model="showComments" side="right" bordered :width="360" overlay elevated>
         <div class="q-pa-md">
           <div class="row items-center q-mb-sm">

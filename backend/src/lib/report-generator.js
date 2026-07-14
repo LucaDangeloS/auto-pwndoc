@@ -3,7 +3,9 @@ var Docxtemplater = require('docxtemplater');
 var PizZip = require("pizzip");
 var expressions = require('angular-expressions');
 var ImageModule = require('docxtemplater-image-module-pwndoc');
-var sizeOf = require('image-size');
+// image-size v2 exports { imageSize } instead of a callable default (v1 style).
+var _imageSize = require('image-size');
+var sizeOf = typeof _imageSize === 'function' ? _imageSize : (_imageSize.imageSize || _imageSize.default);
 var customGenerator = require('./custom-generator');
 var chartGenerator = require('./chart-generator');
 var utils = require('./utils');
@@ -176,7 +178,7 @@ async function generateDoc(audit) {
         mergeMarkedAuditSummaryParagraphs(zip);
     }
     catch (error) {
-        if (error.properties.id === 'multi_error') {
+        if (error.properties && error.properties.id === 'multi_error') {
             error.properties.errors.forEach(function(err) {
                 console.log(err);
             });

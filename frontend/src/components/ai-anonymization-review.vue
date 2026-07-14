@@ -1,7 +1,7 @@
 <template>
   <q-dialog v-model="show" persistent full-width>
     <q-card class="ai-anon-modal column no-wrap">
-      <q-bar class="bg-primary text-white">
+      <q-bar class="bg-deep-orange-9 text-white">
         <q-icon name="privacy_tip" />
         <span class="q-ml-sm text-body1">{{ $t('aiAnonReviewTitle') }}</span>
         <q-space />
@@ -11,8 +11,6 @@
       </q-bar>
 
       <div class="q-pa-md column no-wrap col" style="min-height:0; overflow:auto">
-        <div class="text-caption text-grey-7 q-mb-md">{{ $t('aiAnonReviewHint') }}</div>
-
         <div v-if="visibleFields.length === 0" class="text-grey-6 q-pa-md text-center">
           {{ $t('aiAnonReviewEmpty') }}
         </div>
@@ -22,7 +20,8 @@
           :key="f.key"
           class="q-mb-md"
         >
-          <div class="text-caption text-weight-medium text-uppercase text-grey-7 q-mb-xs">
+          <div class="ai-anon-field-label text-caption text-weight-medium text-uppercase q-mb-xs">
+            <q-icon name="visibility" size="14px" class="q-mr-xs" />
             {{ $t(f.labelKey) }}
           </div>
           <q-input
@@ -31,6 +30,8 @@
             type="textarea"
             autogrow
             spellcheck="false"
+            color="deep-orange"
+            class="ai-anon-input"
             input-class="ai-anon-textarea"
           />
         </div>
@@ -47,7 +48,7 @@
           @click="reject"
         />
         <q-btn
-          color="positive"
+          color="deep-orange-8"
           unelevated
           no-caps
           icon="send"
@@ -68,6 +69,7 @@ const FIELD_META = [
   { key: 'findingPoc', labelKey: 'aiAnonReviewFieldFindingPoc' },
   { key: 'auditContext', labelKey: 'aiAnonReviewFieldAuditContext' },
   { key: 'text', labelKey: 'aiAnonReviewFieldText' },
+  { key: 'visionSummary', labelKey: 'aiAnonReviewFieldVisionSummary' },
 ];
 
 export default defineComponent({
@@ -139,11 +141,26 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
+// Deliberately distinct from the purple "proposed changes" diff modal: this is
+// the deep-orange privacy checkpoint where data leaves for the AI provider.
 .ai-anon-modal {
   width: calc(100vw - 64px);
   max-width: 1100px;
   height: calc(100vh - 64px);
   max-height: calc(100vh - 64px);
+  border-top: 4px solid #bf360c;
+}
+
+.ai-anon-field-label {
+  color: #bf360c;
+}
+
+.ai-anon-input :deep(.q-field__control) {
+  background: rgba(255, 87, 34, 0.04);
+}
+
+.ai-anon-input :deep(.q-field__control):before {
+  border-color: rgba(191, 54, 12, 0.4);
 }
 
 @media (max-width: 600px) {
@@ -151,6 +168,20 @@ export default defineComponent({
     width: calc(100vw - 16px);
     height: calc(100vh - 16px);
     max-height: calc(100vh - 16px);
+  }
+}
+
+.body--dark {
+  .ai-anon-field-label {
+    color: #ff8a65;
+  }
+
+  .ai-anon-input :deep(.q-field__control) {
+    background: rgba(255, 87, 34, 0.08);
+  }
+
+  .ai-anon-input :deep(.q-field__control):before {
+    border-color: rgba(255, 138, 101, 0.35);
   }
 }
 </style>

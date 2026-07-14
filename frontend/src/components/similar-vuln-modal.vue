@@ -38,6 +38,14 @@
               </q-item-section>
               <q-item-section>{{ $t('proofCompletionStepAnonymize') }}</q-item-section>
             </q-item>
+            <q-item v-if="proofSteps && proofSteps.review" :class="proofStepClass('review')">
+              <q-item-section avatar>
+                <q-icon v-if="proofStepDone('review')" name="check_circle" color="positive" size="22px" />
+                <q-icon v-else-if="proofStepActive('review')" name="privacy_tip" color="deep-orange" size="22px" />
+                <q-icon v-else name="radio_button_unchecked" color="grey-6" size="22px" />
+              </q-item-section>
+              <q-item-section>{{ $t('proofCompletionStepReview') }}</q-item-section>
+            </q-item>
             <q-item :class="proofStepClass('generate')">
               <q-item-section avatar>
                 <q-icon v-if="proofStepDone('generate')" name="check_circle" color="positive" size="22px" />

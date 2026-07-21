@@ -68,7 +68,11 @@ export default function (ctx) {
         // client resolves hostname "0.0.0.0" and port "0" at runtime from
         // window.location, so HMR WebSocket connects to wss://localhost:8443/ws
         // which nginx proxies back to the dev server.
+        // `protocol: 'auto:'` derives ws/wss from the page protocol. Without it
+        // the client always picks wss (the dev server itself is https), which
+        // fails with ERR_SSL_PROTOCOL_ERROR on the plain-http entrypoint.
         webSocketURL: {
+          protocol: 'auto:',
           hostname: '0.0.0.0',
           port: 0,
           pathname: '/ws',

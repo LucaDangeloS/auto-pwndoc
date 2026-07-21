@@ -22,65 +22,69 @@
         @row-dblclick="dblClick"
       >
             <template v-slot:top>
-                <q-select 
-                class="col-md-2"
-                v-model="dtLanguage" 
-                :label="$t('language')" 
-                :options="languages" 
-                option-value="locale"
-                option-label="language" 
-                map-options
-                emit-value
-                options-sanitize
-                outlined
-                />
-                <q-toggle
-                class="q-ml-sm"
-                :label="$t('showSingleLanguageVulnerabilities')"
-                v-model="showOnlySelectedLanguage"
-                />
-                <q-toggle :label="$t('btn.valid')" v-model="search.valid" :true-value=0 :false-value="null" />
-                <q-toggle class="vuln-toggle-new" :label="$t('btn.new')" color="light-blue-5" v-model="search.new" :true-value=1 :false-value="null" />
-                <q-toggle class="vuln-toggle-updates" :label="$t('btn.updates')" color="orange-6" v-model="search.updates" :true-value=2 :false-value="null" />
-                <q-btn 
-                v-if="UserService.isAllowed('vulnerabilities:update')"
-                class="q-ml-md"
-                :label="$t('mergeVulnerabilities')"
-                outline
-                color="secondary" 
-                no-caps
-                @click="$refs.mergeModal.show()"
-                />
-                <q-btn
-                v-if="UserService.isAllowed('vulnerabilities:update')"
-                class="q-ml-sm automatic-matching-btn"
-                :label="$t('automaticVulnerabilityMatching')"
-                unelevated
-                no-caps
-                @click="openMatchingDialog"
-                />
-                <q-space />
-                <q-btn-dropdown 
-                v-if="UserService.isAllowed('vulnerabilities:create')"
-                unelevated
-                color="secondary"
-                no-caps
-                :label="$t('newVulnerability')"
-                >
-                    <q-list separator>
-                        <q-item-label header>{{$t('selectCategory')}}</q-item-label>
-                        <q-item clickable v-close-popup @click="currentCategory = null; cleanCurrentVulnerability(); $refs.createModal.show()">
-                            <q-item-section>
-                              <q-item-label>{{$t('noCategory')}}</q-item-label>
-                            </q-item-section>
-                        </q-item>
-                        <q-item v-for="category of vulnCategories" :key="category.name" clickable v-close-popup @click="currentCategory = $_.cloneDeep(category); cleanCurrentVulnerability(); $refs.createModal.show()">
-                            <q-item-section>
-                              <q-item-label>{{category.name}}</q-item-label>
-                            </q-item-section>
-                        </q-item>
-                    </q-list>
-                </q-btn-dropdown>            
+                <span class="vuln-toolbar">
+                    <q-select
+                    class="vuln-toolbar-language"
+                    v-model="dtLanguage"
+                    :label="$t('language')"
+                    :options="languages"
+                    option-value="locale"
+                    option-label="language"
+                    map-options
+                    emit-value
+                    options-sanitize
+                    outlined
+                    dense
+                    />
+                    <span class="vuln-toolbar-switches">
+                        <q-toggle
+                        :label="$t('showSingleLanguageVulnerabilities')"
+                        v-model="showOnlySelectedLanguage"
+                        />
+                        <q-toggle :label="$t('btn.valid')" v-model="search.valid" :true-value=0 :false-value="null" />
+                        <q-toggle class="vuln-toggle-new" :label="$t('btn.new')" color="light-blue-5" v-model="search.new" :true-value=1 :false-value="null" />
+                        <q-toggle class="vuln-toggle-updates" :label="$t('btn.updates')" color="orange-6" v-model="search.updates" :true-value=2 :false-value="null" />
+                    </span>
+                    <span class="vuln-toolbar-actions">
+                        <q-btn
+                        v-if="UserService.isAllowed('vulnerabilities:update')"
+                        :label="$t('mergeVulnerabilities')"
+                        outline
+                        color="secondary"
+                        no-caps
+                        @click="$refs.mergeModal.show()"
+                        />
+                        <q-btn
+                        v-if="UserService.isAllowed('vulnerabilities:update')"
+                        class="automatic-matching-btn"
+                        :label="$t('automaticVulnerabilityMatching')"
+                        unelevated
+                        no-caps
+                        @click="openMatchingDialog"
+                        />
+                        <q-btn-dropdown
+                        v-if="UserService.isAllowed('vulnerabilities:create')"
+                        unelevated
+                        color="secondary"
+                        no-caps
+                        :label="$t('newVulnerability')"
+                        >
+                            <q-list separator>
+                                <q-item-label header>{{$t('selectCategory')}}</q-item-label>
+                                <q-item clickable v-close-popup @click="currentCategory = null; cleanCurrentVulnerability(); $refs.createModal.show()">
+                                    <q-item-section>
+                                      <q-item-label>{{$t('noCategory')}}</q-item-label>
+                                    </q-item-section>
+                                </q-item>
+                                <q-item v-for="category of vulnCategories" :key="category.name" clickable v-close-popup @click="currentCategory = $_.cloneDeep(category); cleanCurrentVulnerability(); $refs.createModal.show()">
+                                    <q-item-section>
+                                      <q-item-label>{{category.name}}</q-item-label>
+                                    </q-item-section>
+                                </q-item>
+                            </q-list>
+                        </q-btn-dropdown>
+                    </span>
+                </span>
             </template>
 
             <template v-slot:top-row="props">

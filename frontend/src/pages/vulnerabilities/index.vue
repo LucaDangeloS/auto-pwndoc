@@ -70,4 +70,49 @@
         .q-toggle__track
             background: rgba(251, 140, 0, 0.38) !important
 
+// Vulnerabilities toolbar: language selector (left) + switches stacked to its
+// right + action buttons pushed to the far right. Single non-wrapping row so the
+// button group never drops below or left of the switches.
+.vuln-toolbar
+    display: flex
+    flex-wrap: nowrap
+    align-items: flex-start
+    width: 100%
+    gap: 16px
+
+.vuln-toolbar-language
+    flex: 0 0 auto
+    min-width: 150px
+
+// Switches laid out as a 2x2 grid, immediately right of the language selector.
+.vuln-toolbar-switches
+    display: grid
+    grid-template-columns: auto auto
+    align-items: center
+    justify-items: start
+    gap: 6px 16px
+    flex: 0 0 auto
+
+// Action buttons: pushed to the right edge and kept together. Stacked vertically
+// by default (narrow / split-screen) so the group stays a slim column on the
+// right instead of wrapping left or under the switches; laid out in a row only
+// when the viewport is wide enough to fit them beside the filters.
+.vuln-toolbar-actions
+    display: flex
+    flex-direction: column
+    align-items: flex-end
+    gap: 8px
+    margin-left: auto
+    flex: 0 0 auto
+
+    .q-btn,
+    .q-btn-dropdown
+        margin: 0
+
+@media (min-width: 1600px)
+    .vuln-toolbar-actions
+        flex-direction: row
+        align-items: flex-start
+        gap: 12px
+
 </style>

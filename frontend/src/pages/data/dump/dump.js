@@ -118,7 +118,7 @@ export default {
                         var ext = file.name.split('.').pop();
                         if (ext === "yml") {
                             try {
-                                vulnFile = YAML.safeLoad(fileReader.result);
+                                vulnFile = YAML.load(fileReader.result);
                                 if (typeof vulnFile === 'object') {
                                     if (Array.isArray(vulnFile)) {
                                         vulnFile.forEach(vuln => {
@@ -255,7 +255,7 @@ export default {
         },
 
         downloadVulnerabilities: function() {
-            var data = YAML.safeDump(this.vulnerabilities);
+            var data = YAML.dump(this.vulnerabilities);
             var blob = new Blob([data], {type: 'application/yaml'});
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
@@ -360,7 +360,7 @@ export default {
                         var ext = file.name.split('.').pop();
                         if (ext === "yml") {
                             try {
-                                compFile = YAML.safeLoad(fileReader.result);
+                                compFile = YAML.load(fileReader.result);
                                 if (typeof compFile === 'object') {
                                     if (Array.isArray(compFile)) {
                                         this.companies = compFile;
@@ -396,7 +396,7 @@ export default {
         },
 
         downloadCompanies: function() {
-            var data = YAML.safeDump(this.companies);
+            var data = YAML.dump(this.companies);
             var blob = new Blob([data], {type: 'application/yaml'});
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
@@ -503,7 +503,7 @@ export default {
                         var ext = file.name.split('.').pop();
                         if (ext === "yml") {
                             try {
-                                cltsFile = YAML.safeLoad(fileReader.result);
+                                cltsFile = YAML.load(fileReader.result);
                                 if (typeof cltsFile === 'object') {
                                     if (Array.isArray(cltsFile)) {
                                         this.users = cltsFile;
@@ -539,7 +539,7 @@ export default {
         },
 
         downloadUsers: function() {
-            var data = YAML.safeDump(this.users);
+            var data = YAML.dump(this.users);
             var blob = new Blob([data], {type: 'application/yaml'});
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');

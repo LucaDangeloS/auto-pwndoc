@@ -1,76 +1,85 @@
+networks:
+  autopwndoc-net:
+    driver: bridge
+
 services:
   mongodb:
-    image: mongo:4
+    image: mongo:4.2.15
     container_name: autopwndoc-mongodb
-    volumes:
-      - ./backend/mongo-data:/data/db
-    restart: always
-    ports:
-      - 127.0.0.1:27017:27017
-    environment:
-      - MONGO_DB:pwndoc
     networks:
-      - backend
+      - autopwndoc-net
+    volumes:
+      - mongo-data:/data/db
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: pwndoc
 
   backend:
-    build: ./backend
-    image: pwndoc-ng/pwndoc-ng:backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: autopwndoc/backend:prod
     container_name: autopwndoc-backend
+    networks:
+      - autopwndoc-net
     volumes:
       - ./backend/report-templates:/app/report-templates
       - ./backend/audit-archives:/app/audit-archives
+      - ./backend/backups:/app/backups
+      - ./backend/ssl:/app/ssl:ro
       - ./backend/src/config:/app/src/config
     depends_on:
       - mongodb
+      - chroma
+      - languagetool
     environment:
-      - COLLAB_WEBSOCKET_PORT=8440
-      - APP_URL=https://localhost:8443
+      COLLAB_WEBSOCKET_PORT: 8440
+      APP_URL: ${APP_URL:-https://localhost:8443}
     restart: always
-    ports:
-      - 4242:4242
-    links:
-      - mongodb
-    networks:
-      - backend
+    expose:
+      - "4242"
+      - "8440"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('https').get({host:'localhost',port:4242,rejectUnauthorized:false},r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   frontend:
-    build: ./frontend
-    image: pwndoc-ng/pwndoc-ng:frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: autopwndoc/frontend:prod
     container_name: autopwndoc-frontend
-    restart: always
-    environment:
-      - Java_Xms=512m
-      - Java_Xmx=2g
-    ports:
-      - 8443:8443
     networks:
-      - backend
+      - autopwndoc-net
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: always
+    ports:
+      - "${APP_PORT:-8443}:8443"
+
+  chroma:
+    image: chromadb/chroma:1.5.5
+    container_name: autopwndoc-chroma
+    networks:
+      - autopwndoc-net
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
+    volumes:
+      - chroma-data:/data
+    restart: always
 
   languagetool:
     image: erikvl87/languagetool
     container_name: autopwndoc-languagetool
-    restart: always
     networks:
-      - backend
-
-  chroma:
-      image: chromadb/chroma:1.5.5
-      container_name: autopwndoc-chroma
-      networks:
-        - backend
-      environment:
-        - IS_PERSISTENT=TRUE
-        - ANONYMIZED_TELEMETRY=FALSE
-      volumes:
-        - chroma-data:/data
-      ports:
-        - 127.0.0.1:8000:8000
-      restart: always
+      - autopwndoc-net
+    restart: always
 
 volumes:
   mongo-data:
   chroma-data:
-
-networks:
-  backend:
-      driver: bridge

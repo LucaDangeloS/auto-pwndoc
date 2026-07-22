@@ -1,3 +1,5 @@
 node_modules
-mongo-data
-mongo-data-dev
+mongo-data*
+old-mongo-data
+backups
+audit-archives

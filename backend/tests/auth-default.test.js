@@ -11,7 +11,7 @@
     4. POST /api/users/token with a wrong password must still return 401.
 */
 
-const { ensureDefaultAdmin, resetDefaultAdmin, DEFAULT_USERNAME, DEFAULT_PASSWORD } = require('../src/lib/seed-admin');
+const { ensureDefaultAdmin, resetDefaultAdmin, shouldSeedDefaultAdmin, DEFAULT_USERNAME, DEFAULT_PASSWORD } = require('../src/lib/seed-admin');
 
 module.exports = function(request, app) {
   describe('Default admin login regression', () => {
@@ -100,6 +100,41 @@ module.exports = function(request, app) {
         .send({ username: DEFAULT_USERNAME, password: DEFAULT_PASSWORD });
       expect(ok.status).toBe(200);
       expect(ok.body.datas.token).toBeDefined();
+    });
+
+    it('leaves production installs uninitialized for first user registration', async () => {
+      var mongoose = require('mongoose');
+      var User = mongoose.model('User');
+      var originalNodeEnv = process.env.NODE_ENV;
+      var originalSeedDefaultAdmin = process.env.SEED_DEFAULT_ADMIN;
+      var originalResetDefaultAdmin = process.env.RESET_DEFAULT_ADMIN;
+
+      await User.deleteMany({});
+
+      try {
+        process.env.NODE_ENV = 'prod';
+        delete process.env.SEED_DEFAULT_ADMIN;
+        delete process.env.RESET_DEFAULT_ADMIN;
+
+        expect(shouldSeedDefaultAdmin()).toBe(false);
+
+        var result = await ensureDefaultAdmin();
+        expect(result.seeded).toBe(false);
+        expect(result.reason).toBe('disabled');
+        expect(await User.countDocuments()).toBe(0);
+
+        var response = await request(app).get('/api/users/init');
+        expect(response.status).toBe(200);
+        expect(response.body.datas).toBe(true);
+      }
+      finally {
+        if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+        else process.env.NODE_ENV = originalNodeEnv;
+        if (originalSeedDefaultAdmin === undefined) delete process.env.SEED_DEFAULT_ADMIN;
+        else process.env.SEED_DEFAULT_ADMIN = originalSeedDefaultAdmin;
+        if (originalResetDefaultAdmin === undefined) delete process.env.RESET_DEFAULT_ADMIN;
+        else process.env.RESET_DEFAULT_ADMIN = originalResetDefaultAdmin;
+      }
     });
   });
 };

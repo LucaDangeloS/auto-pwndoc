@@ -2,8 +2,10 @@
  * seed-admin.js
  *
  * Ensures a default administrator account exists so the dev/test stack always
- * boots with usable credentials. The seeder only runs when the users
- * collection is completely empty — existing deployments are never modified.
+ * boots with usable credentials. Production skips automatic seeding by default
+ * so a fresh install can create its first administrator through /api/users/init.
+ * The seeder only runs when the users collection is completely empty —
+ * existing deployments are never modified.
  *
  * The default credentials are:
  *   username: admin
@@ -21,6 +23,20 @@ const DEFAULT_USERNAME = process.env.DEFAULT_ADMIN_USERNAME || 'admin';
 const DEFAULT_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin1admin2';
 const DEFAULT_FIRSTNAME = process.env.DEFAULT_ADMIN_FIRSTNAME || 'Admin';
 const DEFAULT_LASTNAME = process.env.DEFAULT_ADMIN_LASTNAME || 'Istrator';
+
+function truthyEnv(value) {
+    return ['1', 'true', 'yes', 'on'].includes(String(value || '').toLowerCase());
+}
+
+function falseyEnv(value) {
+    return ['0', 'false', 'no', 'off'].includes(String(value || '').toLowerCase());
+}
+
+function shouldSeedDefaultAdmin() {
+    if (truthyEnv(process.env.SEED_DEFAULT_ADMIN)) return true;
+    if (falseyEnv(process.env.SEED_DEFAULT_ADMIN)) return false;
+    return (process.env.NODE_ENV || 'dev') !== 'prod';
+}
 
 function waitForConnection() {
     if (mongoose.connection.readyState === 1) return Promise.resolve();
@@ -43,7 +59,15 @@ async function ensureDefaultAdmin() {
         const count = await User.countDocuments();
         const reset = String(process.env.RESET_DEFAULT_ADMIN || '').toLowerCase() === 'true';
 
+        if (reset) {
+            return resetDefaultAdmin();
+        }
+
         if (count === 0) {
+            if (!shouldSeedDefaultAdmin()) {
+                console.log('[seed-admin] Default admin auto-seeding skipped; first user registration is enabled.');
+                return { seeded: false, reason: 'disabled' };
+            }
             await User.create([{
                 username: DEFAULT_USERNAME,
                 password: DEFAULT_PASSWORD,
@@ -53,10 +77,6 @@ async function ensureDefaultAdmin() {
             }]);
             console.log(`[seed-admin] Default admin user '${DEFAULT_USERNAME}' created.`);
             return { seeded: true };
-        }
-
-        if (reset) {
-            return resetDefaultAdmin();
         }
 
         return { seeded: false, reason: 'users-exist' };
@@ -93,6 +113,7 @@ async function resetDefaultAdmin() {
 module.exports = {
     ensureDefaultAdmin,
     resetDefaultAdmin,
+    shouldSeedDefaultAdmin,
     DEFAULT_USERNAME,
     DEFAULT_PASSWORD,
 };

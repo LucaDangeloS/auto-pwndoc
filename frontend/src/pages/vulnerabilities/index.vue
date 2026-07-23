@@ -93,10 +93,9 @@
     gap: 6px 16px
     flex: 0 0 auto
 
-// Action buttons: pushed to the right edge and kept together. Stacked vertically
-// by default (narrow / split-screen) so the group stays a slim column on the
-// right instead of wrapping left or under the switches; laid out in a row only
-// when the viewport is wide enough to fit them beside the filters.
+// Action buttons: pushed to the right edge and kept together, always stacked
+// vertically so the group stays a slim column on the right instead of wrapping
+// left or under the switches.
 .vuln-toolbar-actions
     display: flex
     flex-direction: column
@@ -108,11 +107,5 @@
     .q-btn,
     .q-btn-dropdown
         margin: 0
-
-@media (min-width: 1740px)
-    .vuln-toolbar-actions
-        flex-direction: row
-        align-items: flex-start
-        gap: 12px
 
 </style>

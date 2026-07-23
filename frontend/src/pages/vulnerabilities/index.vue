@@ -109,7 +109,7 @@
     .q-btn-dropdown
         margin: 0
 
-@media (min-width: 1600px)
+@media (min-width: 1740px)
     .vuln-toolbar-actions
         flex-direction: row
         align-items: flex-start

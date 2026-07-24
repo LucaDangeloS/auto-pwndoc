@@ -60,9 +60,7 @@
   },
   "overrides": {
     "@xmldom/xmldom": "^0.9.10",
-    "brace-expansion": "^1.1.13",
     "langsmith": "^0.6.1",
-    "minimatch": "^3.1.4",
     "path-to-regexp": "^0.1.13",
     "picomatch": "^4.0.4",
     "socket.io-parser": "^4.2.6",

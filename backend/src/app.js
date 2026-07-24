@@ -215,6 +215,9 @@ var Audit = require('mongoose').model('Audit');
 
 
 if(config.apidoc) {
+  app.get('/api-docs/swagger.json', function(req, res) {
+    res.json(swaggerDocument);
+  });
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 }
 

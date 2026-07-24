@@ -1694,6 +1694,33 @@
             </q-card-section>
 
             <q-card-section>
+                <div class="text-bold" id="sub-api-documentation">{{$t('apiDocumentationTitle')}}</div>
+                <div class="text-grey-8 q-mt-xs q-mb-md">{{$t('apiDocumentationDescription')}}</div>
+                <div class="row items-center q-col-gutter-md">
+                    <div class="col-12 col-md">
+                        <q-input
+                            :label="$t('apiDocumentationUrl')"
+                            :model-value="apiDocumentationUrl"
+                            outlined
+                            readonly
+                            hide-bottom-space
+                        >
+                            <template v-slot:append>
+                                <q-btn flat round dense size="sm" icon="content_copy" :aria-label="$t('mcpCopyConfig')" @click="copyText(apiDocumentationUrl)">
+                                    <q-tooltip>{{$t('mcpCopyConfig')}}</q-tooltip>
+                                </q-btn>
+                                <q-btn flat round dense size="sm" icon="open_in_new" :aria-label="$t('apiDocumentationOpen')" :href="apiDocumentationUrl" target="_blank" rel="noopener">
+                                    <q-tooltip>{{$t('apiDocumentationOpen')}}</q-tooltip>
+                                </q-btn>
+                            </template>
+                        </q-input>
+                    </div>
+                </div>
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section>
                 <div class="text-bold" id="sub-api-keys">{{$t('apiKeysTitle')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('apiKeysDescription')}}</div>
             </q-card-section>

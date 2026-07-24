@@ -1,24 +1,50 @@
-const swaggerAutogen = require('swagger-autogen')();
+const fs = require('fs');
+const swaggerAutogen = require('swagger-autogen')({ writeOutputFile: false });
+const aiPaths = require('./src/config/swagger-ai-paths');
+const userPaths = require('./src/config/swagger-user-paths');
 
 const doc = {
     info: {
-        title: 'PwndocNG API Documentation',
-        description: '',
+        title: 'AutoPwnDoc REST API',
+        description: 'Interactive documentation for the AutoPwnDoc REST API. Authenticate requests with an API key in the `X-API-Key` header (or a logged-in browser session). API keys have administrator-level access, so keep them secret. Standard JSON responses use `{ status, datas }`; file-download endpoints return a file instead.',
+        version: '1.0.0',
     },
-    host: '/',
-    schemes: ['http'],
+    schemes: ['https', 'http'],
+    securityDefinitions: {
+        ApiKeyAuth: {
+            type: 'apiKey',
+            name: 'X-API-Key',
+            in: 'header',
+            description: 'Create and revoke API keys in Settings > API. The same key can also be sent as a Bearer token.'
+        }
+    },
+    definitions: {
+        ApiResponse: {
+            type: 'object',
+            required: ['status', 'datas'],
+            properties: {
+                status: { type: 'string', example: 'success' },
+                datas: { type: 'object', description: 'Endpoint response payload.' }
+            }
+        }
+    }
 };
 
 const outputFile = './src/config/swagger-output.json';
 const endpointsFiles = [
     './src/routes/audit.js',
-    './src/routes/client.js',
+    './src/routes/audit-archive.js',
+    './src/routes/ai.js',
+    './src/routes/auth.js',
+    './src/routes/backup.js',
     './src/routes/company.js',
     './src/routes/data.js',
     './src/routes/image.js',
+    './src/routes/mcp.js',
+    './src/routes/role.js',
     './src/routes/settings.js',
+    './src/routes/spellcheck.js',
     './src/routes/template.js',
-    './src/routes/user.js',
     './src/routes/vulnerability.js'
 ];
 
@@ -26,4 +52,14 @@ const endpointsFiles = [
    'endpointsFiles' only the root file where the route starts,
    such as index.js, app.js, routes.js, ... */
 
-swaggerAutogen(outputFile, endpointsFiles, doc);
+swaggerAutogen(outputFile, endpointsFiles, doc)
+    .then(result => {
+        if (!result.success) throw new Error('Swagger generation failed');
+        result.data.paths = { ...result.data.paths, ...aiPaths, ...userPaths };
+        fs.writeFileSync(outputFile, JSON.stringify(result.data, null, 2) + '\n');
+        console.log(`Swagger document written with ${Object.keys(result.data.paths).length} paths.`);
+    })
+    .catch(err => {
+        console.error('Swagger generation failed:', err.message);
+        process.exitCode = 1;
+    });

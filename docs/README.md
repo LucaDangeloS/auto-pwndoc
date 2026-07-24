@@ -10,6 +10,7 @@ The main goal is to have more time to **Pwn** and less time to **Doc** by mutual
 - [Vulnerabilities](vulnerabilities.md)
 - [Audits](audits.md)
 - [Templating](docxtemplate.md)
+- [REST API](api.md)
 
 
 # Features

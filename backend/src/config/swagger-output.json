@@ -1,15 +1,24 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "PwndocNG API Documentation",
-    "description": "",
+    "title": "AutoPwnDoc REST API",
+    "description": "Interactive documentation for the AutoPwnDoc REST API. Authenticate requests with an API key in the `X-API-Key` header (or a logged-in browser session). API keys have administrator-level access, so keep them secret. Standard JSON responses use `{ status, datas }`; file-download endpoints return a file instead.",
     "version": "1.0.0"
   },
-  "host": "/",
+  "host": "localhost:3000",
   "basePath": "/",
   "schemes": [
+    "https",
     "http"
   ],
+  "securityDefinitions": {
+    "ApiKeyAuth": {
+      "type": "apiKey",
+      "name": "X-API-Key",
+      "in": "header",
+      "description": "Create and revoke API keys in Settings > API. The same key can also be sent as a Bearer token."
+    }
+  },
   "paths": {
     "/api/audits": {
       "get": {
@@ -22,9 +31,23 @@
             "name": "findingTitle",
             "in": "query",
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "post": {
         "tags": [
@@ -32,6 +55,16 @@
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -51,7 +84,151 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/audits/export": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/audits/{auditId}/clone": {
+      "post": {
+        "tags": [
+          "Audit"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "auditId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/audits/{auditId}/retest": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "auditId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Audit"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "auditId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/audits/{auditId}": {
@@ -66,9 +243,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "get": {
         "tags": [
@@ -81,9 +272,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/audits/{auditId}/general": {
@@ -98,9 +303,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "put": {
         "tags": [
@@ -112,6 +331,16 @@
             "name": "auditId",
             "in": "path",
             "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
             "type": "string"
           },
           {
@@ -129,9 +358,6 @@
                 "name": {
                   "example": "any"
                 },
-                "location": {
-                  "example": "any"
-                },
                 "date": {
                   "example": "any"
                 },
@@ -141,7 +367,7 @@
                 "date_end": {
                   "example": "any"
                 },
-                "client": {
+                "summary": {
                   "example": "any"
                 },
                 "company": {
@@ -158,12 +384,22 @@
                 },
                 "customFields": {
                   "example": "any"
+                },
+                "isRetest": {
+                  "example": "any"
+                },
+                "executiveSummary": {
+                  "example": "any"
                 }
               }
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/audits/{auditId}/network": {
@@ -178,9 +414,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "put": {
         "tags": [
@@ -192,6 +442,16 @@
             "name": "auditId",
             "in": "path",
             "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
             "type": "string"
           },
           {
@@ -207,7 +467,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/audits/{auditId}/findings": {
@@ -224,15 +488,22 @@
             "type": "string"
           },
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
               "type": "object",
               "properties": {
                 "title": {
-                  "example": "any"
-                },
-                "vulnType": {
                   "example": "any"
                 },
                 "description": {
@@ -256,16 +527,25 @@
                 "cvssv3": {
                   "example": "any"
                 },
+                "cvssv4": {
+                  "example": "any"
+                },
                 "poc": {
+                  "example": "any"
+                },
+                "retestEvidence": {
+                  "example": "any"
+                },
+                "retestStatus": {
+                  "example": "any"
+                },
+                "retestPassed": {
                   "example": "any"
                 },
                 "scope": {
                   "example": "any"
                 },
                 "status": {
-                  "example": "any"
-                },
-                "category": {
                   "example": "any"
                 },
                 "customFields": {
@@ -275,7 +555,60 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/audits/{auditId}/findings/import": {
+      "post": {
+        "tags": [
+          "Audit"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "auditId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "tool": {
+                  "example": "any"
+                },
+                "content": {
+                  "example": "any"
+                },
+                "options": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/audits/{auditId}/findings/{findingId}": {
@@ -296,9 +629,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "put": {
         "tags": [
@@ -319,15 +666,22 @@
             "type": "string"
           },
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
               "type": "object",
               "properties": {
                 "title": {
-                  "example": "any"
-                },
-                "vulnType": {
                   "example": "any"
                 },
                 "description": {
@@ -351,16 +705,25 @@
                 "cvssv3": {
                   "example": "any"
                 },
+                "cvssv4": {
+                  "example": "any"
+                },
                 "poc": {
+                  "example": "any"
+                },
+                "retestEvidence": {
+                  "example": "any"
+                },
+                "retestStatus": {
+                  "example": "any"
+                },
+                "retestPassed": {
                   "example": "any"
                 },
                 "scope": {
                   "example": "any"
                 },
                 "status": {
-                  "example": "any"
-                },
-                "category": {
                   "example": "any"
                 },
                 "customFields": {
@@ -370,7 +733,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "delete": {
         "tags": [
@@ -389,9 +756,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/audits/{auditId}/sections/{sectionId}": {
@@ -412,9 +793,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "put": {
         "tags": [
@@ -435,22 +830,36 @@
             "type": "string"
           },
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
               "type": "object",
               "properties": {
-                "customFields": {
+                "text": {
                   "example": "any"
                 },
-                "text": {
+                "rows": {
                   "example": "any"
                 }
               }
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/audits/{auditId}/generate": {
@@ -465,9 +874,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/audits/{auditId}/sortfindings": {
@@ -484,6 +907,16 @@
             "type": "string"
           },
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
@@ -496,7 +929,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/audits/{auditId}/movefinding": {
@@ -510,6 +947,16 @@
             "name": "auditId",
             "in": "path",
             "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
             "type": "string"
           },
           {
@@ -528,7 +975,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/audits/{auditId}/toggleApproval": {
@@ -543,9 +994,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/audits/{auditId}/updateReadyForReview": {
@@ -562,6 +1027,16 @@
             "type": "string"
           },
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
@@ -574,69 +1049,34 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
-    "/api/clients": {
-      "get": {
-        "tags": [
-          "Client"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
-      },
+    "/api/audits/{auditId}/comments": {
       "post": {
         "tags": [
-          "Client"
+          "Audit"
         ],
         "description": "",
         "parameters": [
           {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "email": {
-                  "example": "any"
-                },
-                "lastname": {
-                  "example": "any"
-                },
-                "firstname": {
-                  "example": "any"
-                },
-                "phone": {
-                  "example": "any"
-                },
-                "cell": {
-                  "example": "any"
-                },
-                "title": {
-                  "example": "any"
-                },
-                "company": {
-                  "example": "any"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {}
-      }
-    },
-    "/api/clients/{id}": {
-      "put": {
-        "tags": [
-          "Client"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "id",
+            "name": "auditId",
             "in": "path",
             "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
             "type": "string"
           },
           {
@@ -645,64 +1085,325 @@
             "schema": {
               "type": "object",
               "properties": {
-                "email": {
+                "findingId": {
                   "example": "any"
                 },
-                "lastname": {
+                "sectionId": {
                   "example": "any"
                 },
-                "firstname": {
+                "fieldName": {
                   "example": "any"
                 },
-                "phone": {
-                  "example": "any"
-                },
-                "cell": {
-                  "example": "any"
-                },
-                "title": {
-                  "example": "any"
-                },
-                "company": {
+                "text": {
                   "example": "any"
                 }
               }
             }
           }
         ],
-        "responses": {}
-      },
-      "delete": {
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/audits/{auditId}/comments/{commentId}": {
+      "put": {
         "tags": [
-          "Client"
+          "Audit"
         ],
         "description": "",
         "parameters": [
           {
-            "name": "id",
+            "name": "auditId",
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "commentId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "example": "any"
+                },
+                "replies": {
+                  "example": "any"
+                },
+                "resolved": {
+                  "example": "any"
+                }
+              }
+            }
           }
         ],
-        "responses": {}
-      }
-    },
-    "/api/companies": {
-      "get": {
-        "tags": [
-          "Company"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
-      "post": {
+      "delete": {
         "tags": [
-          "Company"
+          "Audit"
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "auditId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "commentId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/audit-archives": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "example": "any"
+                },
+                "name": {
+                  "example": "any"
+                },
+                "originalName": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/audit-archives/{archiveId}/file": {
+      "get": {
+        "description": "",
+        "produces": [
+          "application/pdf"
+        ],
+        "parameters": [
+          {
+            "name": "archiveId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/audit-archives/{archiveId}": {
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "archiveId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/auth/sso/config": {
+      "get": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/auth/sso/start": {
+      "get": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/auth/sso/callback": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "user-agent",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/backups": {
+      "get": {
+        "tags": [
+          "Backup"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Backup"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -711,8 +1412,210 @@
               "properties": {
                 "name": {
                   "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/backups/download/{slug}": {
+      "get": {
+        "tags": [
+          "Backup"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/backups/upload": {
+      "post": {
+        "tags": [
+          "Backup"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "req": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/backups/{slug}/restore": {
+      "post": {
+        "tags": [
+          "Backup"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/backups/{slug}": {
+      "delete": {
+        "tags": [
+          "Backup"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/companies": {
+      "get": {
+        "tags": [
+          "Company"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Company"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "length": {
+                  "example": "any"
+                },
+                "name": {
+                  "example": "any"
                 },
                 "shortName": {
+                  "example": "any"
+                },
+                "address": {
+                  "example": "any"
+                },
+                "postalCode": {
+                  "example": "any"
+                },
+                "city": {
                   "example": "any"
                 },
                 "logo": {
@@ -722,7 +1625,59 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Company"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/companies/export": {
+      "get": {
+        "tags": [
+          "Company"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/companies/{id}": {
@@ -739,6 +1694,16 @@
             "type": "string"
           },
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
@@ -750,6 +1715,15 @@
                 "shortName": {
                   "example": "any"
                 },
+                "address": {
+                  "example": "any"
+                },
+                "postalCode": {
+                  "example": "any"
+                },
+                "city": {
+                  "example": "any"
+                },
                 "logo": {
                   "example": "any"
                 }
@@ -757,7 +1731,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "delete": {
         "tags": [
@@ -770,19 +1748,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
-      }
-    },
-    "/api/data/roles": {
-      "get": {
-        "tags": [
-          "Data"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/data/languages": {
@@ -791,8 +1773,23 @@
           "Data"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "post": {
         "tags": [
@@ -800,6 +1797,16 @@
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -816,7 +1823,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "put": {
         "tags": [
@@ -824,6 +1835,16 @@
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -843,10 +1864,14 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
-    "/api/data/languages/{locale(*)}": {
+    "/api/data/languages/{locale}": {
       "delete": {
         "tags": [
           "Data"
@@ -854,13 +1879,27 @@
         "description": "",
         "parameters": [
           {
-            "name": "locale(*)",
+            "name": "locale",
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/data/audit-types": {
@@ -869,8 +1908,23 @@
           "Data"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "post": {
         "tags": [
@@ -878,6 +1932,16 @@
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -900,7 +1964,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "put": {
         "tags": [
@@ -908,6 +1976,16 @@
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -927,10 +2005,14 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
-    "/api/data/audit-types/{name(*)}": {
+    "/api/data/audit-types/{name}": {
       "delete": {
         "tags": [
           "Data"
@@ -938,23 +2020,52 @@
         "description": "",
         "parameters": [
           {
-            "name": "name(*)",
+            "name": "name",
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
-    "/api/data/vulnerability-types": {
+    "/api/data/vulnerability-taxonomy": {
       "get": {
         "tags": [
           "Data"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "post": {
         "tags": [
@@ -963,90 +2074,31 @@
         "description": "",
         "parameters": [
           {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "example": "any"
-                },
-                "locale": {
-                  "example": "any"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {}
-      },
-      "put": {
-        "tags": [
-          "Data"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "example": "any"
-                },
-                "locale": {
-                  "example": "any"
-                },
-                "forEach(e": {
-                  "example": "any"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {}
-      }
-    },
-    "/api/data/vulnerability-types/{name(*)}": {
-      "delete": {
-        "tags": [
-          "Data"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "name(*)",
-            "in": "path",
-            "required": true,
+            "name": "x-api-key",
+            "in": "header",
             "type": "string"
-          }
-        ],
-        "responses": {}
-      }
-    },
-    "/api/data/vulnerability-categories": {
-      "get": {
-        "tags": [
-          "Data"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
-      },
-      "post": {
-        "tags": [
-          "Data"
-        ],
-        "description": "",
-        "parameters": [
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
             "schema": {
               "type": "object",
               "properties": {
-                "name": {
+                "type": {
+                  "example": "any"
+                },
+                "category": {
+                  "example": "any"
+                },
+                "subcategory": {
+                  "example": "any"
+                },
+                "code": {
                   "example": "any"
                 },
                 "sortValue": {
@@ -1062,7 +2114,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "put": {
         "tags": [
@@ -1071,25 +2127,95 @@
         "description": "",
         "parameters": [
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
               "type": "object",
               "properties": {
-                "name": {
-                  "example": "any"
-                },
-                "forEach(e": {
+                "rows": {
                   "example": "any"
                 }
               }
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
-    "/api/data/vulnerability-categories/{name(*)}": {
+    "/api/data/vulnerability-taxonomy/{id}": {
+      "put": {
+        "tags": [
+          "Data"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "example": "any"
+                },
+                "category": {
+                  "example": "any"
+                },
+                "subcategory": {
+                  "example": "any"
+                },
+                "code": {
+                  "example": "any"
+                },
+                "sortValue": {
+                  "example": "any"
+                },
+                "sortOrder": {
+                  "example": "any"
+                },
+                "sortAuto": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Data"
@@ -1097,13 +2223,107 @@
         "description": "",
         "parameters": [
           {
-            "name": "name(*)",
+            "name": "id",
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/data/vulnerability-taxonomy/parse": {
+      "post": {
+        "tags": [
+          "Data"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/data/vulnerability-taxonomy/generate-checklist": {
+      "post": {
+        "tags": [
+          "Data"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "example": "any"
+                },
+                "includeCategories": {
+                  "example": "any"
+                },
+                "includeSubcategories": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/data/sections": {
@@ -1112,8 +2332,23 @@
           "Data"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "post": {
         "tags": [
@@ -1122,6 +2357,16 @@
         "description": "",
         "parameters": [
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
@@ -1133,20 +2378,24 @@
                 "name": {
                   "example": "any"
                 },
-                "locale": {
-                  "example": "any"
-                },
-                "text": {
+                "type": {
                   "example": "any"
                 },
                 "icon": {
+                  "example": "any"
+                },
+                "rows": {
                   "example": "any"
                 }
               }
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "put": {
         "tags": [
@@ -1155,28 +2404,45 @@
         "description": "",
         "parameters": [
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
               "type": "object",
               "properties": {
+                "length": {
+                  "example": "any"
+                },
                 "name": {
                   "example": "any"
                 },
                 "field": {
                   "example": "any"
                 },
-                "forEach(e": {
+                "map(e": {
                   "example": "any"
                 }
               }
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
-    "/api/data/sections/{field}/{locale(*)}": {
+    "/api/data/sections/{field}": {
       "delete": {
         "tags": [
           "Data"
@@ -1190,13 +2456,21 @@
             "type": "string"
           },
           {
-            "name": "locale(*)",
-            "in": "path",
-            "required": true,
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
             "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/data/custom-fields": {
@@ -1205,8 +2479,23 @@
           "Data"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "post": {
         "tags": [
@@ -1214,6 +2503,16 @@
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -1257,7 +2556,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "put": {
         "tags": [
@@ -1265,6 +2568,16 @@
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -1290,7 +2603,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/data/custom-fields/{fieldId}": {
@@ -1305,9 +2622,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/images/{imageId}": {
@@ -1322,9 +2653,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "delete": {
         "tags": [
@@ -1337,9 +2682,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/images/": {
@@ -1349,6 +2708,16 @@
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -1368,7 +2737,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/images/download/{imageId}": {
@@ -1383,9 +2756,188 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/mcp": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "map(handleMessage": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "202": {
+            "description": "Accepted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/data/roles": {
+      "get": {
+        "tags": [
+          "Data"
+        ],
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Data"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "example": "any"
+                },
+                "displayName": {
+                  "example": "any"
+                },
+                "description": {
+                  "example": "any"
+                },
+                "allows": {
+                  "example": "any"
+                },
+                "inherits": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/data/roles/permissions": {
+      "get": {
+        "tags": [
+          "Data"
+        ],
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/data/roles/{name}": {
+      "put": {
+        "tags": [
+          "Data"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "displayName": {
+                  "example": "any"
+                },
+                "description": {
+                  "example": "any"
+                },
+                "allows": {
+                  "example": "any"
+                },
+                "inherits": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Data"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/settings": {
@@ -1394,16 +2946,58 @@
           "Settings"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "put": {
         "tags": [
           "Settings"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "ai": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/settings/public": {
@@ -1412,8 +3006,23 @@
           "Settings"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/settings/revert": {
@@ -1422,8 +3031,164 @@
           "Settings"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/settings/mcp/rotate-key": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/settings/mcp/key": {
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/settings/api-keys": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "req": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/settings/api-keys/{id}": {
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/settings/export": {
@@ -1432,8 +3197,208 @@
           "Settings"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/spellcheck/capabilities": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/spellcheck/test": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/spellcheck": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "example": "any"
+                },
+                "language": {
+                  "example": "any"
+                },
+                "enabledOnly": {
+                  "example": "any"
+                },
+                "disabledCategories": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/spellcheck/dict": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "word": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "word": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/templates": {
@@ -1442,8 +3407,23 @@
           "Templates"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "post": {
         "tags": [
@@ -1451,6 +3431,16 @@
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -1470,7 +3460,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/templates/{templateId}": {
@@ -1487,6 +3481,16 @@
             "type": "string"
           },
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
@@ -1495,17 +3499,21 @@
                 "name": {
                   "example": "any"
                 },
-                "file": {
+                "ext": {
                   "example": "any"
                 },
-                "ext": {
+                "file": {
                   "example": "any"
                 }
               }
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "delete": {
         "tags": [
@@ -1518,9 +3526,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/templates/download/{templateId}": {
@@ -1535,331 +3557,23 @@
             "in": "path",
             "required": true,
             "type": "string"
-          }
-        ],
-        "responses": {}
-      }
-    },
-    "/api/users/checktoken": {
-      "get": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
-      }
-    },
-    "/api/users/refreshtoken": {
-      "get": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [
+          },
           {
-            "name": "user-agent",
-            "in": "header",
-            "type": "string"
-          }
-        ],
-        "responses": {}
-      },
-      "delete": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
-      }
-    },
-    "/api/users/token": {
-      "post": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "user-agent",
+            "name": "x-api-key",
             "in": "header",
             "type": "string"
           },
           {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "password": {
-                  "example": "any"
-                },
-                "username": {
-                  "example": "any"
-                },
-                "totpToken": {
-                  "example": "any"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {}
-      }
-    },
-    "/api/users/init": {
-      "get": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
-      },
-      "post": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
-      }
-    },
-    "/api/users": {
-      "get": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
-      },
-      "post": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "username": {
-                  "example": "any"
-                },
-                "password": {
-                  "example": "any"
-                },
-                "firstname": {
-                  "example": "any"
-                },
-                "lastname": {
-                  "example": "any"
-                },
-                "role": {
-                  "example": "any"
-                },
-                "email": {
-                  "example": "any"
-                },
-                "phone": {
-                  "example": "any"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {}
-      }
-    },
-    "/api/users/reviewers": {
-      "get": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
-      }
-    },
-    "/api/users/me": {
-      "get": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
-      },
-      "put": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "currentPassword": {
-                  "example": "any"
-                },
-                "newPassword": {
-                  "example": "any"
-                },
-                "confirmPassword": {
-                  "example": "any"
-                },
-                "username": {
-                  "example": "any"
-                },
-                "firstname": {
-                  "example": "any"
-                },
-                "lastname": {
-                  "example": "any"
-                },
-                "email": {
-                  "example": "any"
-                },
-                "phone": {
-                  "example": "any"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {}
-      }
-    },
-    "/api/users/totp": {
-      "get": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [],
-        "responses": {}
-      },
-      "post": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "totpToken": {
-                  "example": "any"
-                },
-                "totpSecret": {
-                  "example": "any"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {}
-      },
-      "delete": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "totpToken": {
-                  "example": "any"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {}
-      }
-    },
-    "/api/users/{username}": {
-      "get": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "username",
-            "in": "path",
-            "required": true,
+            "name": "authorization",
+            "in": "header",
             "type": "string"
           }
         ],
-        "responses": {}
-      }
-    },
-    "/api/users/{id}": {
-      "put": {
-        "tags": [
-          "User"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "password": {
-                  "example": "any"
-                },
-                "username": {
-                  "example": "any"
-                },
-                "firstname": {
-                  "example": "any"
-                },
-                "lastname": {
-                  "example": "any"
-                },
-                "email": {
-                  "example": "any"
-                },
-                "phone": {
-                  "example": "any"
-                },
-                "role": {
-                  "example": "any"
-                },
-                "totpEnabled": {
-                  "example": "any"
-                },
-                "enabled": {
-                  "example": "any"
-                }
-              }
-            }
+        "responses": {
+          "default": {
+            "description": ""
           }
-        ],
-        "responses": {}
+        }
       }
     },
     "/api/vulnerabilities": {
@@ -1868,8 +3582,23 @@
           "Vulnerabilities"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "post": {
         "tags": [
@@ -1877,6 +3606,16 @@
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
           {
             "name": "body",
             "in": "body",
@@ -1892,13 +3631,16 @@
                 "cvssv3": {
                   "example": "any"
                 },
+                "cvssv4": {
+                  "example": "any"
+                },
                 "priority": {
                   "example": "any"
                 },
                 "remediationComplexity": {
                   "example": "any"
                 },
-                "category": {
+                "taxonomies": {
                   "example": "any"
                 },
                 "status": {
@@ -1908,15 +3650,34 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "delete": {
         "tags": [
           "Vulnerabilities"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/vulnerabilities/export": {
@@ -1925,8 +3686,23 @@
           "Vulnerabilities"
         ],
         "description": "",
-        "parameters": [],
-        "responses": {}
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/vulnerabilities/{vulnerabilityId}": {
@@ -1943,6 +3719,16 @@
             "type": "string"
           },
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
@@ -1954,13 +3740,13 @@
                 "cvssv3": {
                   "example": "any"
                 },
+                "cvssv4": {
+                  "example": "any"
+                },
                 "priority": {
                   "example": "any"
                 },
                 "remediationComplexity": {
-                  "example": "any"
-                },
-                "category": {
                   "example": "any"
                 },
                 "status": {
@@ -1970,7 +3756,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       },
       "delete": {
         "tags": [
@@ -1983,9 +3773,405 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/{vulnerabilityId}/translations/source": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "vulnerabilityId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "sourceLocale": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/{vulnerabilityId}/translations/{locale}/sync-status": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "vulnerabilityId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "locale",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "syncStatus": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/{vulnerabilityId}/split": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "vulnerabilityId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "locale": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/{vulnerabilityId}/translations/auto-translate": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "vulnerabilityId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/{vulnerabilityId}/translations/auto-translate-locale": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "vulnerabilityId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "targetLocale": {
+                  "example": "any"
+                },
+                "sourceLocale": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/translations/stats": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/translations/bulk": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "sourceLocales": {
+                  "example": "any"
+                },
+                "sourceLocale": {
+                  "example": "any"
+                },
+                "targetLocale": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/translations/bulk/status": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/matching/start": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "threshold": {
+                  "example": "any"
+                },
+                "scope": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/matching/status": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/matching/apply": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "proposals": {
+                  "example": "any"
+                },
+                "runId": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/vulnerabilities/{locale}": {
@@ -2000,9 +4186,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/vulnerabilities/finding/{locale}": {
@@ -2019,6 +4219,16 @@
             "type": "string"
           },
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
@@ -2030,6 +4240,9 @@
                 "cvssv3": {
                   "example": "any"
                 },
+                "cvssv4": {
+                  "example": "any"
+                },
                 "priority": {
                   "example": "any"
                 },
@@ -2037,9 +4250,6 @@
                   "example": "any"
                 },
                 "references": {
-                  "example": "any"
-                },
-                "vulnType": {
                   "example": "any"
                 },
                 "description": {
@@ -2051,9 +4261,6 @@
                 "remediation": {
                   "example": "any"
                 },
-                "category": {
-                  "example": "any"
-                },
                 "customFields": {
                   "example": "any"
                 }
@@ -2061,7 +4268,11 @@
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/vulnerabilities/updates/{vulnId}": {
@@ -2076,9 +4287,23 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
     "/api/vulnerabilities/merge/{vulnId}": {
@@ -2095,6 +4320,16 @@
             "type": "string"
           },
           {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "schema": {
@@ -2105,12 +4340,1272 @@
                 },
                 "locale": {
                   "example": "any"
+                },
+                "metadata": {
+                  "example": "any"
+                },
+                "sourceLocale": {
+                  "example": "any"
                 }
               }
             }
           }
         ],
-        "responses": {}
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/ai/generate": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Generate, complete, or rewrite report content",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Generation request.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "action"
+              ],
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "generate",
+                    "complete",
+                    "rewrite",
+                    "fill-proofs",
+                    "executive-summary",
+                    "severity-summary"
+                  ]
+                },
+                "text": {
+                  "type": "string"
+                },
+                "fieldName": {
+                  "type": "string"
+                },
+                "context": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "403": {
+            "description": "The requested AI capability is disabled or unavailable"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/ai/anonymize-preview": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Preview anonymized generation context",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Field name(s), text, and generation context.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "fieldName": {
+                  "type": "string"
+                },
+                "fieldNames": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "text": {
+                  "type": "string"
+                },
+                "context": {
+                  "type": "object"
+                },
+                "proofCompletion": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "403": {
+            "description": "The requested AI capability is disabled or unavailable"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/ai/search-similar": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Search semantically similar vulnerabilities",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Search query and optional locale.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "query"
+              ],
+              "properties": {
+                "query": {
+                  "type": "string"
+                },
+                "locale": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "403": {
+            "description": "The requested AI capability is disabled or unavailable"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/ai/reindex-all": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Start reindexing the vulnerability embedding collection",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "403": {
+            "description": "The requested AI capability is disabled or unavailable"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/ai/reindex-status": {
+      "get": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Get vulnerability embedding reindex progress",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "403": {
+            "description": "The requested AI capability is disabled or unavailable"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/ai/list-models": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "List models offered by the configured AI provider",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "AI capability to test or list models for.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "generation",
+                    "embedding",
+                    "vision"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "403": {
+            "description": "The requested AI capability is disabled or unavailable"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/ai/analyze-proofs": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Analyze proof images and generate supporting finding fields",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Proof HTML and optional finding context.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "pocHtml"
+              ],
+              "properties": {
+                "pocHtml": {
+                  "type": "string"
+                },
+                "locale": {
+                  "type": "string"
+                },
+                "findingTitle": {
+                  "type": "string"
+                },
+                "findingDescription": {
+                  "type": "string"
+                },
+                "auditContext": {
+                  "type": "object"
+                },
+                "overwriteFilledFields": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "403": {
+            "description": "The requested AI capability is disabled or unavailable"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/ai/analyze-proof-evidence": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Analyze proof images only",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Proof HTML.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "pocHtml"
+              ],
+              "properties": {
+                "pocHtml": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "403": {
+            "description": "The requested AI capability is disabled or unavailable"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/ai/complete-proof-fields": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Generate finding fields from proof evidence",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Proof HTML and optional finding context.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "pocHtml"
+              ],
+              "properties": {
+                "pocHtml": {
+                  "type": "string"
+                },
+                "locale": {
+                  "type": "string"
+                },
+                "findingTitle": {
+                  "type": "string"
+                },
+                "findingDescription": {
+                  "type": "string"
+                },
+                "auditContext": {
+                  "type": "object"
+                },
+                "visionSummary": {
+                  "type": "string"
+                },
+                "overwriteFilledFields": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "403": {
+            "description": "The requested AI capability is disabled or unavailable"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/ai/search-proof-similar": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Find vulnerabilities similar to analyzed proof evidence",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Proof-derived search context.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "locale": {
+                  "type": "string"
+                },
+                "findingTitle": {
+                  "type": "string"
+                },
+                "findingDescription": {
+                  "type": "string"
+                },
+                "visionSummary": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "403": {
+            "description": "The requested AI capability is disabled or unavailable"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/ai/test": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Test the configured generation, embedding, or vision provider",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "AI capability to test or list models for.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "generation",
+                    "embedding",
+                    "vision"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "403": {
+            "description": "The requested AI capability is disabled or unavailable"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/users/checktoken": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Validate the current authentication token",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/refreshtoken": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Refresh the authenticated user session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Log out the current user",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/token": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Sign in and create a session",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Credentials and optional TOTP code.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "password"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string",
+                  "format": "password"
+                },
+                "totpToken": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/init": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Check whether the application has any users",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Create the first administrator user",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Initial administrator details.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "username",
+                "password",
+                "firstname",
+                "lastname"
+              ],
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string",
+                  "format": "password"
+                },
+                "firstname": {
+                  "type": "string"
+                },
+                "lastname": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List users",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Create users",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Array of users to create.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/export": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Export all users",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/reviewers": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List users eligible to review audits",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/me": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get the authenticated user profile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update the authenticated user profile",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "Profile changes. currentPassword is required.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "currentPassword": {
+                  "type": "string",
+                  "format": "password"
+                },
+                "newPassword": {
+                  "type": "string",
+                  "format": "password"
+                },
+                "username": {
+                  "type": "string"
+                },
+                "firstname": {
+                  "type": "string"
+                },
+                "lastname": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string",
+                  "format": "email"
+                },
+                "phone": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/totp": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get a TOTP setup QR code",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Enable TOTP",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "TOTP secret and verification code.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "totpToken",
+                "totpSecret"
+              ],
+              "properties": {
+                "totpToken": {
+                  "type": "string"
+                },
+                "totpSecret": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Disable TOTP",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "TOTP verification code.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "totpToken"
+              ],
+              "properties": {
+                "totpToken": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/{username}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get a user by username",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Username"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/bulk-status": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Enable or disable multiple users",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "User ids and the target enabled state.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "userIds",
+                "enabled"
+              ],
+              "properties": {
+                "userIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/bulk-role": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Set a role for multiple users",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "User ids and an existing role.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "userIds",
+                "role"
+              ],
+              "properties": {
+                "userIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "role": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/bulk-permissions": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Grant or revoke permissions for multiple users",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "User ids plus one or both permission arrays.",
+            "schema": {
+              "type": "object",
+              "required": [
+                "userIds"
+              ],
+              "properties": {
+                "userIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "add": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "remove": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update a user",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "User id"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "User fields to update.",
+            "schema": {
+              "type": "object"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "schema": {
+              "$ref": "#/definitions/ApiResponse"
+            }
+          },
+          "401": {
+            "description": "Authentication failed"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "ApiResponse": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "example": "object"
+        },
+        "required": {
+          "type": "array",
+          "example": [
+            "status",
+            "datas"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "properties": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "example": "string"
+                },
+                "example": {
+                  "type": "string",
+                  "example": "success"
+                }
+              }
+            },
+            "datas": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "example": "object"
+                },
+                "description": {
+                  "type": "string",
+                  "example": "Endpoint response payload."
+                }
+              }
+            }
+          }
+        }
       }
     }
   }

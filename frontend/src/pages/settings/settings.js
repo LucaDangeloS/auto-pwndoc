@@ -484,6 +484,7 @@ export default {
                     { id: 'sub-ai-field-prompts', label: 'aiFieldPrompts' }
                 ] },
                 { id: 'section-api', label: 'apiSettings', children: [
+                    { id: 'sub-api-documentation', label: 'apiDocumentationTitle' },
                     { id: 'sub-api-keys', label: 'apiKeysTitle' }
                 ] },
                 { id: 'section-mcp', label: 'mcpSettings', children: [
@@ -630,6 +631,10 @@ export default {
         mcpEndpointUrl: function() {
             var appUrl = (this.settings.mcp && this.settings.mcp.appUrl) || window.location.origin;
             return appUrl.replace(/\/$/, '') + '/api/mcp';
+        },
+        apiDocumentationUrl: function() {
+            var appUrl = (this.settings.mcp && this.settings.mcp.appUrl) || window.location.origin;
+            return appUrl.replace(/\/$/, '') + '/api-docs';
         },
         ssoCallbackUrl: function() {
             var appUrl = (this.settings.mcp && this.settings.mcp.appUrl) || window.location.origin;

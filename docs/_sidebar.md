@@ -3,5 +3,6 @@
 - [Roles](roles.md)
 - [Vulnerabilities](vulnerabilities.md)
 - [Audits](audits.md)
+- [REST API](api.md)
 - [Docx Template](docxtemplate.md)
 - [Debug](debug.md)

@@ -290,6 +290,13 @@ module.exports = function(request, app) {
         expect(response.status).toBe(201)
       })
 
+      it('Creates a later entry that alphabetically precedes the existing rows', async () => {
+        var response = await request(app).post('/api/data/vulnerability-taxonomy')
+          .set('Cookie', [`token=JWT ${userToken}`])
+          .send({ type: 'Aardvark' })
+        expect(response.status).toBe(201)
+      })
+
       it('Rejects duplicate (type, category, subcategory) triple', async () => {
         var response = await request(app).post('/api/data/vulnerability-taxonomy')
           .set('Cookie', [`token=JWT ${userToken}`])
@@ -304,11 +311,12 @@ module.exports = function(request, app) {
         expect(response.status).toBe(422)
       })
 
-      it('Lists 4 taxonomy rows', async () => {
+      it('Lists taxonomy rows in creation order', async () => {
         var response = await request(app).get('/api/data/vulnerability-taxonomy')
           .set('Cookie', [`token=JWT ${userToken}`])
         expect(response.status).toBe(200)
-        expect(response.body.datas).toHaveLength(4)
+        expect(response.body.datas).toHaveLength(5)
+        expect(response.body.datas.map(r => r.type)).toEqual(['Internal', 'Web', 'Web', 'Web', 'Aardvark'])
         // Sort config must round-trip on the type-root row for "Web".
         var web = response.body.datas.find(r => r.type === 'Web' && !r.category && !r.subcategory)
         expect(web.sortValue).toBe('priority')
@@ -320,6 +328,10 @@ module.exports = function(request, app) {
           .set('Cookie', [`token=JWT ${userToken}`])
           .send({ type: 'Web', sortValue: 'cvssScore', sortOrder: 'desc', sortAuto: false })
         expect(response.status).toBe(200)
+
+        var list = await request(app).get('/api/data/vulnerability-taxonomy')
+          .set('Cookie', [`token=JWT ${userToken}`])
+        expect(list.body.datas.map(r => r.type)).toEqual(['Internal', 'Web', 'Web', 'Web', 'Aardvark'])
       })
 
       it('Parse preview: well-formed lines', async () => {
@@ -352,16 +364,17 @@ module.exports = function(request, app) {
         var response = await request(app).put('/api/data/vulnerability-taxonomy')
           .set('Cookie', [`token=JWT ${userToken}`])
           .send({ rows: [
-            { type: 'Internal' },
             { type: 'Web' },
-            { type: 'Web', category: 'Information Gathering' },
-            { type: 'Web', category: 'Information Gathering', subcategory: 'Fingerprint Web Server', code: 'WSTG-INFO-02' }
+            { type: 'Web', category: 'Zebra checks' },
+            { type: 'Web', category: 'Alpha checks' },
+            { type: 'Internal' }
           ]})
         expect(response.status).toBe(201)
 
         var list = await request(app).get('/api/data/vulnerability-taxonomy')
           .set('Cookie', [`token=JWT ${userToken}`])
         expect(list.body.datas).toHaveLength(4)
+        expect(list.body.datas.map(r => r.category || r.type)).toEqual(['Web', 'Zebra checks', 'Alpha checks', 'Internal'])
       })
 
       it('Generate checklist from taxonomy returns properly shaped rows', async () => {
@@ -376,6 +389,7 @@ module.exports = function(request, app) {
         expect(row).toHaveProperty('taxonomy')
         expect(row.status).toBe('untested')
         expect(row.note).toBe('')
+        expect(response.body.datas.map(r => r.taxonomy.category)).toEqual(['Zebra checks', 'Alpha checks'])
       })
 
       it('Generate checklist filters out subcategories when flag is off', async () => {

@@ -5,7 +5,7 @@
 Attach a shell to the running mongoDB container:
 
 ```
-docker exec -it mongo-pwndoc-ng /bin/sh
+docker exec -it autopwndoc-mongodb /bin/sh
 ```
 
 Then connect to the database:
@@ -36,8 +36,8 @@ languages
 templates
 users
 vulnerabilities
-vulnerabilitycategories
-vulnerabilitytypes
+vulnerabilitytaxonomies
+roles
 ```
 
 Then you can inspect the entries of each collection:

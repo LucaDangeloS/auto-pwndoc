@@ -1,44 +1,44 @@
 # Installation
 
-> PwnDoc-ng uses 3 containers: the backend, the frontend and the database.
+AutoPwnDoc uses six services in development: backend, frontend, reverse proxy, MongoDB, ChromaDB, and LanguageTool.
 
 ## Production
 
-All 3 containers can be run at once using the docker-compose file in the root directory.
+All production services can be run from the repository root.
 
 !> For production usage make sure to change the certificates in `backend/ssl` folder and optionnaly to set the JWT secret in `backend/src/lib/auth.js` (`jwtSecret` and `jwtRefreshSecret` in `backend/src/config/config.json`) if you don't want to use random ones.
 
 Build and run Docker containers
 
 ```
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 Display backend container logs
 
 ```
-docker-compose logs -f backend
+docker compose logs -f backend
 ```
 
 Stop/Start containers
 
 ```
-docker-compose stop
-docker-compose start
+docker compose stop
+docker compose start
 ```
 
 Remove containers
 
 ```
-docker-compose down
+docker compose down
 ```
 
 Update
 
 ```
-docker-compose down
+docker compose down
 git pull
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 Application is accessible through https://localhost:8443
@@ -46,37 +46,37 @@ API is accessible through https://localhost:8443/api
 
 ## Development
 
-For development purposes, specific docker-compose file can be used in each folder (backend/frontend).
+Use the root development Compose file. It runs the full local stack and watches backend and frontend sources.
 
 > *Source code can be modified live and application will automatically reload on changes.*
 
-Build and run backend and database containers
+Build and run the development stack
 
 ```
-docker-compose -f backend/docker-compose.dev.yml up -d --build
+docker compose -f docker-compose-dev.yml up -d --build
 ```
 
 Display backend container logs
 
 ```
-docker-compose -f backend/docker-compose.dev.yml logs -f pwndoc-ng-backend
+docker compose -f docker-compose-dev.yml logs -f backend
 ```
 
 Stop/Start container
 
 ```
-docker-compose -f backend/docker-compose.dev.yml stop
-docker-compose -f backend/docker-compose.dev.yml start
+docker compose -f docker-compose-dev.yml stop
+docker compose -f docker-compose-dev.yml start
 ```
 
 Remove containers
 
 ```
-docker-compose -f backend/docker-compose.dev.yml down
+docker compose -f docker-compose-dev.yml down
 ```
 
-Application is accessible through https://localhost:8081
-API is accessible through https://localhost:8081/api
+Application is available at http://localhost:8080 (or https://localhost:8443).
+The API is available at http://localhost:8080/api.
 
 ## Tests
 

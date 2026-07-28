@@ -1,21 +1,21 @@
-# Installation for developpment environnment
+# Backend development
 
 *Source code can be modified live and application will automatically reload on changes.*
 
 Build and run Docker containers
 ```
-docker-compose -f ./docker-compose.dev.yml up -d --build
+docker compose -f ../docker-compose-dev.yml up -d --build
 ```
 
 Display container logs
 ```
-docker-compose logs -f
+docker compose -f ../docker-compose-dev.yml logs -f backend
 ```
 
 Stop/Start container
 ```
-docker-compose stop
-docker-compose start
+docker compose -f ../docker-compose-dev.yml stop backend
+docker compose -f ../docker-compose-dev.yml start backend
 ```
 
-API is accessible through https://localhost:5252/api
+Use the proxy entry point during development: http://localhost:8080/api.

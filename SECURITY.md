@@ -3,12 +3,7 @@
 
 ## Supported Versions
 
-Only the latest version is supported with security updates.
-
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.5.4   | :white_check_mark: |
-| < 0.5.4 | :x:                |
+The current `master` branch is supported with security updates. Historical upstream PwnDoc-ng release numbers do not describe AutoPwnDoc support status.
 
 ## Reporting a Vulnerability
 

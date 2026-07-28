@@ -1,16 +1,15 @@
 # Vulnerabilities
 
-> Pwndoc-ng can manage Vulnerabilities in order to simplify redaction of an Audit. They can be added when editing an Audit as a Finding.<br>
+> AutoPwnDoc manages reusable vulnerabilities that can be applied to audit findings.<br>
 > Each vulnerability can have multiple languages. 
 
 ## Create
 
-When creating a Vulnerability, a Category must be selected (or No Category)
+When creating a vulnerability, select zero or more existing taxonomy paths when classification is useful.
 
 A Vulnerability is defined by:
 
 - Title
-- Type
 - Language
 - Description
 - Observation
@@ -19,8 +18,8 @@ A Vulnerability is defined by:
 - Remediation Complexity
 - Remediation Priority
 - References
-- Category
-- (Additional fields from Category)
+- Taxonomies: type, category, subcategory, and optional code
+- Custom fields
 
 !> Title must be unique since it's used for another functionality allowing users to request creation/modification of vulnerabilities when redacting an Audit.
 
@@ -58,7 +57,11 @@ None: The cookie is explicitly set to be sent by the browser in any context.
 The default behavior of web browsers can differ when handling cookies in a cross-site context, making the final decision to send the cookie in that context unpredictable. The SameSite attribute should be set in every cookie to enforce the expected result from developers.
       remediation: >-
 		It is recommended to set the SameSite attribute to 'strict' in the cookie.
-  category: Web Application 
+  taxonomies:
+    - type: Web Application
+      category: ''
+      subcategory: ''
+      code: ''
   priority: 2
   remediationComplexity: 1
 ```

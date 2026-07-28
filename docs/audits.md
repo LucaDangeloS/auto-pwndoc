@@ -3,8 +3,7 @@
 Audits represent the core of the application.  
 To create an Audit, it must have a Language and a Template, so they must be first created in the [Custom Data](/data?id=custom-data) menu.  
 
-Audits can be edited by multiple users. Users that opened the Audit are listed at the bottom of the Sections sidebar and you can see the section they are on.  
-If 2 users are editing the same section, the last one to save will be effective so be carefull not to edit the same section at the same time.
+Audits can be edited by multiple users. Users currently viewing the audit are listed in the sidebar. Rich-text fields use collaborative editing; coordinate changes to the same non-collaborative fields to avoid overwriting each other.
 
 | <span style="color:green">You can safely edit</span>  | <span style="color:red">You are stepping on each other toe</span> |
 |:-----------------------------------------------------:|:-----------------------------------------------------------------:| 
@@ -40,11 +39,11 @@ At this point you may follow these steps:
 Findings can be added either from saved Vulnerablities or by creating a new one.
 ![Finding add](/_images/finding_add.png)
 
-Findings are ordered by Severity and grouped by Category. There are 3 Tabs in a Finding :
+Findings can be classified with one or more approved taxonomy paths and are ordered according to the audit's configured finding sort settings. The editor provides definition, proof, details, remediation, custom-field, and—on retest audits—retest-evidence views.
 
 **DEFINITION**
 
-General definition of the vulnerability and custom fields of a specific Category if any.
+General definition of the vulnerability and any applicable custom fields.
 
 **PROOFS**
 

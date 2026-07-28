@@ -37,7 +37,7 @@ The core goal remains the same - more time to **Pwn**, less time to **Doc** - bu
 - Exposes a JSON-RPC 2.0 **Model Context Protocol** endpoint at `POST /api/mcp` (Streamable HTTP, protocol `2025-03-26`).
 - Lets AI agents (e.g. Claude Desktop) read and write audits, findings, and vulnerabilities directly.
 - Secured with an API key managed in the Settings page (rotate/clear).
-- 13 tools: `list_audits`, `get_audit`, `update_audit_general`, `get_audit_network`, `update_audit_network`, `list_findings`, `get_finding`, `create_finding`, `update_finding`, `delete_finding`, `list_vulnerabilities`, `search_similar_vulnerabilities`, `apply_vulnerability_to_finding`.
+- 14 tools: `list_audits`, `get_audit`, `update_audit_general`, `get_audit_network`, `update_audit_network`, `list_findings`, `list_taxonomies`, `get_finding`, `create_finding`, `update_finding`, `delete_finding`, `list_vulnerabilities`, `search_similar_vulnerabilities`, `apply_vulnerability_to_finding`.
 
 ### Granular user permissions
 

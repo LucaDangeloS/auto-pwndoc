@@ -1,27 +1,5 @@
 # Changelog
 
-## Unreleased — autopwndoc fork (2026-05-13)
-
-### Custom Data — Clean Slate
-
-The inherited Custom Fields system and its integration with findings and sections has been removed in its entirety. This is a deliberate reset to establish a clean foundation before incrementally re-implementing custom data features in a way that actually works.
-
-**What was removed:**
-- **Custom Fields** tab from Data → Custom Data (field definitions, preview, drag-and-drop reorder)
-- **Custom Fields panel** from the finding edit page (the expansion item, the `custom-fields` component, `initCustomFieldsForFinding`, and the parallel `getCustomFields` fetch)
-- **Checklist auto-mark logic** (`applyChecklistAutoMark`, `applyMarksOnFieldList`, `rowMatchesFindingTaxonomy`) from `audit.js` — findings no longer trigger automatic status changes on checklist rows
-- **Generate-from-taxonomy dialog** for checklist seeding in custom fields
-- All related frontend state and methods in `custom.js`
-
-**What remains (working):**
-- **Custom Sections** (text and checklist types) managed under Data → Custom Data → Custom Sections — fully functional after the revamp in migration step 13
-- **Audit Types** — still reference sections by field slug; sections are instantiated from the template when an audit is created
-- Audit section editing (plain text via TipTap, checklist rows with status/note) under the Sections tab of each audit
-
-**Intent:** Custom data functionality (custom fields for findings, vulnerabilities, and audit general) will be re-implemented gradually, one working feature at a time, starting from this clean state.
-
----
-
 ## 0.5.4 (2022-12-05)
 
 ### Enhancements

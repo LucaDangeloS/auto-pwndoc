@@ -11,7 +11,11 @@ npm run swagger-autogen
 
 ## Authentication
 
-Use a signed-in browser session or create an API key in **Settings → API** and send it in the `X-API-Key` request header. `Authorization: Bearer <key>` is also accepted. API keys act with administrator permissions; store them securely and revoke them when they are no longer needed.
+Use a signed-in browser session or create an API key in **Settings → API** and send it in the `X-API-Key` request header. `Authorization: Bearer <key>` is also accepted. New keys act as the user who created them, so audits created through a key remain editable by that user. Store keys securely and revoke them when they are no longer needed.
+
+## Taxonomy-aware finding updates
+
+Use `GET /api/data/vulnerability-taxonomy/hierarchy` before creating or updating a finding taxonomy. It returns the approved type → category → subcategory → code hierarchy in its configured order. Finding `taxonomies` values must match an existing path exactly; the API rejects invented values. API keys can read the hierarchy and assign approved paths, but cannot modify taxonomy definitions.
 
 ## Response format
 
@@ -24,4 +28,4 @@ Most JSON endpoints use this envelope:
 }
 ```
 
-Errors use `status: "error"` and include the message in `datas`. Download endpoints return their file directly. The MCP endpoint is a separate JSON-RPC service at `/api/mcp`; its connection details are documented in **Settings → MCP**.
+Errors use `status: "error"` and include the message in `datas`. Download endpoints return their file directly. The MCP endpoint is a separate JSON-RPC service at `/api/mcp`; its connection details are documented in **Settings → MCP**. MCP clients should call `list_taxonomies` before setting finding taxonomies.

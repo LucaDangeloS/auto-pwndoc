@@ -17,22 +17,7 @@ A Collaborator is defined by:
 - Role
 - Password
 
-There are 3 different roles:
-
-**user**
-
-- Read/Write on created and collaboration Audits
-- Readonly on Vulnerabilities
-- Read/Write on *Companies* and *Clients* Data
-
-**report**
-
-- Inherit from user role
-- \+ Read/Write on all Audits
-
-**admin**
-
-- Read/Write on everything
+The built-in roles are `user` and `admin`. Additional roles and per-user grants are managed from **Data → Roles** and **Data → Collaborators**. See [Roles](roles.md).
 
 
 ## Companies
@@ -108,36 +93,13 @@ Sections: [Executive Summary, Nessus Scan],
 Hidden Sections: [Network]
 > ```
 
-### Vulnerability Types
+### Vulnerability Taxonomy
 
-Vulnerability Types represent the nature of a Vulnerability. They are multilinguale.
+Vulnerabilities and findings use a shared, locale-independent hierarchy:
 
-A Vulnerability Type is defined by:
+`Type → Category → Subcategory → Code`
 
-- Name
-
-> Example
->```
-English
-    Name: Wireless,
-    Name: Mobile Application
-German
-    Name: Réseau Sans Fil
-    Name: Application Mobile
-> ```
-
-### Vulnerability Categories
-
-Vulnerability Categories are used to categorize a Vulnerability.
-
-A Vulnerability Category is defined by:
-
-- Name
-
-> Example
->```
-Name: Nessus Scan
-> ```
+Manage entries in **Data → Vulnerability Taxonomy**. The configured creation order is preserved when generating methodology checklists. Taxonomy entries are suggestions; renaming an entry does not rewrite existing vulnerabilities or findings.
 
 ### Custom Fields
 
@@ -147,9 +109,9 @@ A Custom Field is defined by:
 
 - View: The page on which Custom Fields will be added
     - Audit General
-    - Audit Finding: A Vulnerability Category can be selected. If no Category is selected then every Findings will have Custom Fields
+    - Audit Finding: A taxonomy type can be selected. If no type is selected then every finding can use the field
     - Audit Section: A specific Section can be selected. If no Section is selected then every Sections will have Custom Fields
-    - Vulnerability: A Vulnerability Category can be selected. If no Category is selected then every Vulnerabilities will have Custom Fields
+    - Vulnerability: A taxonomy type can be selected. If no type is selected then every vulnerability can use the field
 - Component: The Custom Field type to use
     - Checkbox
     - Date

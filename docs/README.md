@@ -1,7 +1,6 @@
-# PwnDoc-ng
+# AutoPwnDoc
 
-PwnDoc-ng is a pentest reporting application making it simple and easy to write your findings and generate a customizable Docx report. It is based on original fork of [PwnDoc](https://github.com/pwndoc/pwndoc) work by [yeln4ts](https://github.com/yeln4ts).
-The main goal is to have more time to **Pwn** and less time to **Doc** by mutualizing data like vulnerabilities between users.
+AutoPwnDoc is a pentest reporting application based on PwnDoc-ng. It adds AI assistance, MCP integration, unified vulnerability taxonomy, retest workflows, and collaborative reporting while keeping customizable DOCX report generation.
 
 # Documentation
 
@@ -25,3 +24,5 @@ The main goal is to have more time to **Pwn** and less time to **Doc** by mutual
 - Multi-User reporting
 - Docx Report Generation
 - Docx Template customization
+- AI-assisted finding and summary writing
+- MCP access for audit and finding workflows

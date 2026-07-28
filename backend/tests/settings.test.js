@@ -443,5 +443,83 @@ module.exports = function(request, app) {
       expect(response.headers['content-disposition'].indexOf('attachment; filename=')).toBe(0);
     })
 
+    it('Binds REST API keys to their creator and exposes taxonomy editing through REST and MCP', async () => {
+      var createdKey = await request(app).post('/api/settings/api-keys')
+        .set('Cookie', [`token=JWT ${userToken}`])
+        .send({name: 'owner-bound-test-key'});
+      expect(createdKey.status).toBe(200);
+
+      var me = await request(app).get('/api/users/me')
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(me.status).toBe(200);
+      var ownerId = String(me.body.datas._id);
+
+      var apiKey = createdKey.body.datas.key;
+      expect(String(createdKey.body.datas.creator)).toBe(ownerId);
+      var listedKeys = await request(app).get('/api/settings/api-keys')
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(String(listedKeys.body.datas.find(key => key.id === createdKey.body.datas.id).creator)).toBe(ownerId);
+
+      var taxonomyMutation = await request(app).post('/api/data/vulnerability-taxonomy')
+        .set('X-API-Key', apiKey)
+        .send({type: 'API-created taxonomy'});
+      expect(taxonomyMutation.status).toBe(403);
+
+      var taxonomyHierarchy = await request(app).get('/api/data/vulnerability-taxonomy/hierarchy')
+        .set('X-API-Key', apiKey);
+      expect(taxonomyHierarchy.status).toBe(200);
+      expect(taxonomyHierarchy.body.datas).toEqual([{type: 'Internal', codes: [], categories: []}]);
+
+      var createdAudit = await request(app).post('/api/audits')
+        .set('X-API-Key', apiKey)
+        .send({name: 'Owner-bound API audit', language: 'en', auditType: 'Web'});
+      expect(createdAudit.status).toBe(201);
+      expect(String(createdAudit.body.datas.audit.creator)).toBe(ownerId);
+      var auditId = createdAudit.body.datas.audit._id;
+
+      var createdFinding = await request(app).post(`/api/audits/${auditId}/findings`)
+        .set('X-API-Key', apiKey)
+        .send({title: 'REST taxonomy finding', taxonomies: [{type: 'Internal'}]});
+      expect(createdFinding.status).toBe(200);
+      var auditWithFinding = await request(app).get(`/api/audits/${auditId}`)
+        .set('X-API-Key', apiKey);
+      expect(auditWithFinding.status).toBe(200);
+      var findingId = auditWithFinding.body.datas.findings.find(finding => finding.title === 'REST taxonomy finding')._id;
+
+      var invalidTaxonomy = await request(app).put(`/api/audits/${auditId}/findings/${findingId}`)
+        .set('X-API-Key', apiKey)
+        .send({taxonomies: [{type: 'Not an approved taxonomy'}]});
+      expect(invalidTaxonomy.status).toBe(422);
+
+      var rotate = await request(app).post('/api/settings/mcp/rotate-key')
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(rotate.status).toBe(200);
+      var enableMcp = await request(app).put('/api/settings')
+        .set('Cookie', [`token=JWT ${userToken}`])
+        .send({mcp: {enabled: true, apiKey: rotate.body.datas.apiKey, apiKeyCreatedAt: rotate.body.datas.apiKeyCreatedAt}});
+      expect(enableMcp.status).toBe(200);
+
+      var mcpTools = await request(app).post('/api/mcp')
+        .set('X-API-Key', rotate.body.datas.apiKey)
+        .send({jsonrpc: '2.0', id: 1, method: 'tools/list'});
+      expect(mcpTools.status).toBe(200);
+      expect(mcpTools.body.result.tools.map(tool => tool.name)).toContain('list_taxonomies');
+
+      var mcpTaxonomies = await request(app).post('/api/mcp')
+        .set('X-API-Key', rotate.body.datas.apiKey)
+        .send({jsonrpc: '2.0', id: 2, method: 'tools/call', params: {name: 'list_taxonomies', arguments: {}}});
+      expect(mcpTaxonomies.status).toBe(200);
+      expect(mcpTaxonomies.body.result.content[0].text).toContain('Internal');
+
+      var mcpUpdate = await request(app).post('/api/mcp')
+        .set('X-API-Key', rotate.body.datas.apiKey)
+        .send({jsonrpc: '2.0', id: 3, method: 'tools/call', params: {
+          name: 'update_finding',
+          arguments: {auditId, findingId, fields: {taxonomies: [{type: 'Internal'}]}}
+        }});
+      expect(mcpUpdate.status).toBe(200);
+      expect(mcpUpdate.body.result.isError).not.toBe(true);
+    })
+
     })
   }

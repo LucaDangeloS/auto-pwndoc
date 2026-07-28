@@ -1421,6 +1421,21 @@ const STEPS = [
         },
     },
 
+    // Step 37: Ensure older settings documents have the API-key container used
+    // by owner-bound keys. Existing keys have no reliable historical creator,
+    // so they deliberately remain unassigned and preserve legacy behaviour.
+    {
+        id: 37,
+        name: 'initialize-api-key-ownership-container',
+        async run(_srcDb, dstDb) {
+            const result = await dstDb.collection('settings').updateMany(
+                { 'api.keys': { $exists: false } },
+                { $set: { 'api.keys': [] } }
+            );
+            console.log(`[migration] initialize-api-key-ownership-container: ${result.modifiedCount} settings documents initialized`);
+        },
+    },
+
 ];
 
 // Runner

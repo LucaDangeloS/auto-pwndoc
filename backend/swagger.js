@@ -6,7 +6,7 @@ const userPaths = require('./src/config/swagger-user-paths');
 const doc = {
     info: {
         title: 'AutoPwnDoc REST API',
-        description: 'Interactive documentation for the AutoPwnDoc REST API. Authenticate requests with an API key in the `X-API-Key` header (or a logged-in browser session). API keys have administrator-level access, so keep them secret. Standard JSON responses use `{ status, datas }`; file-download endpoints return a file instead.',
+        description: 'Interactive documentation for the AutoPwnDoc REST API. Authenticate requests with an API key in the `X-API-Key` header (or a logged-in browser session). New API keys act as the user who created them, including that user\'s current role and audit ownership. API keys can read taxonomy definitions and assign approved paths to audit findings, but cannot modify the taxonomy catalog. Standard JSON responses use `{ status, datas }`; file-download endpoints return a file instead.',
         version: '1.0.0',
     },
     schemes: ['https', 'http'],
@@ -15,7 +15,7 @@ const doc = {
             type: 'apiKey',
             name: 'X-API-Key',
             in: 'header',
-            description: 'Create and revoke API keys in Settings > API. The same key can also be sent as a Bearer token.'
+            description: 'Create and revoke API keys in Settings > API. Keys act as their creating user and can also be sent as a Bearer token.'
         }
     },
     definitions: {

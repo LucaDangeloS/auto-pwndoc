@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "AutoPwnDoc REST API",
-    "description": "Interactive documentation for the AutoPwnDoc REST API. Authenticate requests with an API key in the `X-API-Key` header (or a logged-in browser session). API keys have administrator-level access, so keep them secret. Standard JSON responses use `{ status, datas }`; file-download endpoints return a file instead.",
+    "description": "Interactive documentation for the AutoPwnDoc REST API. Authenticate requests with an API key in the `X-API-Key` header (or a logged-in browser session). New API keys act as the user who created them, including that user's current role and audit ownership. API keys can read taxonomy definitions and assign approved paths to audit findings, but cannot modify the taxonomy catalog. Standard JSON responses use `{ status, datas }`; file-download endpoints return a file instead.",
     "version": "1.0.0"
   },
   "host": "localhost:3000",
@@ -16,7 +16,7 @@
       "type": "apiKey",
       "name": "X-API-Key",
       "in": "header",
-      "description": "Create and revoke API keys in Settings > API. The same key can also be sent as a Bearer token."
+      "description": "Create and revoke API keys in Settings > API. Keys act as their creating user and can also be sent as a Bearer token."
     }
   },
   "paths": {
@@ -479,7 +479,7 @@
         "tags": [
           "Audit"
         ],
-        "description": "",
+        "description": "Creates a finding. Any taxonomies entry must exactly match an existing type, category, subcategory, and code from GET /api/data/vulnerability-taxonomy/hierarchy.",
         "parameters": [
           {
             "name": "auditId",
@@ -651,7 +651,7 @@
         "tags": [
           "Audit"
         ],
-        "description": "",
+        "description": "Updates a finding. Any taxonomies entry must exactly match an existing type, category, subcategory, and code from GET /api/data/vulnerability-taxonomy/hierarchy.",
         "parameters": [
           {
             "name": "auditId",
@@ -2147,6 +2147,31 @@
                 }
               }
             }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/data/vulnerability-taxonomy/hierarchy": {
+      "get": {
+        "tags": [
+          "Data"
+        ],
+        "description": "Returns the approved taxonomy hierarchy in creation order. Use one exact path from this response when assigning taxonomies to audit findings.",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
         "responses": {

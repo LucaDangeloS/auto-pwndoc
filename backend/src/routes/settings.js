@@ -94,6 +94,7 @@ module.exports = function(app) {
             var safe = keys.map(k => ({
                 id: k._id,
                 name: k.name,
+                creator: k.creator || null,
                 keyPrefix: k.key.substring(0, 8),
                 createdAt: k.createdAt,
                 lastUsedAt: k.lastUsedAt
@@ -112,11 +113,11 @@ module.exports = function(app) {
             var createdAt = new Date();
             var result = await Settings.findOneAndUpdate(
                 {},
-                { $push: { 'api.keys': { name: name.trim(), key, createdAt, lastUsedAt: null } } },
+                { $push: { 'api.keys': { name: name.trim(), key, creator: req.decodedToken.id, createdAt, lastUsedAt: null } } },
                 { new: true, upsert: true }
             );
             var entry = result.api.keys[result.api.keys.length - 1];
-            Response.Ok(res, { id: entry._id, name: entry.name, key, createdAt: entry.createdAt });
+            Response.Ok(res, { id: entry._id, name: entry.name, creator: entry.creator, key, createdAt: entry.createdAt });
         }
         catch (err) { Response.Internal(res, err); }
     });

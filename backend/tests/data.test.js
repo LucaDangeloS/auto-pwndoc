@@ -323,6 +323,25 @@ module.exports = function(request, app) {
         expect(web.sortOrder).toBe('asc')
       })
 
+      it('Lists taxonomy as an ordered hierarchy for API clients', async () => {
+        var response = await request(app).get('/api/data/vulnerability-taxonomy/hierarchy')
+          .set('Cookie', [`token=JWT ${userToken}`])
+        expect(response.status).toBe(200)
+        expect(response.body.datas).toEqual([
+          { type: 'Internal', codes: [], categories: [] },
+          {
+            type: 'Web',
+            codes: [],
+            categories: [{
+              category: 'Information Gathering',
+              codes: [],
+              subcategories: [{ subcategory: 'Fingerprint Web Server', codes: ['WSTG-INFO-02'] }]
+            }]
+          },
+          { type: 'Aardvark', codes: [], categories: [] }
+        ])
+      })
+
       it('Updates a row by id', async () => {
         var response = await request(app).put('/api/data/vulnerability-taxonomy/' + webRowId)
           .set('Cookie', [`token=JWT ${userToken}`])

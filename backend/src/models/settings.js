@@ -132,6 +132,7 @@ const SettingSchema = new Schema({
       keys: [{
         name: { type: String, required: true },
         key: { type: String, required: true },
+        creator: { type: Schema.Types.ObjectId, ref: 'User', default: null },
         createdAt: { type: Date, default: Date.now },
         lastUsedAt: { type: Date, default: null }
       }]

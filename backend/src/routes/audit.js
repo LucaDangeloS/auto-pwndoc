@@ -7,23 +7,49 @@ module.exports = function(app, io) {
     var _ = require('lodash');
     var utils = require('../lib/utils');
     var Settings = require('mongoose').model('Settings');
+    var VulnerabilityTaxonomy = require('mongoose').model('VulnerabilityTaxonomy');
 
-    function syncTaxonomy(finding, body) {
+    function normalizedTaxonomies(body) {
         if (Array.isArray(body.taxonomies)) {
-            finding.taxonomies = body.taxonomies.map(t => ({
+            return body.taxonomies.map(t => ({
                 type: (t && t.type) || '',
                 category: (t && t.category) || '',
                 subcategory: (t && t.subcategory) || '',
                 code: (t && t.code) || ''
             }));
-            return;
         }
         // Accept old clients and imports that still send legacy classifier fields.
         const type = body.category || '';
         const category = body.vulnType || '';
         if (type || category) {
-            finding.taxonomies = [{ type: type, category: category, subcategory: '', code: '' }];
+            return [{ type: type, category: category, subcategory: '', code: '' }];
         }
+        return null;
+    }
+
+    function taxonomyKey(taxonomy) {
+        return [taxonomy.type, taxonomy.category, taxonomy.subcategory, taxonomy.code].join('\u0000');
+    }
+
+    async function syncTaxonomy(finding, body) {
+        var taxonomies = normalizedTaxonomies(body);
+        if (taxonomies === null) return;
+
+        var rows = await VulnerabilityTaxonomy.getAll();
+        var allowed = new Set(rows.map(row => taxonomyKey({
+            type: row.type || '',
+            category: row.category || '',
+            subcategory: row.subcategory || '',
+            code: row.code || ''
+        })));
+        var invalid = taxonomies.find(taxonomy => !allowed.has(taxonomyKey(taxonomy)));
+        if (invalid) {
+            throw {
+                fn: 'BadParameters',
+                message: 'Taxonomy must match an existing taxonomy path (type, category, subcategory, code)'
+            };
+        }
+        finding.taxonomies = taxonomies;
     }
 
     /* ### AUDITS LIST ### */
@@ -306,6 +332,7 @@ module.exports = function(app, io) {
     // Add finding to audit
     app.post("/api/audits/:auditId/findings", acl.hasPermission('audits:update'), async function(req, res) {
         // #swagger.tags = ['Audit']
+        // #swagger.description = 'Creates a finding. Any taxonomies entry must exactly match an existing type, category, subcategory, and code from GET /api/data/vulnerability-taxonomy/hierarchy.'
 
         var settings = await Settings.getAll();
         var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
@@ -338,7 +365,13 @@ module.exports = function(app, io) {
         if (req.body.scope) finding.scope = req.body.scope;
         if (req.body.status !== undefined && [0,1,2,3].includes(req.body.status)) finding.status = req.body.status;
         if (req.body.customFields) finding.customFields = req.body.customFields
-        syncTaxonomy(finding, req.body);
+        try {
+            await syncTaxonomy(finding, req.body);
+        }
+        catch (err) {
+            Response.Internal(res, err);
+            return;
+        }
 
         if (settings.reviews.enabled && settings.reviews.private.removeApprovalsUponUpdate) {
             Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, { approvals: [] });
@@ -411,6 +444,7 @@ module.exports = function(app, io) {
     // Update finding of audit
     app.put("/api/audits/:auditId/findings/:findingId", acl.hasPermission('audits:update'), async function(req, res) {
         // #swagger.tags = ['Audit']
+        // #swagger.description = 'Updates a finding. Any taxonomies entry must exactly match an existing type, category, subcategory, and code from GET /api/data/vulnerability-taxonomy/hierarchy.'
 
         var settings = await Settings.getAll();
         var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
@@ -437,7 +471,13 @@ module.exports = function(app, io) {
         if (!_.isNil(req.body.scope)) finding.scope = req.body.scope;
         if (req.body.status !== undefined && [0,1,2,3].includes(req.body.status)) finding.status = req.body.status;
         if (req.body.customFields) finding.customFields = req.body.customFields
-        syncTaxonomy(finding, req.body);
+        try {
+            await syncTaxonomy(finding, req.body);
+        }
+        catch (err) {
+            Response.Internal(res, err);
+            return;
+        }
 
         if (settings.reviews.enabled && settings.reviews.private.removeApprovalsUponUpdate) {
             Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, { approvals: [] });

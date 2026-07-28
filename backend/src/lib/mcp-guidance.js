@@ -34,7 +34,7 @@ Use <p> for paragraphs, <strong>/<em> for emphasis, <pre><code> for code blocks,
   priority              (integer 1-4) Remediation priority: 1=Low 2=Medium 3=High 4=Urgent.
   remediationComplexity (integer 1-3) Fix effort: 1=Low 2=Medium 3=High.
   status                (integer) 0=Completed 1=In progress (default) 2=For review 3=Improvement needed.
-  taxonomies            (array of {type, category, subcategory}) Vulnerability classification.
+  taxonomies            (array of {type, category, subcategory, code}) Vulnerability classification. Use list_taxonomies first and provide an exact existing path; never invent taxonomy values.
   retestEvidence        (string, HTML) Retest observations for retest audits: what was retested and the observed result.
   retestStatus          (string) Retest outcome: "ok"=fixed, "ko"=still vulnerable, "partial"=partially mitigated, "unknown"=not retested (default). Never set ok/ko/partial without explicit retest evidence.`
 };

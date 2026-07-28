@@ -29,6 +29,12 @@ module.exports = function(app) {
         }
     }
 
+    function rejectApiKeyTaxonomyMutation(req, res) {
+        if (!req.apiKey) return false;
+        Response.Forbidden(res, 'API keys cannot modify taxonomy definitions; use an existing path from the taxonomy hierarchy');
+        return true;
+    }
+
 /* ===== LANGUAGES ===== */
 
     // Get languages list
@@ -192,9 +198,65 @@ module.exports = function(app) {
         .catch(err => Response.Internal(res, err))
     });
 
+    // List the taxonomy as a hierarchy for API clients that need to select an
+    // existing path for a finding. Creation order is retained at every level.
+    app.get("/api/data/vulnerability-taxonomy/hierarchy", acl.hasPermission('vulnerability-taxonomy:read'), function(req, res) {
+        // #swagger.tags = ['Data']
+        // #swagger.description = 'Returns the approved taxonomy hierarchy in creation order. Use one exact path from this response when assigning taxonomies to audit findings.'
+
+        VulnerabilityTaxonomy.getAll()
+        .then(rows => {
+            var types = [];
+            var typeMap = new Map();
+
+            rows.forEach(row => {
+                var type = typeMap.get(row.type);
+                if (!type) {
+                    type = { type: row.type, codes: [], categories: [], _categories: new Map() };
+                    typeMap.set(row.type, type);
+                    types.push(type);
+                }
+
+                if (!row.category) {
+                    if (row.code) type.codes.push(row.code);
+                    return;
+                }
+
+                var category = type._categories.get(row.category);
+                if (!category) {
+                    category = { category: row.category, codes: [], subcategories: [], _subcategories: new Map() };
+                    type._categories.set(row.category, category);
+                    type.categories.push(category);
+                }
+
+                if (!row.subcategory) {
+                    if (row.code) category.codes.push(row.code);
+                    return;
+                }
+
+                var subcategory = category._subcategories.get(row.subcategory);
+                if (!subcategory) {
+                    subcategory = { subcategory: row.subcategory, codes: [] };
+                    category._subcategories.set(row.subcategory, subcategory);
+                    category.subcategories.push(subcategory);
+                }
+                if (row.code) subcategory.codes.push(row.code);
+            });
+
+            types.forEach(type => {
+                delete type._categories;
+                type.categories.forEach(category => delete category._subcategories);
+            });
+            Response.Ok(res, types);
+        })
+        .catch(err => Response.Internal(res, err));
+    });
+
     // Create one taxonomy entry
     app.post("/api/data/vulnerability-taxonomy", acl.hasPermission('vulnerability-taxonomy:create'), function(req, res) {
         // #swagger.tags = ['Data']
+
+        if (rejectApiKeyTaxonomyMutation(req, res)) return;
 
         if (!req.body.type) {
             Response.BadParameters(res, 'Missing required parameter: type');
@@ -220,6 +282,8 @@ module.exports = function(app) {
     app.put("/api/data/vulnerability-taxonomy/:id", acl.hasPermission('vulnerability-taxonomy:update'), function(req, res) {
         // #swagger.tags = ['Data']
 
+        if (rejectApiKeyTaxonomyMutation(req, res)) return;
+
         if (!req.body.type) {
             Response.BadParameters(res, 'Missing required parameter: type');
             return;
@@ -243,6 +307,8 @@ module.exports = function(app) {
     // Delete one taxonomy entry by id
     app.delete("/api/data/vulnerability-taxonomy/:id", acl.hasPermission('vulnerability-taxonomy:delete'), function(req, res) {
         // #swagger.tags = ['Data']
+
+        if (rejectApiKeyTaxonomyMutation(req, res)) return;
 
         VulnerabilityTaxonomy.delete(req.params.id)
         .then(msg => Response.Ok(res, msg))
@@ -272,6 +338,8 @@ module.exports = function(app) {
     // Sort config on type-root rows is preserved for types that appear in both old and new sets.
     app.put("/api/data/vulnerability-taxonomy", acl.hasPermission('vulnerability-taxonomy:update'), function(req, res) {
         // #swagger.tags = ['Data']
+
+        if (rejectApiKeyTaxonomyMutation(req, res)) return;
 
         if (!Array.isArray(req.body.rows)) {
             Response.BadParameters(res, 'Missing required parameter: rows (array)');

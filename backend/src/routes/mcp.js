@@ -17,6 +17,7 @@ module.exports = function(app) {
     };
 
     var PROTOCOL_VERSION = '2025-03-26';
+    var TAXONOMY_GUIDANCE = 'For taxonomies, call list_taxonomies first. Each {type, category, subcategory, code} object must exactly match an existing path; the server rejects invented values.';
 
     function firstTaxonomy(row) {
         return (row && Array.isArray(row.taxonomies) && row.taxonomies[0]) || {};
@@ -94,6 +95,11 @@ module.exports = function(app) {
             }
         },
         {
+            name: 'list_taxonomies',
+            description: 'List the approved finding taxonomy hierarchy. Choose an exact existing type, category, subcategory, and code from this result when creating or updating a finding. Do not invent taxonomy values.',
+            inputSchema: { type: 'object', properties: {} }
+        },
+        {
             name: 'get_finding',
             description: 'Get one finding with all its fields, including the HTML-formatted text fields (description, poc, observation, remediation), references, CVSS vectors, taxonomy, status, and custom fields. The poc field holds proof-of-concept evidence and reproduction steps. Call this before updating a finding to inspect its current state.',
             inputSchema: {
@@ -113,7 +119,7 @@ module.exports = function(app) {
         },
         {
             name: 'create_finding',
-            description: `Create a new finding (vulnerability) in an audit. The fields object must include title.\n\n${findingFieldsDoc}`,
+            description: `Create a new finding (vulnerability) in an audit. The fields object must include title.\n\n${TAXONOMY_GUIDANCE}\n\n${findingFieldsDoc}`,
             inputSchema: {
                 type: 'object',
                 required: ['auditId', 'fields'],
@@ -122,7 +128,7 @@ module.exports = function(app) {
         },
         {
             name: 'update_finding',
-            description: `Update any editable field of a finding. Only the fields provided are changed; omitted fields are left as-is. Call get_finding first to see the current state.\n\n${findingFieldsDoc}`,
+            description: `Update any editable field of a finding. Only the fields provided are changed; omitted fields are left as-is. Call get_finding first to see the current state.\n\n${TAXONOMY_GUIDANCE}\n\n${findingFieldsDoc}`,
             inputSchema: {
                 type: 'object',
                 required: ['auditId', 'findingId', 'fields'],
@@ -286,6 +292,9 @@ module.exports = function(app) {
                     retestStatus: finding.retestStatus
                 };
             });
+        }
+        if (name === 'list_taxonomies') {
+            return internalRequest('GET', '/api/data/vulnerability-taxonomy/hierarchy');
         }
         if (name === 'get_all_findings') {
             var audit = await internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId));

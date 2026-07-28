@@ -96,6 +96,9 @@ module.exports = function(request, app) {
         response = await request(app).get('/api/data/vulnerability-taxonomy')
         expect(response.status).toBe(401)
 
+        response = await request(app).get('/api/data/vulnerability-taxonomy/hierarchy')
+        expect(response.status).toBe(401)
+
         response = await request(app).post('/api/data/vulnerability-taxonomy')
         expect(response.status).toBe(401)
 

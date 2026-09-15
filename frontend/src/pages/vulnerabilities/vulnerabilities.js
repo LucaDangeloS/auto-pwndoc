@@ -864,24 +864,26 @@ export default {
         customSort: function(rows, sortBy, descending) {
             if (rows) {
                 var data = [...rows];
-        
-                if (sortBy === 'type') {
-                    (descending)
-                        ? data.sort((a, b) => (this.getDtType(b) || '').localeCompare(this.getDtType(a) || ''))
-                        : data.sort((a, b) => (this.getDtType(a) || '').localeCompare(this.getDtType(b) || ''));
-                } else if (sortBy === 'title') {
-                    (descending)
-                        ? data.sort((a, b) => (this.getDtTitle(b) || '').localeCompare(this.getDtTitle(a) || ''))
-                        : data.sort((a, b) => (this.getDtTitle(a) || '').localeCompare(this.getDtTitle(b) || ''));
-                } else if (sortBy === 'updatedAt') {
-                    (descending)
-                        ? data.sort((a, b) => (this.getDtUpdatedAt(b) || '').localeCompare(this.getDtUpdatedAt(a) || ''))
-                        : data.sort((a, b) => (this.getDtUpdatedAt(a) || '').localeCompare(this.getDtUpdatedAt(b) || ''));  
-                } else if (sortBy === 'category') {
-                    (descending)
-                        ? data.sort((a, b) => (this.getDtCategory(b) || '').localeCompare(this.getDtCategory(a) || ''))
-                        : data.sort((a, b) => (this.getDtCategory(a) || '').localeCompare(this.getDtCategory(b) || ''));
-                }
+
+                const statusPriority = row => {
+                    const status = this.rowStatusForLocale(row, this.dtLanguage);
+                    if (status === 2) return 0; // Updates
+                    if (status === 1) return 1; // New
+                    return 2;
+                };
+                const valueForSort = row => {
+                    if (sortBy === 'type') return this.getDtType(row) || '';
+                    if (sortBy === 'updatedAt') return this.getDtUpdatedAt(row) || '';
+                    if (sortBy === 'category') return this.getDtCategory(row) || '';
+                    return this.getDtTitle(row) || '';
+                };
+
+                data.sort((a, b) => {
+                    const statusDifference = statusPriority(a) - statusPriority(b);
+                    if (statusDifference !== 0) return statusDifference;
+                    const comparison = valueForSort(a).localeCompare(valueForSort(b));
+                    return descending ? -comparison : comparison;
+                });
         
                 return data;
             }

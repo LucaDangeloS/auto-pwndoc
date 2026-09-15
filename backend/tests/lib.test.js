@@ -1,4 +1,5 @@
 module.exports = function () {
+  var acl = require('../src/lib/auth').acl
   var html2ooxml = require("../src/lib/html2ooxml")
   var utils = require("../src/lib/utils")
   var chartGenerator = require("../src/lib/chart-generator")
@@ -38,6 +39,22 @@ module.exports = function () {
         var filename = "<Vulnerability> 1"
         var result = utils.validFilename(filename)
         expect(result).toEqual(false)
+      })
+    })
+
+    describe('ACL token permission tests', () => {
+      it('honors extra permissions embedded in a signed user token', () => {
+        expect(acl.isTokenAllowed({
+          role: 'user',
+          roles: ['vulnerabilities:read', 'vulnerabilities:update']
+        }, 'vulnerabilities:update')).toEqual(true)
+      })
+
+      it('does not grant permissions absent from both role and token', () => {
+        expect(acl.isTokenAllowed({
+          role: 'user',
+          roles: ['vulnerabilities:read']
+        }, 'vulnerabilities:update')).toEqual(false)
       })
     })
 
@@ -135,6 +152,31 @@ module.exports = function () {
           'Proof: {findingPoc}',
           'findingPocVision'
         )).toEqual(true)
+      })
+
+      it('selects image-aware prompts for PoC editor actions', () => {
+        for (const action of ['generate', 'complete', 'rewrite']) {
+          var prompt = aiService._selectFieldUserPrompt(
+            action,
+            {},
+            'poc',
+            `field_poc_${action}UserPrompt`
+          )
+
+          expect(prompt).toContain('{findingPocVision}')
+          expect(prompt).toContain('[IMAGE N OMITTED]')
+        }
+      })
+
+      it('keeps customized PoC user prompts authoritative', () => {
+        var prompt = aiService._selectFieldUserPrompt(
+          'rewrite',
+          { field_poc_rewriteUserPrompt: 'Custom rewrite: {text}' },
+          'poc',
+          'field_poc_rewriteUserPrompt'
+        )
+
+        expect(prompt).toEqual('Custom rewrite: {text}')
       })
 
       it('interpolates finding and audit context tags', () => {

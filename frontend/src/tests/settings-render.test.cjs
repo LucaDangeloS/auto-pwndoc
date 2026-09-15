@@ -6,6 +6,10 @@ const path = require('path');
 
 const templatePath = path.join(__dirname, '..', 'pages', 'settings', 'settings.html');
 const template = fs.readFileSync(templatePath, 'utf8');
+const settingsScript = fs.readFileSync(path.join(__dirname, '..', 'pages', 'settings', 'settings.js'), 'utf8');
+const archiveScript = fs.readFileSync(path.join(__dirname, '..', 'pages', 'audits-archive', 'page.js'), 'utf8');
+const aiAssistantScript = fs.readFileSync(path.join(__dirname, '..', 'components', 'ai-assistant.js'), 'utf8');
+const vulnerabilitiesScript = fs.readFileSync(path.join(__dirname, '..', 'pages', 'vulnerabilities', 'vulnerabilities.js'), 'utf8');
 const bundleDir = path.join(__dirname, '..', '..', 'dist', 'spa', 'js');
 
 assert(
@@ -25,6 +29,34 @@ assert.strictEqual(
     (template.match(/v-model="settings\.ai\.private\.visionAnonymizationPrompt"/g) || []).length,
     1,
     'LLM anonymization prompt must be rendered exactly once'
+);
+for (const action of ['generate', 'complete', 'rewrite']) {
+    const fieldPrompt = new RegExp(`field_poc_${action}UserPrompt:[\\s\\S]*?\\{findingPocVision\\}`);
+    assert(fieldPrompt.test(settingsScript), `PoC ${action} must include vision descriptions`);
+}
+assert(
+    /GlobalWorkerOptions\.workerPort\s*=\s*new Worker\(\s*new URL\(\s*['"]pdfjs-dist\/legacy\/build\/pdf\.worker\.min\.mjs['"]\s*,\s*import\.meta\.url\s*\)/s.test(archiveScript),
+    'PDF.js must use a module worker emitted by the frontend bundle instead of a fake worker loaded from the site root'
+);
+assert(
+    archiveScript.includes('document.body.appendChild(link)') &&
+        archiveScript.includes('AuditArchiveService.getArchiveDownloadUrl(this.selectedArchive._id)') &&
+        archiveScript.includes('window.setTimeout(() => link.remove(), 60000)') &&
+        !archiveScript.includes('URL.revokeObjectURL'),
+    'archive downloads must use the authenticated attachment endpoint'
+);
+assert(
+    aiAssistantScript.includes('export function restorePocImages') &&
+        aiAssistantScript.includes('const placeholderPattern') &&
+        aiAssistantScript.includes('return imageTags[index]'),
+    'PoC AI results must restore original images from numbered placeholders'
+);
+assert(
+    vulnerabilitiesScript.includes('if (status === 2) return 0; // Updates') &&
+        vulnerabilitiesScript.includes('if (status === 1) return 1; // New') &&
+        vulnerabilitiesScript.includes('const statusDifference = statusPriority(a) - statusPriority(b)') &&
+        vulnerabilitiesScript.includes('return descending ? -comparison : comparison'),
+    'vulnerability sorting must keep Updates first and New second without reversing those groups'
 );
 
 const settingsBundle = fs.readdirSync(bundleDir)

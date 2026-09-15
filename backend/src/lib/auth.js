@@ -139,6 +139,17 @@ class ACL {
         return $role.inherits.some(role => this.isAllowed(role, permission))
     }
 
+    isTokenAllowed(decodedToken, permission) {
+        if (!decodedToken)
+            return false
+
+        if (this.isAllowed(decodedToken.role, permission))
+            return true
+
+        return decodedToken.roles === '*' ||
+            (Array.isArray(decodedToken.roles) && decodedToken.roles.includes(permission))
+    }
+
     hasPermission (permission) {
         var Response = require('./httpResponse')
         var jwt = require('jsonwebtoken')
@@ -151,7 +162,7 @@ class ACL {
             if (hasApiKey) {
                 return apiKeyAuth(req, res, () => {
                     if (!req.decodedToken) return;
-                    if (permission === 'validtoken' || this.isAllowed(req.decodedToken.role, permission))
+                    if (permission === 'validtoken' || this.isTokenAllowed(req.decodedToken, permission))
                         return next();
                     Response.Forbidden(res, 'Insufficient privileges');
                 });
@@ -170,6 +181,10 @@ class ACL {
     
             var token = cookie[1]
             jwt.verify(token, jwtSecret, (err, decoded) => {
+                if (!err && this.isTokenAllowed(decoded, permission)) {
+                    req.decodedToken = decoded
+                    return next()
+                }
                 if (err) {
                     if (err.name === 'TokenExpiredError')
                         Response.Unauthorized(res, 'Expired token')
@@ -192,6 +207,9 @@ class ACL {
     hasPermissionFromReq (permission,token) {
         var jwt = require('jsonwebtoken')
         return jwt.verify(token, jwtSecret, (err, decoded) => {
+            if (!err && this.isTokenAllowed(decoded, permission)) {
+                return decoded
+            }
             if (err) {
                 return false
             }

@@ -172,6 +172,21 @@ Existing proof context:
 {similarVulnsBlock}
 Write the {fieldName} content for this finding. Reply in {language}.`,
 
+    'poc-generate': `Finding title: "{findingTitle}"
+Field to generate: {fieldName}
+
+Existing PoC text. Image positions are represented by [IMAGE N OMITTED] placeholders:
+{findingPoc}
+
+Vision analysis, including the description of each image:
+{findingPocVision}
+
+Audit context:
+{auditContext}
+${AUDIT_CONTEXT_GUIDANCE}
+
+Write the PoC as a coherent evidence narrative. Preserve every [IMAGE N OMITTED] placeholder exactly once and place it immediately after the text that introduces or explains that image. Do not emit <img> tags; the original image nodes are restored after generation. Reply in {language}.`,
+
     'proof-generate': `You are completing a vulnerability finding from proof-of-concept evidence.
 Field to generate: {fieldName}
 Current finding title, which may be only a placeholder: "{findingTitle}"
@@ -235,6 +250,21 @@ Existing content:
 
 Continue from where the content ends. Reply in {language}.`,
 
+    'poc-complete': `Finding title: "{findingTitle}"
+Field: {fieldName}
+
+Existing PoC content. Its original images remain in the editor:
+{text}
+
+Vision analysis, including the description of each existing image:
+{findingPocVision}
+
+Audit context:
+{auditContext}
+${AUDIT_CONTEXT_GUIDANCE}
+
+Continue from where the content ends. Use the image descriptions as evidence, but do not repeat [IMAGE N OMITTED] placeholders and do not emit <img> tags because the existing images already remain in place. Reply in {language}.`,
+
     rewrite: `Finding title: "{findingTitle}"
 Field: {fieldName}
 Finding description context:
@@ -262,6 +292,21 @@ Content to rewrite:
 {text}
 
 Reply in {language}.`,
+
+    'poc-rewrite': `Finding title: "{findingTitle}"
+Field: {fieldName}
+
+PoC content to rewrite. Image positions are represented by [IMAGE N OMITTED] placeholders:
+{text}
+
+Vision analysis, including the description of each image:
+{findingPocVision}
+
+Audit context:
+{auditContext}
+${AUDIT_CONTEXT_GUIDANCE}
+
+Rewrite the PoC while preserving every [IMAGE N OMITTED] placeholder exactly once and in the same evidence step. Place each placeholder immediately after the text that introduces or explains its image. Do not emit <img> tags; the original image nodes are restored after rewriting. Reply in {language}.`,
 
     'fill-proofs': `Vulnerability: "{findingTitle}"
 Vulnerability description: {vulnDescription}
@@ -733,6 +778,18 @@ function selectUserPromptWithAuditDefault(action, configuredPrompt, fieldName) {
     return configuredPrompt || DEFAULT_USER_PROMPTS[action];
 }
 
+function selectFieldUserPrompt(action, privateSettings, fieldName, fieldUserKey) {
+    const fieldPrompt = fieldUserKey && privateSettings[fieldUserKey];
+    if (fieldPrompt) return fieldPrompt;
+
+    const configuredPrompt = privateSettings[`${action}UserPrompt`];
+    if (fieldName === 'poc' && isBuiltInUserPromptVariant(action, configuredPrompt)) {
+        return DEFAULT_USER_PROMPTS[`poc-${action}`];
+    }
+
+    return selectUserPromptWithAuditDefault(action, configuredPrompt, fieldName);
+}
+
 function buildImageRefsBlock(imageDescriptions) {
     if (!imageDescriptions || imageDescriptions.length === 0) return '';
     return imageDescriptions.map(img => {
@@ -956,7 +1013,7 @@ Do not invent CVEs, vendor advisories, or product-specific references unless the
         if (!userTemplate) {
             userTemplate = (context && context.proofCompletion)
                 ? DEFAULT_USER_PROMPTS['proof-generate']
-                : ((fieldUserKey && priv[fieldUserKey]) || selectUserPromptWithAuditDefault('generate', priv.generateUserPrompt, fieldName));
+                : selectFieldUserPrompt('generate', priv, fieldName, fieldUserKey);
         }
     } else if (action === 'complete') {
         const fieldKey = SUPPORTED_FIELDS.includes(fieldName) ? `field_${fieldName}_completeSystemPrompt` : null;
@@ -969,7 +1026,7 @@ Do not invent CVEs, vendor advisories, or product-specific references unless the
             userTemplate = DEFAULT_USER_PROMPTS['severity-summary-complete'];
         } else {
             systemTemplate = (fieldKey && priv[fieldKey]) || priv.completeSystemPrompt || DEFAULT_SYSTEM_PROMPTS.complete;
-            userTemplate = (fieldUserKey && priv[fieldUserKey]) || selectUserPromptWithAuditDefault('complete', priv.completeUserPrompt, fieldName);
+            userTemplate = selectFieldUserPrompt('complete', priv, fieldName, fieldUserKey);
         }
     } else if (action === 'rewrite') {
         const fieldKey = SUPPORTED_FIELDS.includes(fieldName) ? `field_${fieldName}_rewriteSystemPrompt` : null;
@@ -982,7 +1039,7 @@ Do not invent CVEs, vendor advisories, or product-specific references unless the
             userTemplate = DEFAULT_USER_PROMPTS['severity-summary-rewrite'];
         } else {
             systemTemplate = (fieldKey && priv[fieldKey]) || priv.rewriteSystemPrompt || DEFAULT_SYSTEM_PROMPTS.rewrite;
-            userTemplate = (fieldUserKey && priv[fieldUserKey]) || selectUserPromptWithAuditDefault('rewrite', priv.rewriteUserPrompt, fieldName);
+            userTemplate = selectFieldUserPrompt('rewrite', priv, fieldName, fieldUserKey);
         }
     } else if (action === 'fill-proofs') {
         systemTemplate = priv.fillProofsSystemPrompt || DEFAULT_SYSTEM_PROMPTS['fill-proofs'];
@@ -1087,6 +1144,7 @@ module.exports = {
     _htmlToContextText: htmlToContextText,
     _truncateMultilineContext: truncateMultilineContext,
     _promptUsesVariable: promptUsesVariable,
+    _selectFieldUserPrompt: selectFieldUserPrompt,
     _normalizeGeneratedHtml: normalizeGeneratedHtml,
     _normalizeExecutiveSummaryHtml: normalizeExecutiveSummaryHtml,
     _normalizeSeveritySummaryHtml: normalizeSeveritySummaryHtml

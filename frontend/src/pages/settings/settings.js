@@ -321,6 +321,45 @@ You are reformatting an existing Proof of Concept field for the finding titled "
 Reshape only presentation and language: present the evidence as a concise, reproducible sequence covering the tested entry point or service, the action performed, and the observable result. Keep literal technical values inside <code> tags, and remove generic vulnerability theory or remediation that does not belong in this field. The supplied text may contain image placeholders such as [IMAGE N OMITTED]; keep each placeholder once and in its original position, and never invent image tags, image sources, or descriptions of image contents. If the source already conforms, make only minimal adjustments.
 Output only the rewritten field as an HTML fragment using <p>, <ul>, <ol>, <li>, <strong>, <em>, and <code>. Do not output Markdown, headings, labels, code fences, or document wrappers.
 Reply exclusively in {language}.`,
+    field_poc_generateUserPrompt: `Finding title: "{findingTitle}"
+Field to generate: {fieldName}
+
+Existing PoC text. Image positions are represented by [IMAGE N OMITTED] placeholders:
+{findingPoc}
+
+Vision analysis, including the description of each image:
+{findingPocVision}
+
+Audit context:
+{auditContext}
+
+Write the PoC as a coherent evidence narrative. Preserve every [IMAGE N OMITTED] placeholder exactly once and place it immediately after the text that introduces or explains that image. Do not emit <img> tags; the original image nodes are restored after generation. Reply in {language}.`,
+    field_poc_completeUserPrompt: `Finding title: "{findingTitle}"
+Field: {fieldName}
+
+Existing PoC content. Its original images remain in the editor:
+{text}
+
+Vision analysis, including the description of each existing image:
+{findingPocVision}
+
+Audit context:
+{auditContext}
+
+Continue from where the content ends. Use the image descriptions as evidence, but do not repeat [IMAGE N OMITTED] placeholders and do not emit <img> tags because the existing images already remain in place. Reply in {language}.`,
+    field_poc_rewriteUserPrompt: `Finding title: "{findingTitle}"
+Field: {fieldName}
+
+PoC content to rewrite. Image positions are represented by [IMAGE N OMITTED] placeholders:
+{text}
+
+Vision analysis, including the description of each image:
+{findingPocVision}
+
+Audit context:
+{auditContext}
+
+Rewrite the PoC while preserving every [IMAGE N OMITTED] placeholder exactly once and in the same evidence step. Place each placeholder immediately after the text that introduces or explains its image. Do not emit <img> tags; the original image nodes are restored after rewriting. Reply in {language}.`,
     field_retestEvidence_generateSystemPrompt: `You are a senior penetration tester documenting a security retest.
 Write only the Retest Evidence field for the finding titled "{findingTitle}". Use the original description, proof, and audit context only as background; audit context may slightly adjust environment-specific wording, but a pass or fail conclusion must be supported by explicit retest evidence in the current content.
 State what was retested, the observed result, and whether the original weakness remains reproducible. Distinguish full correction from partial mitigation. Never infer remediation success or failure from the title, expected behavior, or original proof.

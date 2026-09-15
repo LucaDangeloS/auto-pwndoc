@@ -30,11 +30,15 @@ export const AiAssistantExtension = Extension.create({
 
             aiRewrite: (fieldName, aiContext, options) => ({ editor }) => {
                 const { from, to } = editor.state.selection
-                const selectedText = editor.state.doc.textBetween(from, to, '\n')
-                if (!selectedText.trim()) {
+                const selectedHtml = selectionRangeToHtml(editor, { from, to })
+                const hasSelectedContent = selectedHtml
+                    .replace(/<img\b[^>]*>/gi, '[image]')
+                    .replace(/<[^>]+>/g, '')
+                    .trim()
+                if (!hasSelectedContent) {
                     confirmAndRewriteWhole(editor, fieldName, aiContext, options)
                 } else {
-                    runAiCommand(editor, 'rewrite', selectedText, fieldName, aiContext, { from, to }, options)
+                    runAiCommand(editor, 'rewrite', selectedHtml, fieldName, aiContext, { from, to }, options)
                 }
                 return true
             },
@@ -82,6 +86,7 @@ async function runAiCommand(editor, action, text, fieldName, aiContext, selectio
     editor.setEditable(false)
 
     try {
+        const sourceHtml = selectionRange ? text : editor.getHTML()
         const payload = buildAiPayload(action, text, fieldName, aiContext)
 
         // Optional "review anonymized input before sending" safeguard: preview
@@ -109,7 +114,10 @@ async function runAiCommand(editor, action, text, fieldName, aiContext, selectio
         const html = await requestAiHtml(payload, controller.signal)
         if (!html) throw new Error($t('aiEmptyResponse'))
 
-        const sanitized = sanitizeHtml(html)
+        const restored = fieldName === 'poc'
+            ? restorePocImages(html, sourceHtml, action)
+            : html
+        const sanitized = sanitizeHtml(restored)
 
         editor.setEditable(true)
 
@@ -182,8 +190,54 @@ function buildAiResult(editor, action, html, selectionRange) {
 }
 
 function selectionRangeToHtml(editor, selectionRange) {
-    const text = editor.state.doc.textBetween(selectionRange.from, selectionRange.to, '\n')
-    return `<p>${escapeHtml(text).replace(/\n/g, '<br>')}</p>`
+    const parts = []
+    editor.state.doc.nodesBetween(selectionRange.from, selectionRange.to, (node, pos) => {
+        if (node.isText) {
+            const start = Math.max(selectionRange.from - pos, 0)
+            const end = Math.min(selectionRange.to - pos, node.text.length)
+            if (end > start) parts.push(escapeHtml(node.text.slice(start, end)))
+        } else if (node.type && node.type.name === 'image') {
+            parts.push(serializeImageNode(node))
+        } else if (node.type && node.type.name === 'hardBreak') {
+            parts.push('<br>')
+        }
+    })
+    return `<p>${parts.join('')}</p>`
+}
+
+function serializeImageNode(node) {
+    const attrs = node.attrs || {}
+    const allowed = ['src', 'alt', 'title', 'width', 'height']
+    const serialized = allowed
+        .filter(name => attrs[name] !== undefined && attrs[name] !== null && attrs[name] !== '')
+        .map(name => `${name}="${escapeHtml(String(attrs[name]))}"`)
+        .join(' ')
+    return serialized ? `<img ${serialized}>` : ''
+}
+
+export function restorePocImages(generatedHtml, sourceHtml, action) {
+    const imageTags = String(sourceHtml || '').match(/<img\b[^>]*>/gi) || []
+    let output = String(generatedHtml || '').replace(/<img\b[^>]*>/gi, '')
+    const placeholderPattern = /\[IMAGE\s+(\d+)\s+OMITTED\]/gi
+
+    if (action === 'complete') {
+        return output.replace(placeholderPattern, '').replace(/<p>\s*<\/p>/gi, '')
+    }
+
+    const restoredIndexes = new Set()
+    output = output.replace(placeholderPattern, (placeholder, rawIndex) => {
+        const index = Number(rawIndex) - 1
+        if (index < 0 || index >= imageTags.length || restoredIndexes.has(index)) return ''
+        restoredIndexes.add(index)
+        return imageTags[index]
+    })
+
+    const missingImages = imageTags.filter((_tag, index) => !restoredIndexes.has(index))
+    if (missingImages.length) {
+        output += missingImages.map(tag => `<p>${tag}</p>`).join('')
+    }
+
+    return output.replace(/<p>\s*<\/p>/gi, '')
 }
 
 function escapeHtml(value) {

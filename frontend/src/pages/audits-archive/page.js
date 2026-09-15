@@ -5,7 +5,10 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 import AuditArchiveService from '@/services/audit-archive'
 import { $t } from '@/boot/i18n'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+pdfjsLib.GlobalWorkerOptions.workerPort = new Worker(
+  new URL('pdfjs-dist/legacy/build/pdf.worker.min.mjs', import.meta.url),
+  { type: 'module' }
+)
 
 const MAX_PDF_SIZE = 200 * 1024 * 1024
 
@@ -245,13 +248,16 @@ export default {
     },
 
     downloadSelected() {
-      if (!this.selectedArchive || !this.pdfBytes) return
-      const blob = new Blob([this.pdfBytes], { type: 'application/pdf' })
+      if (!this.selectedArchive) return
       const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
+      link.href = AuditArchiveService.getArchiveDownloadUrl(this.selectedArchive._id)
       link.download = this.selectedArchive.originalName
+      link.style.display = 'none'
+      document.body.appendChild(link)
       link.click()
-      URL.revokeObjectURL(link.href)
+      // Keep the anchor alive while large archives are still streaming. Some
+      // browsers cancel an in-flight download when its source node is removed.
+      window.setTimeout(() => link.remove(), 60000)
     },
 
     confirmDelete(archive) {

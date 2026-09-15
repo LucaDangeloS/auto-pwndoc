@@ -87,6 +87,17 @@ module.exports = function(request, app) {
 
       expect(response.status).toBe(200);
       expect(response.headers['content-type']).toContain('application/pdf');
+      expect(response.headers['content-disposition']).toContain('inline');
+    });
+
+    it('Download archived PDF file as an attachment', async () => {
+      var response = await request(app).get(`/api/audit-archives/${archiveId}/file?download=1`)
+        .set('Cookie', [`token=JWT ${userToken}`]);
+
+      expect(response.status).toBe(200);
+      expect(response.headers['content-type']).toContain('application/pdf');
+      expect(response.headers['content-disposition']).toContain('attachment');
+      expect(response.headers['content-disposition']).toContain('legacy-report.pdf');
     });
 
     it('Delete archived PDF', async () => {

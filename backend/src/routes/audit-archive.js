@@ -82,7 +82,8 @@ module.exports = function(app) {
             var file = archivePath(data.filename);
             if (!fs.existsSync(file)) throw({fn: 'NotFound', message: 'Archived PDF file not found'});
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(data.originalName)}"`);
+            var disposition = req.query.download === '1' ? 'attachment' : 'inline';
+            res.setHeader('Content-Disposition', `${disposition}; filename="${encodeURIComponent(data.originalName)}"`);
             fs.createReadStream(file).pipe(res);
         })
         .catch(err => {

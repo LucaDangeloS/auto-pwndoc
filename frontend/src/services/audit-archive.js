@@ -15,5 +15,9 @@ export default {
 
   getArchiveFile(archiveId) {
     return api.get(`audit-archives/${archiveId}/file`, { responseType: 'arraybuffer' })
+  },
+
+  getArchiveDownloadUrl(archiveId) {
+    return `${api.defaults.baseURL}/audit-archives/${archiveId}/file?download=1`
   }
 }

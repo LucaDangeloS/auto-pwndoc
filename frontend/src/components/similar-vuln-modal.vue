@@ -302,9 +302,13 @@ const DEFAULT_DIFF_FIELDS = [
   { key: 'cvssv4',       label: 'similarVulnCvss4',     type: 'text'  },
 ];
 
-function diffFieldsForMode(isProofMode) {
+const PROOF_DIFF_FIELD = { key: 'poc', label: 'fieldPoc', type: 'html' };
+
+function diffFieldsForMode(isProofMode, result) {
   return isProofMode
-    ? DEFAULT_DIFF_FIELDS.filter(field => field.key !== 'observation')
+    ? DEFAULT_DIFF_FIELDS
+        .filter(field => field.key !== 'observation')
+        .concat(result && result.generatedFromProof ? [PROOF_DIFF_FIELD] : [])
     : DEFAULT_DIFF_FIELDS;
 }
 
@@ -351,7 +355,7 @@ export default defineComponent({
       return `<em class="text-grey-5">${this.$t('empty')}</em>`;
     },
     diffFields() {
-      return diffFieldsForMode(this.isProofMode);
+      return diffFieldsForMode(this.isProofMode, this.selected);
     }
   },
 
@@ -377,12 +381,15 @@ export default defineComponent({
   methods: {
     _defaultApplyMap() {
       // Pre-tick fields that actually changed so the user starts from a sensible default
-      const map = diffFieldsForMode(this.isProofMode).reduce((acc, field) => {
+      const selected = this.results && this.selectedIndex !== null
+        ? this.results[this.selectedIndex]
+        : null;
+      const map = diffFieldsForMode(this.isProofMode, selected).reduce((acc, field) => {
         acc[field.key] = false;
         return acc;
       }, {});
       if (this.results && this.results.length > 0 && this.selectedIndex !== null && this.selectedIndex < this.results.length) {
-        const sel = this.results[this.selectedIndex];
+        const sel = selected;
         Object.keys(map).forEach((k) => {
           map[k] = this._fieldChanged(sel, k);
         });

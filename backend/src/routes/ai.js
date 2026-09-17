@@ -28,6 +28,21 @@ module.exports = function(app) {
         return result && result.html ? result.html : '';
     }
 
+    async function completeProofPoc(pocHtml, context, aiSettings) {
+        var result = await aiService.generate({
+            action: 'complete',
+            text: pocHtml,
+            fieldName: 'poc',
+            context,
+            aiSettings
+        });
+        var continuation = normalizeGeneratedProofField('poc', result && result.html ? result.html : '')
+            .replace(/<img\b[^>]*>/gi, '')
+            .replace(/\[IMAGE\s+\d+\s+OMITTED\]/gi, '')
+            .replace(/<p>\s*<\/p>/gi, '');
+        return `${pocHtml || ''}${continuation}`;
+    }
+
     var FIELD_LABELS = {
         title: ['title', 'titulo', 'título', 'titel'],
         description: ['description', 'descripcion', 'descripción', 'beschreibung'],
@@ -255,7 +270,8 @@ module.exports = function(app) {
                 : generateProofFieldMaybe('cvssv3', findingCvssv3, generationContext, aiSettings, shouldOverwrite),
             wantCvssV4
                 ? generateProofFieldMaybe('cvssv4', findingCvssv4, generationContext, aiSettings, shouldOverwrite)
-                : Promise.resolve(findingCvssv4 || '')
+                : Promise.resolve(findingCvssv4 || ''),
+            completeProofPoc(pocHtml, generationContext, aiSettings)
         ]);
         var references = Array.isArray(generatedFields[3]) ? generatedFields[3] : normalizeReferences(generatedFields[3]);
         var cvssv3 = normalizeCvssVector(generatedFields[4], '3.1') || findingCvssv3 || '';
@@ -281,6 +297,7 @@ module.exports = function(app) {
             taxonomies: [],
             description: generatedFields[1],
             remediation: generatedFields[2],
+            poc: generatedFields[6],
             references,
             cvssv3,
             cvssv4

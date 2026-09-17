@@ -1297,7 +1297,7 @@ export default defineComponent({
       }
       return document.createTextNode('');
     },
-    runAi(action) {
+    runAi(action, selectionRange = null) {
       if (!this.editor) return;
       if (!this.aiAvailable) return;
       this.aiLoading = true;
@@ -1314,7 +1314,7 @@ export default defineComponent({
             ...result,
             fieldName: this.fieldName,
             editor: this.editor,
-            rerun: () => this.runAi(result.action),
+            rerun: () => this.runAi(result.action, result.selectionRange),
           });
         } else {
           this.aiReview = {
@@ -1337,7 +1337,7 @@ export default defineComponent({
       } else if (action === 'complete') {
         this.editor.commands.aiComplete(this.fieldName, this.aiContext, { onResult, onDone, review });
       } else if (action === 'rewrite') {
-        this.editor.commands.aiRewrite(this.fieldName, this.aiContext, { onResult, onDone, review });
+        this.editor.commands.aiRewrite(this.fieldName, this.aiContext, { onResult, onDone, review, selectionRange });
       }
     },
 

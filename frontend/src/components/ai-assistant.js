@@ -29,7 +29,11 @@ export const AiAssistantExtension = Extension.create({
             },
 
             aiRewrite: (fieldName, aiContext, options) => ({ editor }) => {
-                const { from, to } = editor.state.selection
+                const requestedRange = options && options.selectionRange
+                const currentSelection = editor.state.selection
+                const { from, to } = requestedRange && requestedRange.from < requestedRange.to
+                    ? requestedRange
+                    : currentSelection
                 const selectedHtml = selectionRangeToHtml(editor, { from, to })
                 const hasSelectedContent = selectedHtml
                     .replace(/<img\b[^>]*>/gi, '[image]')

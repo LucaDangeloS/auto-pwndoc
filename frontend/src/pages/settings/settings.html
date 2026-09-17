@@ -1780,6 +1780,8 @@
                             <q-item-label>{{k.name}}</q-item-label>
                             <q-item-label caption>
                                 {{$t('apiKeyPrefix')}}: {{k.keyPrefix}}...
+                                &nbsp;&middot;&nbsp;
+                                {{$t('apiKeyOwner')}}: {{k.creator ? (k.creator.unavailable ? $t('apiKeyOwnerUnavailable') : k.creator.username) : $t('apiKeyOwnerMissing')}}
                                 &nbsp;·&nbsp;
                                 {{$t('apiKeyCreatedAt')}}: {{new Date(k.createdAt).toLocaleDateString()}}
                                 &nbsp;·&nbsp;
@@ -1787,6 +1789,16 @@
                             </q-item-label>
                         </q-item-section>
                         <q-item-section side>
+                            <q-btn
+                                v-if="!k.creator"
+                                flat round dense
+                                icon="person_add"
+                                color="primary"
+                                :aria-label="$t('apiKeyClaim')"
+                                @click="claimApiKey(k)"
+                            >
+                                <q-tooltip>{{$t('apiKeyClaim')}}</q-tooltip>
+                            </q-btn>
                             <q-btn
                                 flat round dense
                                 icon="delete"
@@ -1878,12 +1890,16 @@
                     </div>
                     <div class="col-12 col-md-auto row items-center no-wrap q-gutter-x-sm">
                         <q-btn color="primary" no-caps icon="vpn_key" :label="$t('mcpGenerateKey')" :disable="!canEdit" @click="rotateMcpKey" />
+                        <q-btn v-if="settings.mcp.apiKey && !settings.mcp.creator" outline color="primary" no-caps icon="person_add" :label="$t('apiKeyClaim')" :disable="!canEdit" @click="claimMcpKey" />
                         <q-btn outline color="negative" no-caps icon="delete" :label="$t('mcpClearKey')" :disable="!canEdit || !settings.mcp.apiKey" @click="clearMcpKey" />
                     </div>
                 </div>
                 <div class="row q-col-gutter-x-md">
                     <div class="col-12 col-md text-caption text-grey-7 q-mt-xs">
                         {{settings.mcp.apiKeyCreatedAt ? $t('mcpKeyCreatedAt') + ': ' + new Date(settings.mcp.apiKeyCreatedAt).toLocaleString() : $t('mcpNoApiKey')}}
+                        <template v-if="settings.mcp.apiKey">
+                            &nbsp;&middot;&nbsp;{{$t('apiKeyOwner')}}: {{settings.mcp.creator ? (settings.mcp.creator.unavailable ? $t('apiKeyOwnerUnavailable') : settings.mcp.creator.username) : $t('apiKeyOwnerMissing')}}
+                        </template>
                     </div>
                 </div>
             </q-card-section>

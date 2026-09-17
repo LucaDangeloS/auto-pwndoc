@@ -1,6 +1,8 @@
 'use strict';
 
 var Settings = require('mongoose').model('Settings');
+var User = require('mongoose').model('User');
+var auth = require('./auth');
 
 function requestId(req) {
     return req.body && req.body.id !== undefined ? req.body.id : null;
@@ -23,6 +25,27 @@ module.exports = async function(req, res, next) {
         if (!mcp.apiKey || apiKey !== mcp.apiKey) {
             return res.status(401).json({ jsonrpc: '2.0', error: { code: -32002, message: 'Invalid API key' }, id: requestId(req) });
         }
+
+        if (!mcp.creator) {
+            return res.status(401).json({ jsonrpc: '2.0', error: { code: -32003, message: 'MCP API key has no owner. Rotate it from Settings.' }, id: requestId(req) });
+        }
+
+        var owner = await User.findById(mcp.creator).select('username firstname lastname email phone role permissions enabled');
+        if (!owner || owner.enabled === false) {
+            return res.status(401).json({ jsonrpc: '2.0', error: { code: -32004, message: 'MCP API key owner is unavailable' }, id: requestId(req) });
+        }
+
+        var baseRoles = auth.acl.getRoles(owner.role);
+        req.mcpActor = {
+            id: owner._id.toString(),
+            username: owner.username,
+            firstname: owner.firstname,
+            lastname: owner.lastname,
+            email: owner.email,
+            phone: owner.phone,
+            role: owner.role,
+            roles: baseRoles === '*' ? '*' : [...new Set([...baseRoles, ...(owner.permissions || [])])]
+        };
 
         next();
     }

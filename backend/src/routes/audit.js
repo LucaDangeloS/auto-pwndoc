@@ -7,6 +7,7 @@ module.exports = function(app, io) {
     var _ = require('lodash');
     var utils = require('../lib/utils');
     var Settings = require('mongoose').model('Settings');
+    var User = require('mongoose').model('User');
     var VulnerabilityTaxonomy = require('mongoose').model('VulnerabilityTaxonomy');
 
     function normalizedTaxonomies(body) {
@@ -129,6 +130,27 @@ module.exports = function(app, io) {
         Audit.create(audit, req.decodedToken.id)
         .then(inserted => Response.Created(res, {message: 'Audit created successfully', audit: inserted}))
         .catch(err => Response.Internal(res, err))
+    });
+
+    // Assign or repair the owner of an existing audit.
+    app.put("/api/audits/:auditId/owner", acl.hasPermission('audits:update-all'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        try {
+            var userId = req.body && req.body.userId;
+            if (!userId && req.body && req.body.username) {
+                var user = await User.findOne({username: req.body.username}).select('_id');
+                userId = user && user._id;
+            }
+            if (!userId)
+                return Response.BadParameters(res, 'A valid userId or username is required');
+
+            var audit = await Audit.assignOwner(req.params.auditId, userId);
+            Response.Ok(res, {message: 'Audit owner updated successfully', audit});
+        }
+        catch (err) {
+            Response.Internal(res, err);
+        }
     });
 
     // Clone existing audit

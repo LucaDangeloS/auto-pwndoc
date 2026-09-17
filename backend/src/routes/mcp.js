@@ -43,7 +43,7 @@ module.exports = function(app) {
         return [
             {
             name: 'list_audits',
-            description: 'List audits visible to the MCP service account. Optionally filter by finding title. Returns id, name, date, client, language, template, type, state, creator, and collaborators for each audit.',
+            description: 'List audits visible to the user who owns the MCP API key. Optionally filter by finding title. Returns id, name, date, client, language, template, type, state, creator, and collaborators for each audit.',
             inputSchema: {
                 type: 'object',
                 properties: { findingTitle: { type: 'string', description: 'Return only audits that contain a finding whose title matches this substring.' } }
@@ -187,17 +187,12 @@ module.exports = function(app) {
         return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
     }
 
-    function makeServiceCookie() {
-        var token = jwt.sign({
-            id: '000000000000000000000000',
-            username: 'mcp-service',
-            role: 'admin',
-            roles: '*'
-        }, auth.jwtSecret, { expiresIn: '5m' });
+    function makeServiceCookie(actor) {
+        var token = jwt.sign(actor, auth.jwtSecret, { expiresIn: '5m' });
         return 'token=JWT ' + token;
     }
 
-    function internalRequest(method, path, body) {
+    function internalRequest(method, path, body, actor) {
         return new Promise((resolve, reject) => {
             var payload = body === undefined ? null : JSON.stringify(body);
             var req = https.request({
@@ -209,7 +204,7 @@ module.exports = function(app) {
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'Cookie': makeServiceCookie()
+                    'Cookie': makeServiceCookie(actor)
                 }
             }, (res) => {
                 var chunks = '';
@@ -248,30 +243,30 @@ module.exports = function(app) {
         return (rows || []).filter(row => JSON.stringify(row).toLowerCase().includes(needle));
     }
 
-    async function callTool(name, args) {
+    async function callTool(name, args, actor) {
         args = args || {};
 
         if (name === 'list_audits') {
-            return internalRequest('GET', '/api/audits' + encodeQuery({ findingTitle: args.findingTitle }));
+            return internalRequest('GET', '/api/audits' + encodeQuery({ findingTitle: args.findingTitle }), undefined, actor);
         }
         if (name === 'get_audit') {
-            var audit = await internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId));
+            var audit = await internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId), undefined, actor);
             if (audit && Array.isArray(audit.findings)) {
                 audit.findings = audit.findings.map(f => Object.assign({}, f, findingSeverity(f)));
             }
             return audit;
         }
         if (name === 'update_audit_general') {
-            return internalRequest('PUT', '/api/audits/' + encodeURIComponent(args.auditId) + '/general', args.fields || {});
+            return internalRequest('PUT', '/api/audits/' + encodeURIComponent(args.auditId) + '/general', args.fields || {}, actor);
         }
         if (name === 'get_audit_network') {
-            return internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId) + '/network');
+            return internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId) + '/network', undefined, actor);
         }
         if (name === 'update_audit_network') {
-            return internalRequest('PUT', '/api/audits/' + encodeURIComponent(args.auditId) + '/network', { scope: args.scope || [] });
+            return internalRequest('PUT', '/api/audits/' + encodeURIComponent(args.auditId) + '/network', { scope: args.scope || [] }, actor);
         }
         if (name === 'list_findings') {
-            var audit = await internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId));
+            var audit = await internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId), undefined, actor);
             return (audit.findings || []).map(finding => {
                 var taxonomy = firstTaxonomy(finding);
                 var sev = findingSeverity(finding);
@@ -294,33 +289,33 @@ module.exports = function(app) {
             });
         }
         if (name === 'list_taxonomies') {
-            return internalRequest('GET', '/api/data/vulnerability-taxonomy/hierarchy');
+            return internalRequest('GET', '/api/data/vulnerability-taxonomy/hierarchy', undefined, actor);
         }
         if (name === 'get_all_findings') {
-            var audit = await internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId));
+            var audit = await internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId), undefined, actor);
             return (audit.findings || []).map(f => Object.assign({}, f, findingSeverity(f)));
         }
         if (name === 'get_finding') {
-            return internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId));
+            return internalRequest('GET', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId), undefined, actor);
         }
         if (name === 'create_finding') {
-            return internalRequest('POST', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings', args.fields || {});
+            return internalRequest('POST', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings', args.fields || {}, actor);
         }
         if (name === 'update_finding') {
-            return internalRequest('PUT', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId), args.fields || {});
+            return internalRequest('PUT', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId), args.fields || {}, actor);
         }
         if (name === 'delete_finding') {
-            return internalRequest('DELETE', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId));
+            return internalRequest('DELETE', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId), undefined, actor);
         }
         if (name === 'list_vulnerabilities') {
             var path = args.locale ? '/api/vulnerabilities/' + encodeURIComponent(args.locale) : '/api/vulnerabilities';
-            return filterVulnerabilities(await internalRequest('GET', path), args.query);
+            return filterVulnerabilities(await internalRequest('GET', path, undefined, actor), args.query);
         }
         if (name === 'search_similar_vulnerabilities') {
-            return internalRequest('POST', '/api/ai/search-similar', { query: args.query, locale: args.locale });
+            return internalRequest('POST', '/api/ai/search-similar', { query: args.query, locale: args.locale }, actor);
         }
         if (name === 'apply_vulnerability_to_finding') {
-            var vulnerabilities = await internalRequest('GET', '/api/vulnerabilities');
+            var vulnerabilities = await internalRequest('GET', '/api/vulnerabilities', undefined, actor);
             var vulnerability = (vulnerabilities || []).find(v => String(v._id) === String(args.vulnerabilityId));
             if (!vulnerability) throw new Error('Vulnerability not found');
 
@@ -344,7 +339,7 @@ module.exports = function(app) {
                 remediationComplexity: vulnerability.remediationComplexity,
                 category: taxonomy.type || ''
             };
-            return internalRequest('PUT', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId), fields);
+            return internalRequest('PUT', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId), fields, actor);
         }
 
         throw new Error('Unknown tool: ' + name);
@@ -355,7 +350,7 @@ module.exports = function(app) {
         return settings && settings.mcp && settings.mcp.guidance;
     }
 
-    async function handleMessage(message) {
+    async function handleMessage(message, actor) {
         if (!message || message.jsonrpc !== '2.0') return errorResponse(message && message.id, -32600, 'Invalid Request');
         if (!message.method) return errorResponse(message.id, -32600, 'Missing method');
         if (message.id === undefined) return null;
@@ -380,7 +375,7 @@ module.exports = function(app) {
             if (message.method === 'tools/call') {
                 var params = message.params || {};
                 if (!params.name) return errorResponse(message.id, -32602, 'Missing tool name');
-                var result = await callTool(params.name, params.arguments || {});
+                var result = await callTool(params.name, params.arguments || {}, actor);
                 return response(message.id, contentResult(result));
             }
 
@@ -395,12 +390,12 @@ module.exports = function(app) {
         try {
             var body = req.body;
             if (Array.isArray(body)) {
-                var results = (await Promise.all(body.map(handleMessage))).filter(Boolean);
+                var results = (await Promise.all(body.map(message => handleMessage(message, req.mcpActor)))).filter(Boolean);
                 if (results.length === 0) return res.status(202).end();
                 return res.json(results);
             }
 
-            var result = await handleMessage(body);
+            var result = await handleMessage(body, req.mcpActor);
             if (!result) return res.status(202).end();
             return res.json(result);
         }

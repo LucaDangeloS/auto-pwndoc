@@ -1,3 +1,5 @@
+var mongoose = require('mongoose');
+
 module.exports = function(request, app) {
     describe('Application settings', () => {
       var userToken = '';
@@ -248,6 +250,7 @@ module.exports = function(request, app) {
           "enabled": false,
           "apiKey": "",
           "apiKeyCreatedAt": null,
+          "creator": null,
           "appUrl": "https://localhost:8443",
         },
       };
@@ -374,6 +377,7 @@ module.exports = function(request, app) {
             "enabled": false,
             "apiKey": "",
             "apiKeyCreatedAt": null,
+            "creator": null,
             "appUrl": "https://localhost:8443",
           },
         };
@@ -455,10 +459,13 @@ module.exports = function(request, app) {
       var ownerId = String(me.body.datas._id);
 
       var apiKey = createdKey.body.datas.key;
-      expect(String(createdKey.body.datas.creator)).toBe(ownerId);
+      expect(String(createdKey.body.datas.creator._id)).toBe(ownerId);
+      expect(createdKey.body.datas.creator.username).toBe('admin');
       var listedKeys = await request(app).get('/api/settings/api-keys')
         .set('Cookie', [`token=JWT ${userToken}`]);
-      expect(String(listedKeys.body.datas.find(key => key.id === createdKey.body.datas.id).creator)).toBe(ownerId);
+      var listedKey = listedKeys.body.datas.find(key => key.id === createdKey.body.datas.id);
+      expect(String(listedKey.creator._id)).toBe(ownerId);
+      expect(listedKey.creator.username).toBe('admin');
 
       var taxonomyMutation = await request(app).post('/api/data/vulnerability-taxonomy')
         .set('X-API-Key', apiKey)
@@ -477,6 +484,51 @@ module.exports = function(request, app) {
       expect(String(createdAudit.body.datas.audit.creator)).toBe(ownerId);
       var auditId = createdAudit.body.datas.audit._id;
 
+      await mongoose.model('Audit').updateOne(
+        {_id: auditId},
+        {$set: {creator: new mongoose.Types.ObjectId()}}
+      );
+      var repairedAudit = await request(app).put(`/api/audits/${auditId}/owner`)
+        .set('Cookie', [`token=JWT ${userToken}`])
+        .send({username: 'admin'});
+      expect(repairedAudit.status).toBe(200);
+      expect(repairedAudit.body.datas.audit.creator.username).toBe('admin');
+
+      var legacyKey = 'legacy-ownerless-test-key';
+      await mongoose.model('Settings').findOneAndUpdate(
+        {},
+        {$push: {'api.keys': {name: 'legacy ownerless key', key: legacyKey, creator: null}}},
+        {upsert: true}
+      );
+      var legacyRequest = await request(app).get('/api/audits')
+        .set('X-API-Key', legacyKey);
+      expect(legacyRequest.status).toBe(401);
+      expect(legacyRequest.body.error).toContain('has no owner');
+      var legacySettings = await mongoose.model('Settings').findOne({});
+      var legacyEntry = legacySettings.api.keys.find(key => key.key === legacyKey);
+      await mongoose.model('Audit').updateOne(
+        {_id: auditId},
+        {$set: {creator: legacyEntry._id}}
+      );
+      var claimedLegacyKey = await request(app).post(`/api/settings/api-keys/${legacyEntry._id}/claim`)
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(claimedLegacyKey.status).toBe(200);
+      expect(String(claimedLegacyKey.body.datas.creator._id)).toBe(ownerId);
+      expect(claimedLegacyKey.body.datas.repairedAudits).toBe(1);
+      var automaticallyRepairedAudit = await mongoose.model('Audit').findById(auditId);
+      expect(String(automaticallyRepairedAudit.creator)).toBe(ownerId);
+      var retriedLegacyClaim = await request(app).post(`/api/settings/api-keys/${legacyEntry._id}/claim`)
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(retriedLegacyClaim.status).toBe(200);
+      expect(retriedLegacyClaim.body.datas.repairedAudits).toBe(0);
+      var claimedLegacyRequest = await request(app).get('/api/audits')
+        .set('X-API-Key', legacyKey);
+      expect(claimedLegacyRequest.status).toBe(200);
+      await mongoose.model('Settings').findOneAndUpdate(
+        {},
+        {$pull: {'api.keys': {key: legacyKey}}}
+      );
+
       var createdFinding = await request(app).post(`/api/audits/${auditId}/findings`)
         .set('X-API-Key', apiKey)
         .send({title: 'REST taxonomy finding', taxonomies: [{type: 'Internal'}]});
@@ -491,9 +543,36 @@ module.exports = function(request, app) {
         .send({taxonomies: [{type: 'Not an approved taxonomy'}]});
       expect(invalidTaxonomy.status).toBe(422);
 
+      var legacyMcpKey = 'legacy-ownerless-mcp-key';
+      await mongoose.model('Settings').updateOne({}, {$set: {
+        'mcp.enabled': true,
+        'mcp.apiKey': legacyMcpKey,
+        'mcp.apiKeyCreatedAt': new Date(),
+        'mcp.creator': null
+      }});
+      var legacyMcpRequest = await request(app).post('/api/mcp')
+        .set('X-API-Key', legacyMcpKey)
+        .send({jsonrpc: '2.0', id: 1, method: 'tools/list'});
+      expect(legacyMcpRequest.status).toBe(401);
+      expect(legacyMcpRequest.body.error.message).toContain('has no owner');
+      var claimedMcpKey = await request(app).post('/api/settings/mcp/claim-key')
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(claimedMcpKey.status).toBe(200);
+      expect(String(claimedMcpKey.body.datas.creator._id)).toBe(ownerId);
+      var retriedMcpClaim = await request(app).post('/api/settings/mcp/claim-key')
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(retriedMcpClaim.status).toBe(200);
+      expect(retriedMcpClaim.body.datas.repairedAudits).toBe(0);
+      var claimedMcpRequest = await request(app).post('/api/mcp')
+        .set('X-API-Key', legacyMcpKey)
+        .send({jsonrpc: '2.0', id: 2, method: 'tools/list'});
+      expect(claimedMcpRequest.status).toBe(200);
+
       var rotate = await request(app).post('/api/settings/mcp/rotate-key')
         .set('Cookie', [`token=JWT ${userToken}`]);
       expect(rotate.status).toBe(200);
+      expect(String(rotate.body.datas.creator._id)).toBe(ownerId);
+      expect(rotate.body.datas.creator.username).toBe('admin');
       var enableMcp = await request(app).put('/api/settings')
         .set('Cookie', [`token=JWT ${userToken}`])
         .send({mcp: {enabled: true, apiKey: rotate.body.datas.apiKey, apiKeyCreatedAt: rotate.body.datas.apiKeyCreatedAt}});

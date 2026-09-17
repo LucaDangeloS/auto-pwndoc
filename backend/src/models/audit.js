@@ -411,7 +411,6 @@ AuditSchema.statics.getAudit = (isAdmin, auditId, userId) => {
 // Create audit
 AuditSchema.statics.create = (audit, userId) => {
     return new Promise((resolve, reject) => {
-        audit.creator = userId
         audit.sections = []
         audit.customFields = []
 
@@ -419,7 +418,14 @@ AuditSchema.statics.create = (audit, userId) => {
         var customSections = []
         var customFields = []
         var AuditType = mongoose.model('AuditType')
-        AuditType.getByName(audit.auditType)
+        var User = mongoose.model('User')
+        User.findOne({_id: userId, enabled: {$ne: false}}).select('_id').lean()
+        .then((owner) => {
+            if (!owner)
+                throw({fn: 'Forbidden', message: 'Audit owner is unavailable'})
+            audit.creator = owner._id
+            return AuditType.getByName(audit.auditType)
+        })
         .then((row) => {
             if (row) {
                 auditTypeSections = row.sections
@@ -500,6 +506,24 @@ AuditSchema.statics.create = (audit, userId) => {
                 reject(err)
         })
     })
+}
+
+AuditSchema.statics.assignOwner = async function(auditId, userId) {
+    var User = mongoose.model('User')
+    if (!mongoose.Types.ObjectId.isValid(userId))
+        throw({fn: 'BadParameters', message: 'Audit owner is unavailable'})
+    var owner = await User.findOne({_id: userId, enabled: {$ne: false}}).select('_id username firstname lastname')
+    if (!owner)
+        throw({fn: 'BadParameters', message: 'Audit owner is unavailable'})
+
+    var audit = await this.findByIdAndUpdate(
+        auditId,
+        {$set: {creator: owner._id}},
+        {new: true, runValidators: true}
+    ).populate('creator', 'username firstname lastname')
+    if (!audit)
+        throw({fn: 'NotFound', message: 'Audit not found'})
+    return audit
 }
 
 // Delete Outdated audit (Automation setting feature)

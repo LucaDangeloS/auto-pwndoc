@@ -25,6 +25,10 @@ export default {
     return api.post(`settings/mcp/rotate-key`)
   },
 
+  claimMcpKey() {
+    return api.post(`settings/mcp/claim-key`)
+  },
+
   clearMcpKey() {
     return api.delete(`settings/mcp/key`)
   },
@@ -35,6 +39,10 @@ export default {
 
   createApiKey(name) {
     return api.post(`settings/api-keys`, { name })
+  },
+
+  claimApiKey(id) {
+    return api.post(`settings/api-keys/${id}/claim`)
   },
 
   deleteApiKey(id) {

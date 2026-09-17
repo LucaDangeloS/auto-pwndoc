@@ -91,10 +91,11 @@ const SettingSchema = new Schema({
       private: {}
      },
     mcp: {
-      enabled: { type: Boolean, default: false },
-      apiKey: { type: String, default: '' },
-      apiKeyCreatedAt: { type: Date, default: null },
-      guidance: {
+        enabled: { type: Boolean, default: false },
+        apiKey: { type: String, default: '' },
+        apiKeyCreatedAt: { type: Date, default: null },
+        creator: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+        guidance: {
         general: { type: String, default: DEFAULT_MCP_GUIDANCE.general },
         evidence: { type: String, default: DEFAULT_MCP_GUIDANCE.evidence },
         html: { type: String, default: DEFAULT_MCP_GUIDANCE.html },

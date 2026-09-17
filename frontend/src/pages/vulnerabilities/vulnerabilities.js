@@ -15,6 +15,34 @@ import { extractErrorMessage } from '@/services/ai-helpers'
 
 import { $t } from 'boot/i18n'
 
+const VULNERABILITY_COLUMN_WIDTHS_KEY = 'vulnerabilityTableColumnWidths'
+const DEFAULT_VULNERABILITY_COLUMN_WIDTHS = {
+    title: 520,
+    type: 180,
+    category: 220,
+    updatedAt: 160,
+    action: 150
+}
+const MIN_VULNERABILITY_COLUMN_WIDTHS = {
+    title: 220,
+    type: 120,
+    category: 150,
+    updatedAt: 130,
+    action: 120
+}
+
+function loadVulnerabilityColumnWidths() {
+    try {
+        const stored = JSON.parse(localStorage.getItem(VULNERABILITY_COLUMN_WIDTHS_KEY) || '{}')
+        return Object.fromEntries(Object.entries(DEFAULT_VULNERABILITY_COLUMN_WIDTHS).map(([name, fallback]) => {
+            const width = Number(stored[name])
+            return [name, Number.isFinite(width) ? Math.max(MIN_VULNERABILITY_COLUMN_WIDTHS[name], width) : fallback]
+        }))
+    } catch (_) {
+        return { ...DEFAULT_VULNERABILITY_COLUMN_WIDTHS }
+    }
+}
+
 export default {
     data: () => {
         return {
@@ -26,6 +54,8 @@ export default {
             loading: true,
             languagesLoading: true,
             rows:[],
+            columnWidths: loadVulnerabilityColumnWidths(),
+            columnResizeState: null,
             // Datatable headers
             dtHeaders: [
                 { name: 'title', label: $t('title'), field: 'title', align: 'left', sortable: true },
@@ -140,6 +170,7 @@ export default {
 
     beforeUnmount: function() {
         if (this.matchingPoll) clearInterval(this.matchingPoll);
+        this.stopColumnResize();
     },
 
     watch: {
@@ -157,6 +188,11 @@ export default {
     },
 
     computed: {
+        tableWidthStyle: function() {
+            const totalWidth = Object.values(this.columnWidths).reduce((total, width) => total + width, 0)
+            return { '--vulnerability-table-width': `${totalWidth}px` }
+        },
+
         lenCurrentTitle: function() {
             return this.currentVulnerability.details[this.currentDetailsIndex].title.length
         },
@@ -316,6 +352,60 @@ export default {
     },
 
     methods: {
+        columnStyle: function(columnName) {
+            const width = this.columnWidths[columnName]
+            if (!width) return {}
+            const pixels = `${width}px`
+            return { width: pixels, minWidth: pixels, maxWidth: pixels }
+        },
+
+        startColumnResize: function(columnName, event) {
+            if (event.button !== 0) return
+            this.stopColumnResize()
+
+            const moveHandler = moveEvent => this.resizeColumn(moveEvent)
+            const upHandler = () => this.stopColumnResize()
+            this.columnResizeState = {
+                columnName,
+                startX: event.clientX,
+                startWidth: this.columnWidths[columnName],
+                moveHandler,
+                upHandler
+            }
+            window.addEventListener('mousemove', moveHandler)
+            window.addEventListener('mouseup', upHandler, { once: true })
+            document.body.classList.add('vulnerability-column-resizing')
+        },
+
+        resizeColumn: function(event) {
+            if (!this.columnResizeState) return
+            const { columnName, startX, startWidth } = this.columnResizeState
+            const minimum = MIN_VULNERABILITY_COLUMN_WIDTHS[columnName]
+            const width = Math.min(1200, Math.max(minimum, startWidth + event.clientX - startX))
+            this.columnWidths = { ...this.columnWidths, [columnName]: width }
+        },
+
+        stopColumnResize: function() {
+            if (!this.columnResizeState) return
+            window.removeEventListener('mousemove', this.columnResizeState.moveHandler)
+            window.removeEventListener('mouseup', this.columnResizeState.upHandler)
+            this.columnResizeState = null
+            document.body.classList.remove('vulnerability-column-resizing')
+            try {
+                localStorage.setItem(VULNERABILITY_COLUMN_WIDTHS_KEY, JSON.stringify(this.columnWidths))
+            } catch (_) { /* local storage may be unavailable */ }
+        },
+
+        resetColumnWidth: function(columnName) {
+            this.columnWidths = {
+                ...this.columnWidths,
+                [columnName]: DEFAULT_VULNERABILITY_COLUMN_WIDTHS[columnName]
+            }
+            try {
+                localStorage.setItem(VULNERABILITY_COLUMN_WIDTHS_KEY, JSON.stringify(this.columnWidths))
+            } catch (_) { /* local storage may be unavailable */ }
+        },
+
         notifyError: function(err, fallback) {
             console.error(err);
             Notify.create({

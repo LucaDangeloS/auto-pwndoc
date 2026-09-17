@@ -10,6 +10,7 @@
     <div v-else class="col-md-8 col-12 offset-md-2 q-mt-md">
         <q-table
         class="sticky-header-table"
+        :style="tableWidthStyle"
         :columns="dtHeaders"
         :rows="computedVulnerabilities"
         :filter="search"
@@ -87,9 +88,28 @@
                 </span>
             </template>
 
+            <template v-slot:header="props">
+                <q-tr :props="props">
+                    <q-th
+                    v-for="col in props.cols"
+                    :key="col.name"
+                    :props="props"
+                    :style="columnStyle(col.name)"
+                    class="vuln-resizable-header"
+                    >
+                        <span class="vuln-column-label">{{col.label}}</span>
+                        <span
+                        class="vuln-column-resizer"
+                        @mousedown.stop.prevent="startColumnResize(col.name, $event)"
+                        @dblclick.stop.prevent="resetColumnWidth(col.name)"
+                        />
+                    </q-th>
+                </q-tr>
+            </template>
+
             <template v-slot:top-row="props">
                 <q-tr>
-                    <q-td style="width: 55%">
+                    <q-td :style="columnStyle('title')">
                         <q-input 
                         dense
                         :label="$t('search')"
@@ -99,7 +119,7 @@
                         outlined
                         />
                     </q-td>
-                    <q-td style="width: 15%">
+                    <q-td :style="columnStyle('type')">
                         <q-select 
                         dense
                         :label="$t('search')"
@@ -110,7 +130,7 @@
                         outlined
                         />
                     </q-td>
-                    <q-td style="width: 15%">
+                    <q-td :style="columnStyle('category')">
                         <q-select 
                         dense
                         :label="$t('search')"
@@ -121,7 +141,7 @@
                         outlined
                         />
                     </q-td>
-                    <q-td style="width: 15%">
+                    <q-td :style="columnStyle('updatedAt')">
                         <q-input
                         dense
                         :label="$t('search')"
@@ -130,13 +150,13 @@
                         mask="##-##-####"
                         />
                     </q-td>
-                    <q-td></q-td>
+                    <q-td :style="columnStyle('action')"></q-td>
                 </q-tr>
             </template>
 
             <template v-slot:body="props">
                 <q-tr @dblclick="dblClick(props.row)" v-if="getDtTitle(props.row) !== 'Not defined for this language yet'" :props="props" :class="(rowStatusForLocale(props.row) === 1)?'vuln-row-new':(rowStatusForLocale(props.row) === 2)?'vuln-row-updates':''">
-                    <q-td key="title" :props="props">
+                    <q-td key="title" :props="props" :style="columnStyle('title')">
                         {{getDtTitle(props.row)}}
                         <q-chip
                         v-if="props.row.indexedInChroma === false"
@@ -150,20 +170,20 @@
                             {{$t('chromaNotIndexed')}}
                         </q-chip>
                     </q-td>
-                    <q-td key="type" :props="props">
+                    <q-td key="type" :props="props" :style="columnStyle('type')">
                         {{ getDtType(props.row) || '-' }}
                     </q-td>
-                    <q-td key="category" :props="props">
+                    <q-td key="category" :props="props" :style="columnStyle('category')">
                         <span v-if="getDtCategory(props.row)">
                             {{ getDtCategory(props.row) }}
                             <span v-if="getDtSubcategory(props.row)" class="text-grey-6"> › {{ getDtSubcategory(props.row) }}</span>
                         </span>
                         <span v-else class="taxonomy-empty">-</span>
                     </q-td>
-                    <q-td key="updatedAt" :props="props">
+                    <q-td key="updatedAt" :props="props" :style="columnStyle('updatedAt')">
                         {{getDtUpdatedAt(props.row)}}
                     </q-td>
-                    <q-td key="action" :props="props" style="width:1px">
+                    <q-td key="action" :props="props" :style="columnStyle('action')">
                         <q-btn v-if="UserService.isAllowed('vulnerabilities:update')" size="sm" flat class="edit-btn-color" icon="fa fa-edit" @click="openVulnerability(props.row)">
                             <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.edit')}}</q-tooltip>                                                    
                         </q-btn>

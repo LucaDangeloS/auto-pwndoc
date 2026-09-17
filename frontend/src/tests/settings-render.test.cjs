@@ -10,6 +10,8 @@ const settingsScript = fs.readFileSync(path.join(__dirname, '..', 'pages', 'sett
 const archiveScript = fs.readFileSync(path.join(__dirname, '..', 'pages', 'audits-archive', 'page.js'), 'utf8');
 const aiAssistantScript = fs.readFileSync(path.join(__dirname, '..', 'components', 'ai-assistant.js'), 'utf8');
 const vulnerabilitiesScript = fs.readFileSync(path.join(__dirname, '..', 'pages', 'vulnerabilities', 'vulnerabilities.js'), 'utf8');
+const vulnerabilitiesTemplate = fs.readFileSync(path.join(__dirname, '..', 'pages', 'vulnerabilities', 'vulnerabilities.html'), 'utf8');
+const vulnerabilitiesComponent = fs.readFileSync(path.join(__dirname, '..', 'pages', 'vulnerabilities', 'index.vue'), 'utf8');
 const bundleDir = path.join(__dirname, '..', '..', 'dist', 'spa', 'js');
 
 assert(
@@ -57,6 +59,15 @@ assert(
         vulnerabilitiesScript.includes('const statusDifference = statusPriority(a) - statusPriority(b)') &&
         vulnerabilitiesScript.includes('return descending ? -comparison : comparison'),
     'vulnerability sorting must keep Updates first and New second without reversing those groups'
+);
+assert(
+    vulnerabilitiesTemplate.includes('class="vuln-column-resizer"') &&
+        vulnerabilitiesTemplate.includes('startColumnResize(col.name, $event)') &&
+        vulnerabilitiesTemplate.includes(`columnStyle('title')`) &&
+        vulnerabilitiesScript.includes('VULNERABILITY_COLUMN_WIDTHS_KEY') &&
+        vulnerabilitiesScript.includes('localStorage.setItem(VULNERABILITY_COLUMN_WIDTHS_KEY') &&
+        vulnerabilitiesComponent.includes('--vulnerability-table-width'),
+    'vulnerability columns must be drag-resizable, persisted, and applied to all table rows'
 );
 
 const settingsBundle = fs.readdirSync(bundleDir)

@@ -56,6 +56,55 @@
 .vuln-index-chip
     vertical-align: middle
 
+.sticky-header-table
+    .q-table__middle
+        overflow-x: auto
+
+    .q-table
+        table-layout: fixed
+        width: max(100%, var(--vulnerability-table-width))
+
+.vuln-resizable-header
+    padding-right: 14px
+
+.vuln-column-label
+    display: inline-block
+    max-width: calc(100% - 4px)
+    overflow: hidden
+    text-overflow: ellipsis
+    vertical-align: middle
+
+.vuln-column-resizer
+    position: absolute
+    top: 0
+    right: 0
+    width: 8px
+    height: 100%
+    z-index: 3
+    cursor: col-resize
+    touch-action: none
+
+    &::after
+        content: ''
+        position: absolute
+        top: 20%
+        bottom: 20%
+        left: 3px
+        width: 2px
+        border-radius: 1px
+        background: transparent
+
+    &:hover::after
+        background: currentColor
+        opacity: .45
+
+body.vulnerability-column-resizing
+    cursor: col-resize !important
+    user-select: none
+
+    *
+        cursor: col-resize !important
+
 .vuln-toggle-new
     .q-toggle__inner--truthy
         .q-toggle__thumb

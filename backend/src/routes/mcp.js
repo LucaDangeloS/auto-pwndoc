@@ -39,6 +39,53 @@ module.exports = function(app) {
         return { cvssScore: null, severity: 'N/A' };
     }
 
+    function toolInputSchema() {
+        return {
+            type: 'object',
+            required: ['name'],
+            properties: {
+                name: {type: 'string'}, vendor: {type: 'string'}, edition: {type: 'string'},
+                category: {type: 'string'}, purpose: {type: 'string'}, website: {type: 'string'},
+                version: {type: 'string'}, status: {type: 'string', enum: ['active', 'trial', 'retired']},
+                owner: {type: ['string', 'null'], description: 'User id, or null.'},
+                tags: {type: 'array', items: {type: 'string'}, maxItems: 20}
+            }
+        };
+    }
+
+    function licenseInputSchema() {
+        return {
+            type: 'object',
+            required: ['tool', 'label', 'seats'],
+            properties: {
+                tool: {type: 'string', description: 'Tool id.'}, label: {type: 'string'}, type: {type: 'string'},
+                seats: {type: 'integer', minimum: 1, maximum: 100000},
+                assignedTo: {type: 'array', items: {type: 'string'}, description: 'User ids; count cannot exceed seats.'},
+                purchasedOn: {type: ['string', 'null'], description: 'YYYY-MM-DD, or null.'},
+                expiresOn: {type: ['string', 'null'], description: 'YYYY-MM-DD, or null.'},
+                renewalOwner: {type: ['string', 'null'], description: 'User id, or null.'},
+                purchaseRef: {type: 'string'}, notes: {type: 'string'}
+            }
+        };
+    }
+
+    function guideInputSchema() {
+        return {
+            type: 'object',
+            required: ['title', 'content', 'steps'],
+            properties: {
+                title: {type: 'string'}, summary: {type: 'string'}, content: {type: 'string', maxLength: 100000},
+                steps: {type: 'array', items: {type: 'string'}, maxItems: 100},
+                tags: {type: 'array', items: {type: 'string'}, maxItems: 20},
+                references: {type: 'array', maxItems: 100, items: {type: 'object', required: ['framework', 'version', 'code'],
+                    properties: {framework: {type: 'string', enum: ['WSTG', 'ASVS']}, version: {type: 'string'}, code: {type: 'string'}}}},
+                tool: {type: ['string', 'null'], description: 'Tool id, or null.'},
+                status: {type: 'string', enum: ['draft', 'published']},
+                reviewedAt: {type: ['string', 'null'], description: 'ISO-8601 date-time, or null.'}
+            }
+        };
+    }
+
     function buildTools(findingFieldsDoc) {
         return [
             {
@@ -169,6 +216,71 @@ module.exports = function(app) {
                 required: ['auditId', 'findingId', 'vulnerabilityId'],
                 properties: { auditId: { type: 'string' }, findingId: { type: 'string' }, vulnerabilityId: { type: 'string' }, locale: { type: 'string', description: 'Locale to use, e.g. "en-US". Defaults to the first available locale.' } }
             }
+        },
+        {
+            name: 'list_tools',
+            description: 'List tools. Requires tools:read.',
+            inputSchema: {type: 'object', properties: {}}
+        },
+        {
+            name: 'create_tool',
+            description: 'Create a tool. Requires tools:create.',
+            inputSchema: {type: 'object', required: ['tool'], properties: {tool: toolInputSchema()}}
+        },
+        {
+            name: 'update_tool',
+            description: 'Replace the editable fields of a tool. Send the complete tool payload. Requires tools:update.',
+            inputSchema: {type: 'object', required: ['toolId', 'tool'], properties: {toolId: {type: 'string'}, tool: toolInputSchema()}}
+        },
+        {
+            name: 'delete_tool',
+            description: 'Permanently delete a tool. Requires tools:delete.',
+            inputSchema: {type: 'object', required: ['toolId'], properties: {toolId: {type: 'string'}}}
+        },
+        {
+            name: 'list_licenses',
+            description: 'List tool licenses. Requires licenses:read.',
+            inputSchema: {type: 'object', properties: {}}
+        },
+        {
+            name: 'create_license',
+            description: 'Create a tool license. Requires licenses:create.',
+            inputSchema: {type: 'object', required: ['license'], properties: {license: licenseInputSchema()}}
+        },
+        {
+            name: 'update_license',
+            description: 'Replace the editable fields of a tool license. Send the complete license payload. Requires licenses:update.',
+            inputSchema: {type: 'object', required: ['licenseId', 'license'], properties: {licenseId: {type: 'string'}, license: licenseInputSchema()}}
+        },
+        {
+            name: 'delete_license',
+            description: 'Permanently delete a tool license. Requires licenses:delete.',
+            inputSchema: {type: 'object', required: ['licenseId'], properties: {licenseId: {type: 'string'}}}
+        },
+        {
+            name: 'list_guides',
+            description: 'List guides visible to the API-key owner. Draft visibility follows the REST API. Requires guides:read.',
+            inputSchema: {type: 'object', properties: {}}
+        },
+        {
+            name: 'get_guide',
+            description: 'Get one guide by id. Draft visibility follows the REST API. Requires guides:read.',
+            inputSchema: {type: 'object', required: ['guideId'], properties: {guideId: {type: 'string'}}}
+        },
+        {
+            name: 'create_guide',
+            description: 'Create a guide and its first revision. Requires guides:create.',
+            inputSchema: {type: 'object', required: ['guide'], properties: {guide: guideInputSchema()}}
+        },
+        {
+            name: 'update_guide',
+            description: 'Replace the editable fields of a guide and create a new revision. Send the complete guide payload. Requires guides:update.',
+            inputSchema: {type: 'object', required: ['guideId', 'guide'], properties: {guideId: {type: 'string'}, guide: guideInputSchema()}}
+        },
+        {
+            name: 'delete_guide',
+            description: 'Permanently delete a guide, its revisions, runs, and attachments. Requires guides:delete.',
+            inputSchema: {type: 'object', required: ['guideId'], properties: {guideId: {type: 'string'}}}
         }
         ];
     }
@@ -185,6 +297,15 @@ module.exports = function(app) {
 
     function contentResult(data) {
         return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+    }
+
+    function toolErrorMessage(err) {
+        if (err && err.body) {
+            if (typeof err.body.datas === 'string') return err.body.datas;
+            if (typeof err.body.error === 'string') return err.body.error;
+            if (err.body.error && err.body.error.message) return err.body.error.message;
+        }
+        return (err && err.message) || 'Tool execution failed';
     }
 
     function makeServiceCookie(actor) {
@@ -341,6 +462,45 @@ module.exports = function(app) {
             };
             return internalRequest('PUT', '/api/audits/' + encodeURIComponent(args.auditId) + '/findings/' + encodeURIComponent(args.findingId), fields, actor);
         }
+        if (name === 'list_tools') {
+            return internalRequest('GET', '/api/tools', undefined, actor);
+        }
+        if (name === 'create_tool') {
+            return internalRequest('POST', '/api/tools', args.tool || {}, actor);
+        }
+        if (name === 'update_tool') {
+            return internalRequest('PUT', '/api/tools/' + encodeURIComponent(args.toolId), args.tool || {}, actor);
+        }
+        if (name === 'delete_tool') {
+            return internalRequest('DELETE', '/api/tools/' + encodeURIComponent(args.toolId), undefined, actor);
+        }
+        if (name === 'list_licenses') {
+            return internalRequest('GET', '/api/licenses', undefined, actor);
+        }
+        if (name === 'create_license') {
+            return internalRequest('POST', '/api/licenses', args.license || {}, actor);
+        }
+        if (name === 'update_license') {
+            return internalRequest('PUT', '/api/licenses/' + encodeURIComponent(args.licenseId), args.license || {}, actor);
+        }
+        if (name === 'delete_license') {
+            return internalRequest('DELETE', '/api/licenses/' + encodeURIComponent(args.licenseId), undefined, actor);
+        }
+        if (name === 'list_guides') {
+            return internalRequest('GET', '/api/guides', undefined, actor);
+        }
+        if (name === 'get_guide') {
+            return internalRequest('GET', '/api/guides/' + encodeURIComponent(args.guideId), undefined, actor);
+        }
+        if (name === 'create_guide') {
+            return internalRequest('POST', '/api/guides', args.guide || {}, actor);
+        }
+        if (name === 'update_guide') {
+            return internalRequest('PUT', '/api/guides/' + encodeURIComponent(args.guideId), args.guide || {}, actor);
+        }
+        if (name === 'delete_guide') {
+            return internalRequest('DELETE', '/api/guides/' + encodeURIComponent(args.guideId), undefined, actor);
+        }
 
         throw new Error('Unknown tool: ' + name);
     }
@@ -382,7 +542,7 @@ module.exports = function(app) {
             return errorResponse(message.id, -32601, 'Method not found');
         }
         catch (err) {
-            return response(message.id, { content: [{ type: 'text', text: err.message || 'Tool execution failed' }], isError: true });
+            return response(message.id, { content: [{ type: 'text', text: toolErrorMessage(err) }], isError: true });
         }
     }
 

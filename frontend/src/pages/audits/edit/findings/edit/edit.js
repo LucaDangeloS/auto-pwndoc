@@ -12,6 +12,7 @@ import TaxonomyPicker from 'components/taxonomy-picker';
 import CommentsPanel from 'components/comments-panel';
 import DraftDiff from 'components/draft-diff';
 import AiAnonymizationReview from 'components/ai-anonymization-review';
+import LinkedEvidence from 'components/linked-evidence';
 
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
@@ -19,6 +20,7 @@ import DraftRecoveryService from '@/services/draftRecovery';
 import VulnService from '@/services/vulnerability';
 import AiService from '@/services/ai';
 import Utils from '@/services/utils';
+import UserService from '@/services/user';
 import {
     isEmbeddingEnabled,
     isVisionEnabled,
@@ -121,6 +123,7 @@ export default {
     CommentsPanel,
     DraftDiff,
     AiAnonymizationReview,
+    LinkedEvidence,
   },
 
   watch: {
@@ -230,6 +233,9 @@ export default {
   },
 
   computed: {
+    canReadEvidence() {
+      return UserService.isAllowed('evidence:read');
+    },
     aiSimilarReady() {
       return isEmbeddingEnabled(this.$settings);
     },

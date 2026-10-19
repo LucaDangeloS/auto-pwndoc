@@ -63,17 +63,32 @@ require('./models/image');
 require('./models/settings');
 require('./models/dictionary');
 require('./models/role');
+require('./models/tool');
+require('./models/tool-license');
+require('./models/guide');
+require('./models/guide-revision');
+require('./models/guide-run');
+require('./models/evidence-candidate');
+require('./models/audit-task');
 
 // Database migration (runs only when MIGRATE_FROM env var is set)
 const { runMigration } = require('./lib/migration');
 const { ensureDefaultAdmin } = require('./lib/seed-admin');
-runMigration()
-  .catch(err => console.error('[migration] Unexpected error:', err))
-  .finally(async () => {
-    await ensureDefaultAdmin();
+var startupReady = false;
+var startupPromise = runMigration()
+  .then(async () => {
+    var seedResult = await ensureDefaultAdmin();
+    if (seedResult && seedResult.reason === 'error') throw seedResult.error;
     // Load DB-stored custom roles into the ACL once migrations (incl. the
     // roles.json seed) have run.
     await require('./lib/auth').acl.reload();
+    startupReady = true;
+  })
+  .catch(err => {
+    console.error('[startup] Database initialization failed:', err);
+    // A failed migration must not leave an apparently healthy old-schema API.
+    setTimeout(() => process.exit(1), 100);
+    return new Promise(() => {});
   });
 
 // Socket IO configuration
@@ -131,11 +146,23 @@ app.use(bodyParser.urlencoded({
 
 app.use(cookieParser())
 
+// Compose gates dependent services on this endpoint, so traffic is only sent
+// after destination migrations, admin seeding, and ACL loading have succeeded.
+app.get('/api/health', (_req, res) => {
+  if (!startupReady) return res.status(503).json({status: 'starting'});
+  return res.json({status: 'ok'});
+});
+
 // Routes import
 require('./routes/user')(app);
 require('./routes/auth')(app);
 require('./routes/audit')(app, io);
 require('./routes/audit-archive')(app);
+require('./routes/tool')(app);
+require('./routes/guide')(app);
+require('./routes/evidence')(app, io);
+require('./routes/audit-task')(app);
+require('./routes/dashboard')(app);
 require('./routes/company')(app);
 require('./routes/vulnerability')(app);
 require('./routes/template')(app);
@@ -154,6 +181,7 @@ cronJobs();
 // Startup embedding sync: if embeddingEnabled and collection is empty, re-index all vulnerabilities
 (async () => {
     try {
+        await startupPromise;
         var Settings = require('mongoose').model('Settings');
         var embeddingService = require('./lib/embedding-service');
         var settings = await Settings.getAll();

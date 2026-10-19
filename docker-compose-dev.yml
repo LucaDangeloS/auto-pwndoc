@@ -24,7 +24,8 @@ services:
     container_name: autopwndoc-backend
     entrypoint: ""
     working_dir: "/app"
-    command: "npm run dev"
+    # Refresh the persistent node_modules volume after a pull changes package-lock.json.
+    command: "sh -c \"npm install --no-audit --no-fund && npm run dev\""
     networks:
       - autopwndoc-net
     develop:
@@ -60,7 +61,7 @@ services:
       - chroma
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('https').get({host:'localhost',port:5252,rejectUnauthorized:false},r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"require('https').get({host:'localhost',port:5252,path:'/api/health',rejectUnauthorized:false},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 12

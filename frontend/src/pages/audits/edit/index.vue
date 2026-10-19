@@ -81,6 +81,16 @@
               <q-item-section>{{$t('executiveSummary')}}</q-item-section>
             </q-item>
 
+            <q-item :to="{path: '/guides', query: {audit: auditId}}">
+              <q-item-section avatar><q-icon name="menu_book" /></q-item-section>
+              <q-item-section>{{ $t('guidesTitle') }}</q-item-section>
+            </q-item>
+
+            <q-item v-if="userService.isAllowed('evidence:read')" :to="`/audits/${auditId}/evidence`">
+              <q-item-section avatar><q-icon name="fact_check" /></q-item-section>
+              <q-item-section>{{ $t('evidenceInbox') }}</q-item-section>
+            </q-item>
+
             <div v-if="!currentAuditType || !currentAuditType.hidden.includes('findings')">
               <q-separator class="q-my-sm" />
               <q-item>
@@ -315,7 +325,8 @@ export default defineComponent({
         vulnCategories: [],
         findingList: [],
         frontEndAuditState: Utils.AUDIT_VIEW_STATE.EDIT_READONLY,
-        AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
+        AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
+        userService: UserService
       }
   },
 

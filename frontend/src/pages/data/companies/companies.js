@@ -155,7 +155,7 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.message,
+                    message: err.response?.status === 422 ? $t('msg.companyInUse') : err.message,
                     color: 'negative',
                     textColor: 'white',
                     position: 'top-right'

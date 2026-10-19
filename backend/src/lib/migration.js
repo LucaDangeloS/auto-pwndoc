@@ -1436,6 +1436,66 @@ const STEPS = [
         },
     },
 
+    // Step 38: Archived PDF reports gain client metadata (company, reportDate,
+    // auditType, tags, notes). Existing archives stay unassigned (company null)
+    // and are shown under "No company" until users organise them.
+    {
+        id: 38,
+        name: 'backfill-audit-archive-metadata',
+        async run(_srcDb, dstDb) {
+            const col = dstDb.collection('auditarchives');
+            const defaults = { company: null, reportDate: null, auditType: '', tags: [], notes: '' };
+            let modified = 0;
+            for (const [field, value] of Object.entries(defaults)) {
+                const result = await col.updateMany({ [field]: { $exists: false } }, { $set: { [field]: value } });
+                modified += result.modifiedCount;
+            }
+            console.log(`[migration] backfill-audit-archive-metadata: ${modified} fields initialized`);
+        },
+    },
+
+    {
+        id: 39,
+        name: 'initialize-tool-and-guide-indexes',
+        async run(_srcDb, dstDb) {
+            await dstDb.collection('tools').createIndex({name: 1, edition: 1}, {unique: true});
+            await dstDb.collection('toollicenses').createIndex({expiresOn: 1});
+            await dstDb.collection('guiderevisions').createIndex({guide: 1, version: 1}, {unique: true});
+            await dstDb.collection('guideruns').createIndex({guide: 1, audit: 1}, {unique: true});
+        },
+    },
+
+    {
+        id: 40,
+        name: 'initialize-evidence-candidate-indexes',
+        async run(_srcDb, dstDb) {
+            await dstDb.collection('evidencecandidates').createIndex({audit: 1, createdAt: -1});
+            await dstDb.collection('evidencecandidates').createIndex(
+                {audit: 1, sourceType: 1, sourceId: 1, target: 1},
+                {unique: true, partialFilterExpression: {sourceId: {$type: 'string'}}}
+            );
+        },
+    },
+
+    {
+        id: 41,
+        name: 'initialize-guide-standard-coverage',
+        async run(_srcDb, dstDb) {
+            await dstDb.collection('guides').updateMany({references: {$exists: false}}, {$set: {references: []}});
+            await dstDb.collection('guiderevisions').updateMany({references: {$exists: false}}, {$set: {references: []}});
+            await dstDb.collection('guideruns').updateMany({coverage: {$exists: false}}, {$set: {coverage: []}});
+        },
+    },
+
+    {
+        id: 42,
+        name: 'initialize-audit-task-indexes',
+        async run(_srcDb, dstDb) {
+            await dstDb.collection('audittasks').createIndex({audit: 1});
+            await dstDb.collection('audittasks').createIndex({assignee: 1, status: 1, dueOn: 1});
+        },
+    },
+
 ];
 
 // Runner
@@ -1453,7 +1513,7 @@ async function runMigration() {
         dstDb = await waitForDestinationDb();
     } catch (err) {
         console.error('[migration] Could not get destination database:', err.message);
-        return;
+        throw err;
     }
 
     let srcConn = null;
@@ -1506,7 +1566,7 @@ async function runMigration() {
             console.error(`[migration] Step ${step.id} (${step.name}) FAILED:`, err);
             console.error('[migration] Stopping migration — fix the error and restart.');
             if (srcConn) await srcConn.close();
-            return;
+            throw err;
         }
     }
 

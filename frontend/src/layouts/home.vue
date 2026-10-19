@@ -4,6 +4,11 @@
         <q-toolbar class="bg-fixed-primary">
             <img src="/logo_transparent.png" style="max-height:44px;" />
 
+            <q-item class="gt-sm" to='/dashboard' active-class="text-green">
+              <q-item-section avatar style="min-width:0" class="q-pr-sm"><q-icon name="dashboard" /></q-item-section>
+              <q-item-section>{{ $t('nav.dashboard') }}</q-item-section>
+            </q-item>
+
             <!-- Desktop nav: hidden on xs/sm -->
             <q-item class="gt-sm" to='/audits-archive' active-class="text-green">
             <q-item-section avatar style="min-width:0" class="q-pr-sm">
@@ -26,6 +31,20 @@
             <q-item-section>{{$t('nav.vulnerabilities')}}</q-item-section>
             </q-item>
 
+            <q-item v-if="userService.isAllowed('companies:read')" class="gt-sm" to='/clients' active-class="text-green">
+              <q-item-section avatar style="min-width:0" class="q-pr-sm"><q-icon name="fa fa-building" /></q-item-section>
+              <q-item-section>{{ $t('nav.clients') }}</q-item-section>
+            </q-item>
+
+            <q-item v-if="userService.isAllowed('tools:read') || userService.isAllowed('licenses:read')" class="gt-sm" to='/tools' active-class="text-green">
+              <q-item-section avatar style="min-width:0" class="q-pr-sm"><q-icon name="build" /></q-item-section>
+              <q-item-section>{{ $t('nav.tools') }}</q-item-section>
+            </q-item>
+            <q-item v-if="userService.isAllowed('guides:read')" class="gt-sm" to='/guides' active-class="text-green">
+              <q-item-section avatar style="min-width:0" class="q-pr-sm"><q-icon name="menu_book" /></q-item-section>
+              <q-item-section>{{ $t('nav.guides') }}</q-item-section>
+            </q-item>
+
             <q-item class="gt-sm" to='/data/collaborators' active-class="text-green">
             <q-item-section avatar style="min-width:0" class="q-pr-sm">
                 <q-icon name="fa fa-database" />
@@ -45,6 +64,10 @@
             <!-- Mobile hamburger: visible only on xs/sm -->
             <q-btn-dropdown class="lt-md" auto-close flat dense icon="fa fa-bars">
                 <q-list>
+                  <q-item clickable :to="'/dashboard'">
+                    <q-item-section side><q-icon size="xs" name="dashboard" /></q-item-section>
+                    <q-item-section>{{ $t('nav.dashboard') }}</q-item-section>
+                  </q-item>
                   <q-item clickable :to="'/audits'">
                     <q-item-section side><q-icon size="xs" name="fa fa-fingerprint" /></q-item-section>
                     <q-item-section>{{$t('nav.audits')}}</q-item-section>
@@ -56,6 +79,18 @@
                   <q-item clickable :to="'/vulnerabilities'">
                     <q-item-section side><q-icon size="xs" name="fa fa-shield-alt" /></q-item-section>
                     <q-item-section>{{$t('nav.vulnerabilities')}}</q-item-section>
+                  </q-item>
+                  <q-item v-if="userService.isAllowed('companies:read')" clickable :to="'/clients'">
+                    <q-item-section side><q-icon size="xs" name="fa fa-building" /></q-item-section>
+                    <q-item-section>{{ $t('nav.clients') }}</q-item-section>
+                  </q-item>
+                  <q-item v-if="userService.isAllowed('tools:read') || userService.isAllowed('licenses:read')" clickable :to="'/tools'">
+                    <q-item-section side><q-icon size="xs" name="build" /></q-item-section>
+                    <q-item-section>{{ $t('nav.tools') }}</q-item-section>
+                  </q-item>
+                  <q-item v-if="userService.isAllowed('guides:read')" clickable :to="'/guides'">
+                    <q-item-section side><q-icon size="xs" name="menu_book" /></q-item-section>
+                    <q-item-section>{{ $t('nav.guides') }}</q-item-section>
                   </q-item>
                   <q-item clickable :to="'/data/collaborators'">
                     <q-item-section side><q-icon size="xs" name="fa fa-database" /></q-item-section>

@@ -37,7 +37,7 @@ The core goal remains the same - more time to **Pwn**, less time to **Doc** - bu
 - Exposes a JSON-RPC 2.0 **Model Context Protocol** endpoint at `POST /api/mcp` (Streamable HTTP, protocol `2025-03-26`).
 - Lets AI agents (e.g. Claude Desktop) read and write audits, findings, and vulnerabilities directly.
 - Secured with an API key managed in the Settings page (rotate/clear).
-- 14 tools: `list_audits`, `get_audit`, `update_audit_general`, `get_audit_network`, `update_audit_network`, `list_findings`, `list_taxonomies`, `get_finding`, `create_finding`, `update_finding`, `delete_finding`, `list_vulnerabilities`, `search_similar_vulnerabilities`, `apply_vulnerability_to_finding`.
+- 27 tools covering audits, findings, vulnerability lookup, and Tools/Licenses/Guides CRUD. Workspace operations are `list_tools`, `create_tool`, `update_tool`, `delete_tool`, `list_licenses`, `create_license`, `update_license`, `delete_license`, `list_guides`, `get_guide`, `create_guide`, `update_guide`, and `delete_guide`.
 
 ### Granular user permissions
 
@@ -112,85 +112,23 @@ curl -sk -X POST https://localhost:8443/api/vulnerabilities \
   -d @backend/tests/fixtures/test-vulnerabilities.json
 ```
 
-### Migrate from an existing MongoDB data folder
+### Production database persistence
 
-Use this when you have an old MongoDB data directory named `old-mongo-data` and want to migrate it into a fresh AutoPwnDoc dev database. The old data is mounted read/write by a temporary MongoDB 5 container because older project data may use a newer WiredTiger format than `mongo:4.2.15` can read directly.
+Production uses `backend/mongo-data` as the MongoDB ground truth. This bind-mounted
+directory survives Compose project-name changes and `docker compose down -v`.
+Development keeps a separate named volume because WiredTiger bind mounts are not
+reliable on Docker Desktop for Windows.
 
-PowerShell:
-
-```powershell
-# 1. Stop the dev stack and remove the destination dev volume
-docker compose -f docker-compose-dev.yml down -v
-
-# 2. Start the old database folder on port 27018
-docker run --rm -d `
-  --name mongo-old `
-  -v "${PWD}/old-mongo-data:/data/db" `
-  -p 127.0.0.1:27018:27017 `
-  mongo:5
-
-# 3. Create a temporary Compose override that enables MIGRATE_FROM for backend
-@'
-services:
-  backend:
-    environment:
-      - MIGRATE_FROM=mongodb://host.docker.internal:27018/pwndoc
-'@ | Set-Content -Encoding UTF8 docker-compose-migrate.tmp.yml
-
-# 4. Start AutoPwnDoc with a fresh destination database and migration enabled
-docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml up -d
-
-# 5. Follow backend logs until migration prints "Done"
-docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml logs -f backend
-
-# 6. Disable migration for future restarts and restart backend normally
-docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml down
-Remove-Item docker-compose-migrate.tmp.yml
-docker compose -f docker-compose-dev.yml up -d
-docker compose -f docker-compose-dev.yml restart backend
-
-# 7. Stop the temporary old database
-docker stop mongo-old
-```
-
-Bash:
+Use the root-level operational commands:
 
 ```bash
-# 1. Stop the dev stack and remove the destination dev volume
-docker compose -f docker-compose-dev.yml down -v
-
-# 2. Start the old database folder on port 27018
-docker run --rm -d \
-  --name mongo-old \
-  -v "$(pwd)/old-mongo-data:/data/db" \
-  -p 127.0.0.1:27018:27017 \
-  mongo:5
-
-# 3. Create a temporary Compose override that enables MIGRATE_FROM for backend
-cat > docker-compose-migrate.tmp.yml <<'YAML'
-services:
-  backend:
-    environment:
-      - MIGRATE_FROM=mongodb://host.docker.internal:27018/pwndoc
-YAML
-
-# 4. Start AutoPwnDoc with a fresh destination database and migration enabled
-docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml up -d
-
-# 5. Follow backend logs until migration prints "Done"
-docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml logs -f backend
-
-# 6. Disable migration for future restarts and restart normally
-docker compose -f docker-compose-dev.yml -f docker-compose-migrate.tmp.yml down
-rm docker-compose-migrate.tmp.yml
-docker compose -f docker-compose-dev.yml up -d
-docker compose -f docker-compose-dev.yml restart backend
-
-# 7. Stop the temporary old database
-docker stop mongo-old
+sh ./backup-database.sh       # timestamped logical backup
+sh ./migrate-database.sh      # one-time named-volume migration
+sh ./update-production.sh     # backup, pull, migrate, build, and health-check
 ```
 
-After migration, log in with an existing migrated user or with the local destination user if you created one before migrating. Imported users have their old refresh sessions cleared automatically.
+See `docs/installation.md` for first-install, archive restore, and recovery
+instructions.
 
 ---
 

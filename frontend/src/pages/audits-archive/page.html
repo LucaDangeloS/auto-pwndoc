@@ -3,56 +3,183 @@
     <div class="row items-center q-mb-md q-gutter-sm">
       <div>
         <div class="text-h5">{{ $t('auditsArchive') }}</div>
-        <div class="text-caption text-grey-7">{{ $t('auditsArchiveDescription') }}</div>
+        <div class="text-caption archive-muted">{{ $t('auditsArchiveDescription') }}</div>
       </div>
       <q-space />
-      <q-btn color="secondary" unelevated no-caps icon="upload_file" :label="$t('archiveUploadPdf')" @click="openUploadDialog" />
+      <q-btn
+        v-if="canCreate"
+        color="secondary"
+        unelevated
+        no-caps
+        icon="upload_file"
+        :label="$t('archiveUploadPdf')"
+        @click="openUploadDialog()"
+      />
     </div>
 
     <div class="row q-col-gutter-md archive-reader-layout">
       <div class="col-12 col-md-4 col-lg-3">
-        <q-card flat bordered>
-          <q-card-section>
+        <q-card
+          flat
+          bordered
+          class="archive-list-card"
+          :class="{ 'archive-drop-active': dragActive }"
+          @dragover.prevent="onDragOver"
+          @dragleave.prevent="dragActive = false"
+          @drop.prevent="onDrop"
+        >
+          <q-card-section class="q-gutter-sm">
             <q-input v-model="filter" outlined dense clearable :label="$t('search')">
               <template #append><q-icon name="search" /></template>
             </q-input>
+            <q-select
+              v-model="filterCompany"
+              :options="companyFilterOptions"
+              emit-value
+              map-options
+              outlined
+              dense
+              clearable
+              options-sanitize
+              :label="$t('company')"
+            />
+            <div>
+              <div class="row q-col-gutter-sm">
+                <div class="col-6">
+                  <q-select v-model="filterYear" :options="yearOptions" outlined dense clearable :label="$t('archiveYear')" />
+                </div>
+                <div class="col-6">
+                  <q-select v-model="filterTag" :options="tagOptions" outlined dense clearable options-sanitize :label="$t('archiveTags')" />
+                </div>
+              </div>
+            </div>
+            <div class="row items-center no-wrap">
+              <span class="text-caption archive-muted">{{ filteredArchives.length }} / {{ archives.length }}</span>
+              <q-space />
+              <q-btn v-if="hasActiveFilters" flat dense no-caps size="sm" icon="filter_alt_off" :label="$t('archiveClearFilters')" @click="clearFilters" />
+              <q-btn
+                flat
+                dense
+                no-caps
+                size="sm"
+                :icon="selectionMode ? 'close' : 'checklist'"
+                :label="selectionMode ? $t('btn.cancel') : $t('archiveSelect')"
+                @click="toggleSelectionMode"
+              />
+            </div>
           </q-card-section>
+
+          <q-banner v-if="selectionMode" dense class="bg-fixed-primary text-white">
+            {{ $t('archiveSelectedCount', { count: selectedCount }) }}
+            <template #action>
+              <q-btn
+                flat
+                dense
+                no-caps
+                color="white"
+                icon="business"
+                :label="$t('archiveAssignCompany')"
+                :disable="selectedCount === 0"
+                @click="openBulkDialog"
+              />
+            </template>
+          </q-banner>
 
           <q-separator />
 
-          <q-list separator>
-            <q-item v-if="archives.length === 0 && !loading" class="text-grey-7">
-              <q-item-section>{{ $t('archiveNoReports') }}</q-item-section>
-            </q-item>
-            <q-item
-              v-for="archive in filteredArchives"
-              :key="archive._id"
-              clickable
-              :active="selectedArchive && selectedArchive._id === archive._id"
-              active-class="bg-primary text-white"
-              @click="openArchive(archive)"
-            >
-              <q-item-section avatar>
-                <q-icon name="picture_as_pdf" color="negative" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label lines="2">{{ archive.name }}</q-item-label>
-                <q-item-label caption>{{ formatSize(archive.size) }} · {{ formatDate(archive.createdAt) }}</q-item-label>
-              </q-item-section>
-              <q-item-section side>
-                <q-btn dense flat round icon="delete" color="negative" @click.stop="confirmDelete(archive)">
-                  <q-tooltip>{{ $t('tooltip.delete') }}</q-tooltip>
-                </q-btn>
-              </q-item-section>
-            </q-item>
-          </q-list>
+          <div class="archive-groups">
+            <div v-if="archives.length === 0 && !loading" class="q-pa-md text-center archive-muted">
+              <q-icon name="inventory_2" size="40px" class="q-mb-sm" />
+              <div>{{ $t('archiveNoReports') }}</div>
+              <div v-if="canCreate" class="text-caption q-mt-xs">{{ $t('archiveDropHint') }}</div>
+            </div>
+            <div v-else-if="filteredArchives.length === 0 && !loading" class="q-pa-md text-center archive-muted">
+              <div>{{ $t('archiveNoMatches') }}</div>
+              <q-btn flat dense no-caps color="primary" class="q-mt-sm" :label="$t('archiveClearFilters')" @click="clearFilters" />
+            </div>
+
+            <q-list v-else separator>
+              <q-expansion-item
+                v-for="group in groups"
+                :key="group.key"
+                :model-value="isGroupExpanded(group.key)"
+                @update:model-value="value => setGroupExpanded(group.key, value)"
+                header-class="archive-group-header"
+              >
+                <template #header>
+                  <q-item-section v-if="selectionMode" side>
+                    <q-checkbox
+                      dense
+                      :model-value="groupSelectionState(group)"
+                      @update:model-value="value => toggleGroupSelected(group, value !== false)"
+                      @click.stop
+                    />
+                  </q-item-section>
+                  <q-item-section avatar>
+                    <q-avatar size="32px" :class="companyLogo(group.company) ? null : (group.company ? 'bg-fixed-primary' : 'bg-secondary')" text-color="white">
+                      <img v-if="companyLogo(group.company)" :src="companyLogo(group.company)" class="archive-company-logo" />
+                      <q-icon v-else :name="group.company ? 'business' : 'folder_off'" size="18px" />
+                    </q-avatar>
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label class="text-weight-medium ellipsis">{{ group.label }}</q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-badge rounded color="secondary" :label="group.count" />
+                  </q-item-section>
+                </template>
+
+                <template v-for="yearGroup in group.years" :key="`${group.key}-${yearGroup.year}`">
+                  <q-item-label header class="q-py-xs archive-year-header">{{ yearGroup.year }}</q-item-label>
+                  <q-item
+                    v-for="archive in yearGroup.archives"
+                    :key="archive._id"
+                    clickable
+                    :active="!selectionMode && selectedArchive && selectedArchive._id === archive._id"
+                    active-class="archive-item-active bg-fixed-primary"
+                    @click="onArchiveClick(archive)"
+                  >
+                    <q-item-section avatar>
+                      <q-checkbox v-if="selectionMode" dense :model-value="selectedIds.includes(archive._id)" @update:model-value="toggleSelected(archive)" />
+                      <q-icon v-else name="picture_as_pdf" color="negative" class="archive-pdf-icon" />
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label lines="2">{{ archive.name }}</q-item-label>
+                      <q-item-label caption>
+                        {{ archiveDate(archive) }} · {{ formatSize(archive.size) }}<template v-if="archive.auditType"> · {{ archive.auditType }}</template>
+                      </q-item-label>
+                      <div v-if="archive.tags && archive.tags.length" class="q-mt-xs">
+                        <q-badge v-for="tag in archive.tags" :key="tag" outline color="primary" class="q-mr-xs archive-tag" :label="tag" />
+                      </div>
+                    </q-item-section>
+                    <q-item-section v-if="!selectionMode && (canModify(archive).update || canModify(archive).delete)" side>
+                      <q-btn dense flat round icon="more_vert" @click.stop>
+                        <q-menu auto-close>
+                          <q-list dense style="min-width: 160px">
+                            <q-item v-if="canModify(archive).update" clickable @click="openEditDialog(archive)">
+                              <q-item-section avatar><q-icon name="edit" /></q-item-section>
+                              <q-item-section>{{ $t('archiveEdit') }}</q-item-section>
+                            </q-item>
+                            <q-item v-if="canModify(archive).delete" clickable @click="confirmDelete(archive)">
+                              <q-item-section avatar><q-icon name="delete" color="negative" /></q-item-section>
+                              <q-item-section class="text-negative">{{ $t('tooltip.delete') }}</q-item-section>
+                            </q-item>
+                          </q-list>
+                        </q-menu>
+                      </q-btn>
+                    </q-item-section>
+                  </q-item>
+                </template>
+              </q-expansion-item>
+            </q-list>
+          </div>
           <q-inner-loading :showing="loading"><q-spinner size="32px" color="primary" /></q-inner-loading>
         </q-card>
       </div>
 
       <div class="col-12 col-md-8 col-lg-9">
-        <q-card flat bordered class="full-height">
-          <q-card-section v-if="!selectedArchive" class="flex flex-center text-grey-7" style="min-height: 360px">
+        <q-card ref="viewerCard" flat bordered class="full-height">
+          <q-card-section v-if="!selectedArchive" class="flex flex-center archive-muted" style="min-height: 360px">
             <div class="text-center">
               <q-icon name="picture_as_pdf" size="56px" class="q-mb-md" />
               <div>{{ $t('archiveSelectReport') }}</div>
@@ -60,19 +187,36 @@
           </q-card-section>
 
           <template v-else>
-            <q-bar class="bg-primary text-white">
+            <q-bar class="bg-fixed-primary text-white archive-viewer-bar">
               <q-icon name="picture_as_pdf" />
               <span class="q-ml-sm text-body1 ellipsis">{{ selectedArchive.name }}</span>
               <q-space />
-              <q-btn dense flat icon="download" @click="downloadSelected" />
+              <q-btn v-if="canModify(selectedArchive).update" dense flat icon="edit" @click="openEditDialog(selectedArchive)">
+                <q-tooltip>{{ $t('archiveEdit') }}</q-tooltip>
+              </q-btn>
+              <q-btn dense flat icon="download" @click="downloadSelected">
+                <q-tooltip>{{ $t('archiveDownload') }}</q-tooltip>
+              </q-btn>
             </q-bar>
 
+            <div class="row items-center q-px-md q-py-sm q-gutter-xs archive-meta">
+              <q-chip dense square icon="business" :label="selectedArchive.company?.name || $t('archiveNoCompany')" />
+              <q-chip dense square icon="event" :label="archiveDate(selectedArchive)" />
+              <q-chip v-if="selectedArchive.auditType" dense square icon="category" :label="selectedArchive.auditType" />
+              <q-chip v-for="tag in selectedArchive.tags || []" :key="tag" dense outline color="primary" :label="tag" />
+              <q-icon v-if="selectedArchive.notes" name="sticky_note_2" size="20px" class="q-ml-sm cursor-pointer">
+                <q-tooltip max-width="360px" style="white-space: pre-wrap">{{ selectedArchive.notes }}</q-tooltip>
+              </q-icon>
+            </div>
+
+            <q-separator />
+
             <div class="row no-wrap">
-              <div class="gt-sm col-3" style="border-right: 1px solid rgba(0,0,0,0.12)">
+              <div class="gt-sm col-3">
                 <q-card-section>
                   <div class="text-subtitle2 q-mb-sm">{{ $t('archiveOutline') }}</div>
                   <q-list dense class="archive-outline">
-                    <q-item v-if="outline.length === 0" class="text-grey-7">
+                    <q-item v-if="outline.length === 0" class="archive-muted">
                       <q-item-section>{{ $t('archiveNoOutline') }}</q-item-section>
                     </q-item>
                     <q-item v-for="item in outline" :key="item.key" clickable @click="jumpToPage(item.pageNumber)">
@@ -89,11 +233,11 @@
                   <q-input v-model="pdfSearch" outlined dense clearable :label="$t('archiveSearchPlaceholder')">
                     <template #append><q-icon name="search" /></template>
                   </q-input>
-                  <div v-if="searchIndexLoading" class="text-caption text-grey-7 q-mt-sm">
+                  <div v-if="searchIndexLoading" class="text-caption archive-muted q-mt-sm">
                     {{ $t('archiveBuildingIndex') }}
                   </div>
                   <q-list v-else dense class="archive-search-results q-mt-sm">
-                    <q-item v-if="pdfSearch && pdfSearchResults.length === 0" class="text-grey-7">
+                    <q-item v-if="pdfSearch && pdfSearchResults.length === 0" class="archive-muted">
                       <q-item-section>{{ $t('archiveSearchNoResults') }}</q-item-section>
                     </q-item>
                     <q-item v-for="result in pdfSearchResults" :key="result.pageNumber" clickable @click="jumpToPage(result.pageNumber)">
@@ -106,7 +250,9 @@
                 </q-card-section>
               </div>
 
-              <div class="col column" style="min-width:0">
+              <q-separator vertical class="gt-sm" />
+
+              <div class="col column no-wrap" style="min-width:0">
                 <q-toolbar class="lt-md">
                   <q-btn flat dense icon="menu_book" :label="$t('archiveOutline')" @click="outlineDrawer = true" />
                 </q-toolbar>
@@ -118,7 +264,10 @@
                   <div
                     v-for="page in pages"
                     :key="page"
+                    :ref="el => setPageWrapper(el, page)"
+                    :data-page="page"
                     class="archive-page-wrapper"
+                    :style="renderedPages[page] ? null : placeholderStyle"
                   >
                     <canvas
                       :ref="el => setPageCanvas(el, page)"
@@ -146,7 +295,7 @@
         </q-card-section>
         <q-separator />
         <q-list dense>
-          <q-item v-if="outline.length === 0" class="text-grey-7">
+          <q-item v-if="outline.length === 0" class="archive-muted">
             <q-item-section>{{ $t('archiveNoOutline') }}</q-item-section>
           </q-item>
           <q-item v-for="item in outline" :key="item.key" clickable v-close-popup @click="jumpToPage(item.pageNumber)">
@@ -162,11 +311,11 @@
           <q-input v-model="pdfSearch" outlined dense clearable :label="$t('archiveSearchPlaceholder')">
             <template #append><q-icon name="search" /></template>
           </q-input>
-          <div v-if="searchIndexLoading" class="text-caption text-grey-7 q-mt-sm">
+          <div v-if="searchIndexLoading" class="text-caption archive-muted q-mt-sm">
             {{ $t('archiveBuildingIndex') }}
           </div>
           <q-list v-else dense class="q-mt-sm">
-            <q-item v-if="pdfSearch && pdfSearchResults.length === 0" class="text-grey-7">
+            <q-item v-if="pdfSearch && pdfSearchResults.length === 0" class="archive-muted">
               <q-item-section>{{ $t('archiveSearchNoResults') }}</q-item-section>
             </q-item>
             <q-item v-for="result in pdfSearchResults" :key="result.pageNumber" clickable v-close-popup @click="jumpToPage(result.pageNumber)">
@@ -180,21 +329,219 @@
       </q-card>
     </q-dialog>
 
-    <q-dialog v-model="uploadDialog">
-      <q-card style="width: 520px; max-width: 90vw">
+    <!-- Upload -->
+    <q-dialog v-model="uploadDialog" :persistent="uploading">
+      <q-card style="width: 640px; max-width: 95vw">
         <q-card-section>
           <div class="text-h6">{{ $t('archiveUploadPdf') }}</div>
-          <div class="text-caption text-grey-7">{{ $t('archiveUploadHint') }}</div>
+          <div class="text-caption archive-muted">{{ $t('archiveUploadHint') }}</div>
         </q-card-section>
-        <q-card-section class="q-gutter-md">
-          <q-input v-model="upload.name" outlined :label="$t('name')" :error="!!errors.name" :error-message="errors.name" />
-          <q-file v-model="upload.file" outlined accept="application/pdf,.pdf" :label="$t('archivePdfFile')" :error="!!errors.file" :error-message="errors.file">
+        <q-card-section class="q-gutter-md q-pt-none">
+          <q-file
+            :model-value="null"
+            outlined
+            multiple
+            accept="application/pdf,.pdf"
+            :label="$t('archiveDropHint')"
+            :error="!!uploadErrors.files"
+            :error-message="uploadErrors.files"
+            :disable="uploading"
+            @update:model-value="addUploadFiles"
+            @rejected="onUploadRejected"
+          >
             <template #prepend><q-icon name="attach_file" /></template>
           </q-file>
+
+          <q-list v-if="upload.entries.length" bordered separator class="rounded-borders">
+            <q-item v-for="(entry, index) in upload.entries" :key="index">
+              <q-item-section avatar>
+                <q-icon :name="entry.error ? 'error' : 'picture_as_pdf'" :color="entry.error ? 'negative' : 'primary'" />
+              </q-item-section>
+              <q-item-section>
+                <q-input
+                  v-model="entry.name"
+                  dense
+                  outlined
+                  :label="$t('name')"
+                  :disable="uploading"
+                  :error="!!entry.error"
+                  :error-message="entry.error"
+                  @update:model-value="entry.error = validateUploadFile(entry.file)"
+                />
+                <q-item-label caption class="q-mt-xs">{{ entry.file.name }} · {{ formatSize(entry.file.size) }}</q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <q-btn dense flat round icon="close" :disable="uploading" @click="removeUploadEntry(index)" />
+              </q-item-section>
+            </q-item>
+          </q-list>
+
+          <q-select
+            v-model="upload.company"
+            :options="companyOptions"
+            emit-value
+            map-options
+            outlined
+            clearable
+            options-sanitize
+            :use-input="canCreateCompany"
+            :new-value-mode="canCreateCompany ? 'add-unique' : undefined"
+            :hint="canCreateCompany ? $t('archiveCompanyHint') : undefined"
+            :label="$t('company')"
+            :disable="uploading"
+            @new-value="createCompany"
+          />
+          <div>
+            <div class="row q-col-gutter-md">
+              <div class="col-12 col-sm-6">
+                <q-input v-model="upload.reportDate" type="date" outlined stack-label :label="$t('archiveReportDate')" :disable="uploading" />
+              </div>
+              <div class="col-12 col-sm-6">
+                <q-select
+                  v-model="upload.auditType"
+                  :options="auditTypeOptions"
+                  outlined
+                  clearable
+                  use-input
+                  fill-input
+                  hide-selected
+                  input-debounce="0"
+                  new-value-mode="add-unique"
+                  options-sanitize
+                  :label="$t('archiveAuditType')"
+                  :disable="uploading"
+                  @input-value="value => upload.auditType = value"
+                />
+              </div>
+            </div>
+          </div>
+          <q-select
+            v-model="upload.tags"
+            :options="tagOptions"
+            outlined
+            multiple
+            use-chips
+            use-input
+            hide-dropdown-icon
+            input-debounce="0"
+            new-value-mode="add-unique"
+            options-sanitize
+            :label="$t('archiveTags')"
+            :disable="uploading"
+          />
+          <div v-if="uploading">
+            <div class="text-caption q-mb-xs">{{ $t('archiveUploadingProgress', { current: uploadProgress.index, total: uploadProgress.total }) }}</div>
+            <q-linear-progress :value="uploadProgress.percent / 100" color="secondary" rounded size="8px" />
+          </div>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat no-caps :label="$t('btn.cancel')" :disable="uploading" v-close-popup />
+          <q-btn
+            color="secondary"
+            unelevated
+            no-caps
+            :loading="uploading"
+            :disable="upload.entries.length === 0"
+            :label="$t('archiveUpload')"
+            @click="uploadArchives"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Edit metadata -->
+    <q-dialog v-model="editDialog">
+      <q-card style="width: 560px; max-width: 95vw">
+        <q-card-section>
+          <div class="text-h6">{{ $t('archiveEdit') }}</div>
+        </q-card-section>
+        <q-card-section class="q-gutter-md q-pt-none">
+          <q-input v-model="editForm.name" outlined :label="$t('name')" :error="!!editErrors.name" :error-message="editErrors.name" />
+          <q-select
+            v-model="editForm.company"
+            :options="companyOptions"
+            emit-value
+            map-options
+            outlined
+            clearable
+            options-sanitize
+            :use-input="canCreateCompany"
+            :new-value-mode="canCreateCompany ? 'add-unique' : undefined"
+            :hint="canCreateCompany ? $t('archiveCompanyHint') : undefined"
+            :label="$t('company')"
+            @new-value="createCompany"
+          />
+          <div>
+            <div class="row q-col-gutter-md">
+              <div class="col-12 col-sm-6">
+                <q-input v-model="editForm.reportDate" type="date" outlined stack-label :label="$t('archiveReportDate')" />
+              </div>
+              <div class="col-12 col-sm-6">
+                <q-select
+                  v-model="editForm.auditType"
+                  :options="auditTypeOptions"
+                  outlined
+                  clearable
+                  use-input
+                  fill-input
+                  hide-selected
+                  input-debounce="0"
+                  new-value-mode="add-unique"
+                  options-sanitize
+                  :label="$t('archiveAuditType')"
+                  @input-value="value => editForm.auditType = value"
+                />
+              </div>
+            </div>
+          </div>
+          <q-select
+            v-model="editForm.tags"
+            :options="tagOptions"
+            outlined
+            multiple
+            use-chips
+            use-input
+            hide-dropdown-icon
+            input-debounce="0"
+            new-value-mode="add-unique"
+            options-sanitize
+            :label="$t('archiveTags')"
+          />
+          <q-input v-model="editForm.notes" type="textarea" autogrow outlined :label="$t('archiveNotes')" />
         </q-card-section>
         <q-card-actions align="right">
           <q-btn flat no-caps :label="$t('btn.cancel')" v-close-popup />
-          <q-btn color="secondary" unelevated no-caps :loading="uploading" :label="$t('archiveUpload')" @click="uploadArchive" />
+          <q-btn color="secondary" unelevated no-caps :loading="saving" :label="$t('btn.save')" @click="saveArchive" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Bulk company assignment -->
+    <q-dialog v-model="bulkDialog">
+      <q-card style="width: 420px; max-width: 95vw">
+        <q-card-section>
+          <div class="text-h6">{{ $t('archiveAssignCompany') }}</div>
+          <div class="text-caption archive-muted">{{ $t('archiveSelectedCount', { count: selectedCount }) }}</div>
+        </q-card-section>
+        <q-card-section class="q-pt-none">
+          <q-select
+            v-model="bulkCompany"
+            :options="companyOptions"
+            emit-value
+            map-options
+            outlined
+            clearable
+            options-sanitize
+            :use-input="canCreateCompany"
+            :new-value-mode="canCreateCompany ? 'add-unique' : undefined"
+            :hint="$t('archiveBulkHint')"
+            :label="$t('company')"
+            @new-value="createCompany"
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat no-caps :label="$t('btn.cancel')" v-close-popup />
+          <q-btn color="secondary" unelevated no-caps :loading="saving" :label="$t('btn.confirm')" @click="applyBulkCompany" />
         </q-card-actions>
       </q-card>
     </q-dialog>

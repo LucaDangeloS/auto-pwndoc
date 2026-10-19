@@ -288,14 +288,18 @@ export default defineComponent({
               this.$router.push('/');
           })
           .catch(err => {
-              if (err.response.status === 422) {
+              const status = err.response?.status
+              if (status === 422) {
                   this.step = 1
                   nextTick(() => {
                       this.$refs.totptoken.focus()
                   })
               }
-              else {
+              else if (status === 401) {
                   this.errors.alert = $t('err.invalidCredentials');
+              }
+              else {
+                  this.errors.alert = $t('err.unexpectedError');
               }
           })
           .finally(() => {

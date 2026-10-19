@@ -9,10 +9,18 @@ services:
     networks:
       - autopwndoc-net
     volumes:
-      - mongo-data:/data/db
+      # Host-owned ground truth: independent from the Compose project name and
+      # unaffected by `docker compose down -v`.
+      - ${MONGO_DATA_PATH:-./backend/mongo-data}:/data/db
     restart: always
     environment:
       MONGO_INITDB_DATABASE: pwndoc
+    healthcheck:
+      test: ["CMD-SHELL", "mongo --quiet --eval \"quit(db.adminCommand({ping:1}).ok ? 0 : 1)\""]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
 
   backend:
     build:
@@ -29,9 +37,12 @@ services:
       - ./backend/ssl:/app/ssl:ro
       - ./backend/src/config:/app/src/config
     depends_on:
-      - mongodb
-      - chroma
-      - languagetool
+      mongodb:
+        condition: service_healthy
+      chroma:
+        condition: service_started
+      languagetool:
+        condition: service_started
     environment:
       COLLAB_WEBSOCKET_PORT: 8440
       APP_URL: ${APP_URL:-https://localhost:8443}
@@ -40,7 +51,7 @@ services:
       - "4242"
       - "8440"
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('https').get({host:'localhost',port:4242,rejectUnauthorized:false},r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"require('https').get({host:'localhost',port:4242,path:'/api/health',rejectUnauthorized:false},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -81,5 +92,4 @@ services:
     restart: always
 
 volumes:
-  mongo-data:
   chroma-data:

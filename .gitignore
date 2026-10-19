@@ -13,6 +13,7 @@ backend/audit-archives/*
 !backend/audit-archives/.gitkeep
 backups/
 backend/backups/
+.autopwndoc-compose-project
 custom-generator.js
 dist
 report_examples/

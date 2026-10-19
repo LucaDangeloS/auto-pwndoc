@@ -28,7 +28,61 @@ const catalog = [
         permissions: [
             {scope: 'audit-archives:read', core: true},
             {scope: 'audit-archives:create', core: true},
-            {scope: 'audit-archives:delete', core: true}
+            {scope: 'audit-archives:update', core: true},
+            {scope: 'audit-archives:delete', core: true},
+            {scope: 'audit-archives:update-all', core: false},
+            {scope: 'audit-archives:delete-all', core: false}
+        ]
+    },
+    {
+        key: 'tools',
+        label: 'Tools',
+        permissions: [
+            {scope: 'tools:read', core: true},
+            {scope: 'tools:create', core: false},
+            {scope: 'tools:update', core: false},
+            {scope: 'tools:delete', core: false}
+        ]
+    },
+    {
+        key: 'licenses',
+        label: 'Licenses',
+        permissions: [
+            {scope: 'licenses:read', core: false},
+            {scope: 'licenses:create', core: false},
+            {scope: 'licenses:update', core: false},
+            {scope: 'licenses:delete', core: false}
+        ]
+    },
+      {
+         key: 'guides',
+        label: 'Guides',
+        permissions: [
+            {scope: 'guides:read', core: true},
+            {scope: 'guides:run', core: true},
+            {scope: 'guides:create', core: false},
+            {scope: 'guides:update', core: false},
+            {scope: 'guides:delete', core: false}
+        ]
+      },
+      {
+         key: 'evidence',
+         label: 'Evidence',
+         permissions: [
+            {scope: 'evidence:read', core: true},
+            {scope: 'evidence:create', core: true},
+            {scope: 'evidence:review', core: false},
+            {scope: 'evidence:delete', core: false}
+         ]
+      },
+    {
+        key: 'tasks',
+        label: 'Audit Tasks',
+        permissions: [
+            {scope: 'tasks:read', core: true},
+            {scope: 'tasks:create', core: true},
+            {scope: 'tasks:update', core: true},
+            {scope: 'tasks:delete', core: false}
         ]
     },
     {

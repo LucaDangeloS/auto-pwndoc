@@ -1,0 +1,14 @@
+{
+  "name": "autopwndoc-burp-companion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=20"},
+  "scripts": {
+    "import": "node src/import.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.3.1"
+  }
+}

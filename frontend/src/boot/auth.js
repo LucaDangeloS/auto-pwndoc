@@ -38,6 +38,9 @@ export default async ({ urlPath, router, redirect }) => {
     else if (User.user && User.user.forceTotpSetup && to.path !== '/profile') {
       next('/profile?setup2fa=1')
     }
+    else if (Array.isArray(to.meta.permissionsAny) && !to.meta.permissionsAny.some(permission => User.isAllowed(permission))) {
+      next({name: '403'})
+    }
     else {
       next()
     }

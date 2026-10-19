@@ -17,6 +17,12 @@ export default {
     return api.post('backups/upload', { content })
   },
 
+  uploadBundle: function(file) {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post('backups/upload-bundle', form)
+  },
+
   restoreBackup: function(slug) {
     return api.post(`backups/${slug}/restore`)
   },

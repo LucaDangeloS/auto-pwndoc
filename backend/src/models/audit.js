@@ -338,7 +338,7 @@ AuditSchema.statics.getAudits = (isAdmin, userId, filters) => {
         query.populate('reviewers', 'username firstname lastname')
         query.populate('approvals', 'username firstname lastname')
         query.populate('company', 'name')
-        query.select('id name auditType language creator collaborators company createdAt state isRetest parentId')
+        query.select('id name auditType language creator collaborators reviewers company createdAt state isRetest parentId')
         query.exec()
         .then((rows) => {
             resolve(rows)
@@ -548,10 +548,12 @@ AuditSchema.statics.delete = (isAdmin, auditId, userId) => {
         if (!isAdmin)
             query.or([{creator: userId}])
         return query.exec()               
-        .then((row) => {
+        .then(async (row) => {
             if (!row)
                 throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
-            
+            await mongoose.model('GuideRun').deleteMany({audit: row._id})
+            await mongoose.model('EvidenceCandidate').deleteForAudit(row._id)
+            await mongoose.model('AuditTask').deleteMany({audit: row._id})
             resolve(row)
         })
         .catch((err) => {
@@ -1296,7 +1298,6 @@ AuditSchema.statics.createRetest = (isAdmin, auditId, userId, newName) => {
                 auditType: source.auditType,
                 language: source.language,
                 company: source.company,
-                client: source.client,
                 collaborators: source.collaborators,
                 reviewers: source.reviewers,
                 template: source.template,

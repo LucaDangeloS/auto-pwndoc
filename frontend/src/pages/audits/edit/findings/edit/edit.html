@@ -319,6 +319,7 @@
                     />
                   </q-card-section>
                 </q-card>
+                <linked-evidence v-if="canReadEvidence && auditId && findingId" :audit-id="auditId" :finding-id="findingId" />
               </div>
             </div>
           </q-tab-panel>

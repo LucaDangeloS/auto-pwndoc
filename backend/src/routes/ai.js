@@ -358,6 +358,9 @@ module.exports = function(app) {
             if (!action || !['generate', 'complete', 'rewrite', 'fill-proofs', 'executive-summary', 'severity-summary'].includes(action)) {
                 return Response.BadParameters(res, 'Invalid action. Must be one of: generate, complete, rewrite, fill-proofs, executive-summary, severity-summary');
             }
+            if (fieldName === 'observation' && ['generate', 'complete', 'rewrite'].includes(action)) {
+                return Response.BadParameters(res, 'AI actions are not available for the Observation field');
+            }
 
             var enrichedContext = context || {};
 

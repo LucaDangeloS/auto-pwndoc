@@ -22,15 +22,17 @@ module.exports = async function(req, res, next) {
             return res.status(401).json({ jsonrpc: '2.0', error: { code: -32001, message: 'Missing X-API-Key header' }, id: requestId(req) });
         }
 
-        if (!mcp.apiKey || apiKey !== mcp.apiKey) {
+        var keys = mcp.keys || [];
+        var match = keys.find(key => key.key === apiKey);
+        if (!match) {
             return res.status(401).json({ jsonrpc: '2.0', error: { code: -32002, message: 'Invalid API key' }, id: requestId(req) });
         }
 
-        if (!mcp.creator) {
-            return res.status(401).json({ jsonrpc: '2.0', error: { code: -32003, message: 'MCP API key has no owner. Rotate it from Settings.' }, id: requestId(req) });
+        if (!match.creator) {
+            return res.status(401).json({ jsonrpc: '2.0', error: { code: -32003, message: 'MCP API key has no owner. Revoke it and create a new key from Settings.' }, id: requestId(req) });
         }
 
-        var owner = await User.findById(mcp.creator).select('username firstname lastname email phone role permissions enabled');
+        var owner = await User.findById(match.creator).select('username firstname lastname email phone role permissions enabled');
         if (!owner || owner.enabled === false) {
             return res.status(401).json({ jsonrpc: '2.0', error: { code: -32004, message: 'MCP API key owner is unavailable' }, id: requestId(req) });
         }
@@ -46,6 +48,12 @@ module.exports = async function(req, res, next) {
             role: owner.role,
             roles: baseRoles === '*' ? '*' : [...new Set([...baseRoles, ...(owner.permissions || [])])]
         };
+        req.mcpKey = { id: match._id.toString(), creator: owner._id.toString() };
+
+        Settings.updateOne(
+            { 'mcp.keys._id': match._id },
+            { $set: { 'mcp.keys.$.lastUsedAt': new Date() } }
+        ).catch(() => {});
 
         next();
     }

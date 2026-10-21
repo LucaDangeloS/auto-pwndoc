@@ -1496,6 +1496,67 @@ const STEPS = [
         },
     },
 
+    // Step 43: Replace the former singleton MCP key with independently
+    // revocable, owner-bound keys. The existing key remains usable and keeps
+    // its owner; ownerless legacy keys can be claimed from Settings.
+    {
+        id: 43,
+        name: 'migrate-mcp-key-ring',
+        async run(_srcDb, dstDb) {
+            const settingsCol = dstDb.collection('settings');
+            const settings = await settingsCol.findOne({});
+            if (!settings) {
+                await settingsCol.updateOne({}, { $set: { 'mcp.keys': [] } }, { upsert: true });
+                console.log('[migration] migrate-mcp-key-ring: initialized empty key ring');
+                return;
+            }
+
+            const mcp = settings.mcp || {};
+            const keys = Array.isArray(mcp.keys) ? mcp.keys.slice() : [];
+            if (mcp.apiKey && !keys.some(entry => entry.key === mcp.apiKey)) {
+                keys.push({
+                    _id: new mongoose.Types.ObjectId(),
+                    name: 'Migrated MCP key',
+                    key: mcp.apiKey,
+                    creator: mcp.creator || null,
+                    createdAt: mcp.apiKeyCreatedAt || new Date(),
+                    lastUsedAt: null
+                });
+            }
+
+            await settingsCol.updateOne(
+                { _id: settings._id },
+                {
+                    $set: { 'mcp.keys': keys },
+                    $unset: { 'mcp.apiKey': '', 'mcp.apiKeyCreatedAt': '', 'mcp.creator': '' }
+                }
+            );
+            console.log(`[migration] migrate-mcp-key-ring: ${keys.length} keys available`);
+        },
+    },
+
+    // Step 44: Per-field prompts are now the only configurable source for
+    // finding AI actions. Remove the superseded generic and Observation AI
+    // settings while leaving the Observation data field itself untouched.
+    {
+        id: 44,
+        name: 'consolidate-ai-prompt-overrides',
+        async run(_srcDb, dstDb) {
+            const obsoleteKeys = [
+                'generateSystemPrompt', 'generateUserPrompt',
+                'completeSystemPrompt', 'completeUserPrompt',
+                'rewriteSystemPrompt', 'rewriteUserPrompt',
+                'field_observation_generateSystemPrompt', 'field_observation_generateUserPrompt',
+                'field_observation_completeSystemPrompt', 'field_observation_completeUserPrompt',
+                'field_observation_rewriteSystemPrompt', 'field_observation_rewriteUserPrompt',
+                'field_observation_anonymizeRegex', 'field_observation_anonymizeLlm'
+            ];
+            const unset = Object.fromEntries(obsoleteKeys.map(key => [`ai.private.${key}`, '']));
+            const result = await dstDb.collection('settings').updateMany({}, { $unset: unset });
+            console.log(`[migration] consolidate-ai-prompt-overrides: ${result.modifiedCount} settings documents updated`);
+        },
+    },
+
 ];
 
 // Runner

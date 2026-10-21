@@ -391,7 +391,7 @@ export default defineComponent({
       if (this.results && this.results.length > 0 && this.selectedIndex !== null && this.selectedIndex < this.results.length) {
         const sel = selected;
         Object.keys(map).forEach((k) => {
-          map[k] = this._fieldChanged(sel, k);
+          map[k] = k !== 'observation' && this._fieldChanged(sel, k);
         });
       } else {
         // Even with no diff, default to selecting changed fields once selectedIndex is set

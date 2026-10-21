@@ -9,31 +9,38 @@ module.exports = function(request, app) {
       })
 
       const defaultAiPrivatePrompts = {
-        "generateSystemPrompt": "",
-        "generateUserPrompt": "",
-        "completeSystemPrompt": "",
-        "completeUserPrompt": "",
-        "rewriteSystemPrompt": "",
-        "rewriteUserPrompt": "",
         "fillProofsSystemPrompt": "",
+        "fillProofsUserPrompt": "",
         "executiveSummarySystemPrompt": "",
+        "executiveSummaryUserPrompt": "",
         "severitySummarySystemPrompt": "",
+        "severitySummaryUserPrompt": "",
         "vulnerabilityTranslationSystemPrompt": "",
+        "vulnerabilityTranslationUserPrompt": "",
         "field_description_generateSystemPrompt": "",
+        "field_description_generateUserPrompt": "",
         "field_description_completeSystemPrompt": "",
+        "field_description_completeUserPrompt": "",
         "field_description_rewriteSystemPrompt": "",
-        "field_observation_generateSystemPrompt": "",
-        "field_observation_completeSystemPrompt": "",
-        "field_observation_rewriteSystemPrompt": "",
+        "field_description_rewriteUserPrompt": "",
         "field_remediation_generateSystemPrompt": "",
+        "field_remediation_generateUserPrompt": "",
         "field_remediation_completeSystemPrompt": "",
+        "field_remediation_completeUserPrompt": "",
         "field_remediation_rewriteSystemPrompt": "",
+        "field_remediation_rewriteUserPrompt": "",
         "field_poc_generateSystemPrompt": "",
+        "field_poc_generateUserPrompt": "",
         "field_poc_completeSystemPrompt": "",
+        "field_poc_completeUserPrompt": "",
         "field_poc_rewriteSystemPrompt": "",
+        "field_poc_rewriteUserPrompt": "",
         "field_retestEvidence_generateSystemPrompt": "",
+        "field_retestEvidence_generateUserPrompt": "",
         "field_retestEvidence_completeSystemPrompt": "",
+        "field_retestEvidence_completeUserPrompt": "",
         "field_retestEvidence_rewriteSystemPrompt": "",
+        "field_retestEvidence_rewriteUserPrompt": "",
       }
 
       const defaultChartTheme = {
@@ -248,9 +255,6 @@ module.exports = function(request, app) {
         },
         "mcp": {
           "enabled": false,
-          "apiKey": "",
-          "apiKeyCreatedAt": null,
-          "creator": null,
           "appUrl": "https://localhost:8443",
         },
       };
@@ -375,9 +379,6 @@ module.exports = function(request, app) {
           },
           "mcp": {
             "enabled": false,
-            "apiKey": "",
-            "apiKeyCreatedAt": null,
-            "creator": null,
             "appUrl": "https://localhost:8443",
           },
         };
@@ -544,22 +545,22 @@ module.exports = function(request, app) {
       expect(invalidTaxonomy.status).toBe(422);
 
       var legacyMcpKey = 'legacy-ownerless-mcp-key';
-      await mongoose.model('Settings').updateOne({}, {$set: {
-        'mcp.enabled': true,
-        'mcp.apiKey': legacyMcpKey,
-        'mcp.apiKeyCreatedAt': new Date(),
-        'mcp.creator': null
-      }});
+      await mongoose.model('Settings').updateOne({}, {
+        $set: {'mcp.enabled': true},
+        $push: {'mcp.keys': {name: 'Legacy MCP key', key: legacyMcpKey, creator: null}}
+      });
+      var settingsWithLegacyMcpKey = await mongoose.model('Settings').findOne({});
+      var legacyMcpEntry = settingsWithLegacyMcpKey.mcp.keys.find(entry => entry.key === legacyMcpKey);
       var legacyMcpRequest = await request(app).post('/api/mcp')
         .set('X-API-Key', legacyMcpKey)
         .send({jsonrpc: '2.0', id: 1, method: 'tools/list'});
       expect(legacyMcpRequest.status).toBe(401);
       expect(legacyMcpRequest.body.error.message).toContain('has no owner');
-      var claimedMcpKey = await request(app).post('/api/settings/mcp/claim-key')
+      var claimedMcpKey = await request(app).post(`/api/settings/mcp/keys/${legacyMcpEntry._id}/claim`)
         .set('Cookie', [`token=JWT ${userToken}`]);
       expect(claimedMcpKey.status).toBe(200);
       expect(String(claimedMcpKey.body.datas.creator._id)).toBe(ownerId);
-      var retriedMcpClaim = await request(app).post('/api/settings/mcp/claim-key')
+      var retriedMcpClaim = await request(app).post(`/api/settings/mcp/keys/${legacyMcpEntry._id}/claim`)
         .set('Cookie', [`token=JWT ${userToken}`]);
       expect(retriedMcpClaim.status).toBe(200);
       expect(retriedMcpClaim.body.datas.repairedAudits).toBe(0);
@@ -568,18 +569,40 @@ module.exports = function(request, app) {
         .send({jsonrpc: '2.0', id: 2, method: 'tools/list'});
       expect(claimedMcpRequest.status).toBe(200);
 
-      var rotate = await request(app).post('/api/settings/mcp/rotate-key')
+      var createdMcpKey = await request(app).post('/api/settings/mcp/keys')
+        .set('Cookie', [`token=JWT ${userToken}`])
+        .send({name: 'Primary MCP key'});
+      expect(createdMcpKey.status).toBe(200);
+      expect(String(createdMcpKey.body.datas.creator._id)).toBe(ownerId);
+      expect(createdMcpKey.body.datas.creator.username).toBe('admin');
+      var mcpKey = createdMcpKey.body.datas.key;
+      var secondMcpKey = await request(app).post('/api/settings/mcp/keys')
+        .set('Cookie', [`token=JWT ${userToken}`])
+        .send({name: 'Independently revocable MCP key'});
+      expect(secondMcpKey.status).toBe(200);
+      var listedMcpKeys = await request(app).get('/api/settings/mcp/keys')
         .set('Cookie', [`token=JWT ${userToken}`]);
-      expect(rotate.status).toBe(200);
-      expect(String(rotate.body.datas.creator._id)).toBe(ownerId);
-      expect(rotate.body.datas.creator.username).toBe('admin');
+      expect(listedMcpKeys.status).toBe(200);
+      expect(listedMcpKeys.body.datas).toHaveLength(3);
+      expect(listedMcpKeys.body.datas.every(key => key.key === undefined)).toBe(true);
+      expect(listedMcpKeys.body.datas.find(key => key.id === createdMcpKey.body.datas.id).keyPrefix).toBe(mcpKey.substring(0, 8));
+      var settingsWithoutMcpSecrets = await request(app).get('/api/settings')
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(settingsWithoutMcpSecrets.body.datas.mcp.keys).toBeUndefined();
+      var revokeSecondMcpKey = await request(app).delete(`/api/settings/mcp/keys/${secondMcpKey.body.datas.id}`)
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(revokeSecondMcpKey.status).toBe(200);
+      var revokedMcpRequest = await request(app).post('/api/mcp')
+        .set('X-API-Key', secondMcpKey.body.datas.key)
+        .send({jsonrpc: '2.0', id: 3, method: 'tools/list'});
+      expect(revokedMcpRequest.status).toBe(401);
       var enableMcp = await request(app).put('/api/settings')
         .set('Cookie', [`token=JWT ${userToken}`])
-        .send({mcp: {enabled: true, apiKey: rotate.body.datas.apiKey, apiKeyCreatedAt: rotate.body.datas.apiKeyCreatedAt}});
+        .send({mcp: {enabled: true}});
       expect(enableMcp.status).toBe(200);
 
       var mcpTools = await request(app).post('/api/mcp')
-        .set('X-API-Key', rotate.body.datas.apiKey)
+        .set('X-API-Key', mcpKey)
         .send({jsonrpc: '2.0', id: 1, method: 'tools/list'});
       expect(mcpTools.status).toBe(200);
       expect(mcpTools.body.result.tools.map(tool => tool.name)).toContain('list_taxonomies');
@@ -592,7 +615,7 @@ module.exports = function(request, app) {
       var mcpId = 10;
       var mcpCall = async (name, args) => {
         var call = await request(app).post('/api/mcp')
-          .set('X-API-Key', rotate.body.datas.apiKey)
+          .set('X-API-Key', mcpKey)
           .send({jsonrpc: '2.0', id: mcpId++, method: 'tools/call', params: {name, arguments: args || {}}});
         expect(call.status).toBe(200);
         expect(call.body.result.isError).not.toBe(true);
@@ -647,13 +670,13 @@ module.exports = function(request, app) {
       expect(await mcpCall('delete_tool', {toolId: mcpToolId})).toBe('Tool deleted');
 
       var mcpTaxonomies = await request(app).post('/api/mcp')
-        .set('X-API-Key', rotate.body.datas.apiKey)
+        .set('X-API-Key', mcpKey)
         .send({jsonrpc: '2.0', id: 2, method: 'tools/call', params: {name: 'list_taxonomies', arguments: {}}});
       expect(mcpTaxonomies.status).toBe(200);
       expect(mcpTaxonomies.body.result.content[0].text).toContain('Internal');
 
       var mcpUpdate = await request(app).post('/api/mcp')
-        .set('X-API-Key', rotate.body.datas.apiKey)
+        .set('X-API-Key', mcpKey)
         .send({jsonrpc: '2.0', id: 3, method: 'tools/call', params: {
           name: 'update_finding',
           arguments: {auditId, findingId, fields: {taxonomies: [{type: 'Internal'}]}}

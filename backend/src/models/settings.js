@@ -92,9 +92,13 @@ const SettingSchema = new Schema({
      },
     mcp: {
         enabled: { type: Boolean, default: false },
-        apiKey: { type: String, default: '' },
-        apiKeyCreatedAt: { type: Date, default: null },
-        creator: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+        keys: [{
+          name: { type: String, required: true },
+          key: { type: String, required: true },
+          creator: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+          createdAt: { type: Date, default: Date.now },
+          lastUsedAt: { type: Date, default: null }
+        }],
         guidance: {
         general: { type: String, default: DEFAULT_MCP_GUIDANCE.general },
         evidence: { type: String, default: DEFAULT_MCP_GUIDANCE.evidence },
@@ -205,12 +209,6 @@ const SettingSchema = new Schema({
         // user can review/edit the anonymized context before it is sent to the
         // generation model.
         anonymizeReviewBeforeSend: { type: Boolean, default: false },
-        generateSystemPrompt: { type: String, default: '' },
-        generateUserPrompt: { type: String, default: '' },
-        completeSystemPrompt: { type: String, default: '' },
-        completeUserPrompt: { type: String, default: '' },
-        rewriteSystemPrompt: { type: String, default: '' },
-        rewriteUserPrompt: { type: String, default: '' },
         fillProofsSystemPrompt: { type: String, default: '' },
         fillProofsUserPrompt: { type: String, default: '' },
         executiveSummarySystemPrompt: { type: String, default: '' },
@@ -225,12 +223,6 @@ const SettingSchema = new Schema({
         field_description_completeUserPrompt: { type: String, default: '' },
         field_description_rewriteSystemPrompt: { type: String, default: '' },
         field_description_rewriteUserPrompt: { type: String, default: '' },
-        field_observation_generateSystemPrompt: { type: String, default: '' },
-        field_observation_generateUserPrompt: { type: String, default: '' },
-        field_observation_completeSystemPrompt: { type: String, default: '' },
-        field_observation_completeUserPrompt: { type: String, default: '' },
-        field_observation_rewriteSystemPrompt: { type: String, default: '' },
-        field_observation_rewriteUserPrompt: { type: String, default: '' },
         field_remediation_generateSystemPrompt: { type: String, default: '' },
         field_remediation_generateUserPrompt: { type: String, default: '' },
         field_remediation_completeSystemPrompt: { type: String, default: '' },
@@ -254,8 +246,6 @@ const SettingSchema = new Schema({
         // shared visionAnonymizeRegexRules; llm uses anonymizationPrompt.
         field_description_anonymizeRegex: { type: Boolean, default: false },
         field_description_anonymizeLlm: { type: Boolean, default: false },
-        field_observation_anonymizeRegex: { type: Boolean, default: false },
-        field_observation_anonymizeLlm: { type: Boolean, default: false },
         field_remediation_anonymizeRegex: { type: Boolean, default: false },
         field_remediation_anonymizeLlm: { type: Boolean, default: false },
         field_poc_anonymizeRegex: { type: Boolean, default: false },
@@ -304,7 +294,7 @@ SettingSchema.statics.getPublic = () => {
                     const priv = publicSettings.ai.private || {};
                     publicSettings.ai.visionAnonymizationEnabled = !!(priv.visionAnonymizeLlm || priv.visionAnonymizeRegex);
                     publicSettings.ai.anonymizeReviewBeforeSend = !!priv.anonymizeReviewBeforeSend;
-                    const ANON_FIELDS = ['description', 'observation', 'remediation', 'poc', 'retestEvidence'];
+                    const ANON_FIELDS = ['description', 'remediation', 'poc', 'retestEvidence'];
                     publicSettings.ai.anonymizedFields = ANON_FIELDS.filter(f =>
                         priv[`field_${f}_anonymizeRegex`] || priv[`field_${f}_anonymizeLlm`]
                     );

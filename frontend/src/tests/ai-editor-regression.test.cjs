@@ -9,6 +9,7 @@ const assistant = source('components', 'ai-assistant.js');
 const editor = source('components', 'editor.vue');
 const modal = source('components', 'similar-vuln-modal.vue');
 const settings = source('pages', 'settings', 'settings.js');
+const findingEditor = source('pages', 'audits', 'edit', 'findings', 'edit', 'edit.html');
 
 assert(
     assistant.includes('options && options.selectionRange') &&
@@ -29,8 +30,22 @@ assert(
 
 assert(
     modal.includes("const PROOF_DIFF_FIELD = { key: 'poc'") &&
-        modal.includes("field.key !== 'observation'"),
+        modal.includes("field.key !== 'observation'") &&
+        modal.includes("k !== 'observation' && this._fieldChanged(sel, k)"),
     'proof completion must offer a completed PoC while leaving Observation out'
+);
+
+assert(
+    !settings.includes("{ key: 'observation',    labelKey: 'fieldObservation'") &&
+        !settings.includes('field_observation_generateSystemPrompt'),
+    'Observation must not expose prompt overrides'
+);
+
+const observationEditor = findingEditor.match(/ref="basiceditor_observation"[\s\S]*?\/>/)?.[0] || '';
+assert(
+    observationEditor.includes(':toolbar="[\'format\', \'marks\', \'list\', \'code\', \'table\', \'image\', \'caption\']"') &&
+        !observationEditor.includes('fieldName="observation"'),
+    'Observation editor must not expose AI actions'
 );
 
 console.log('AI editor regression tests passed');

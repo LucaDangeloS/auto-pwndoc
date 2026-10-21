@@ -714,7 +714,7 @@ export default {
       // payload: { result, fields: ['description', ...] }
       const result = payload && payload.result ? payload.result : payload;
       const fields = (payload && Array.isArray(payload.fields)) ? payload.fields : [
-        'title', 'description', 'observation', 'remediation', 'references', 'cvssv3', 'cvssv4', 'poc'
+        'title', 'description', 'remediation', 'references', 'cvssv3', 'cvssv4', 'poc'
       ];
       const allowedFields = this.similarVulnIsProofMode
         ? fields.filter(field => field !== 'observation')

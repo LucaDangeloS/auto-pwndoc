@@ -228,8 +228,7 @@
                       v-model="finding.observation"
                       v-on:editorchange="markUserEdited"
                       idUnique="basiceditor_observation"
-                      fieldName="observation"
-                      :aiContext="findingAiContext()"
+                      :toolbar="['format', 'marks', 'list', 'code', 'table', 'image', 'caption']"
                       noSync
                       :editable="!loading && frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
                     />

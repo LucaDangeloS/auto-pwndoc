@@ -27,8 +27,14 @@ assert.strictEqual(
     1,
     'Vision / Proof Analysis prompt must be rendered exactly once'
 );
+assert(
+    template.includes('id="sub-ai-prompts"') &&
+        !template.includes("resetPromptToDefault('generateSystemPrompt')") &&
+        !template.includes('id="sub-ai-field-prompts"'),
+    'prompt settings must use one per-field Prompt overrides section without generic action controls'
+);
 assert.strictEqual(
-    (template.match(/v-model="settings\.ai\.private\.visionAnonymizationPrompt"/g) || []).length,
+    (template.match(/v-model="settings\.ai\.private\.anonymizationPrompt"/g) || []).length,
     1,
     'LLM anonymization prompt must be rendered exactly once'
 );

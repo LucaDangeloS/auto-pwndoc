@@ -122,16 +122,56 @@ function persistLastTestRuns(map) {
     try { localStorage.setItem(TEST_LAST_RUN_KEY, JSON.stringify(map)); } catch (_) { /* noop */ }
 }
 
+const DEFAULT_FIELD_USER_PROMPTS = {
+    generate: `Finding title: "{findingTitle}"
+Field to generate: {fieldName}
+Finding description context:
+{findingDescription}
+
+Existing proof context:
+{findingPoc}
+
+Audit context:
+{auditContext}
+Use audit context only for slight environment-specific adjustments when directly relevant, such as exposure, reachability, scope, or deployment assumptions. Do not let it override the finding evidence or substantially change the wording/style.
+{similarVulnsBlock}
+Write the {fieldName} content for this finding. Reply in {language}.`,
+    complete: `Finding title: "{findingTitle}"
+Field: {fieldName}
+Finding description context:
+{findingDescription}
+
+Existing proof context:
+{findingPoc}
+
+Audit context:
+{auditContext}
+Use audit context only for slight environment-specific adjustments when directly relevant, such as exposure, reachability, scope, or deployment assumptions. Do not let it override the finding evidence or substantially change the wording/style.
+{similarVulnsBlock}
+Existing content:
+{text}
+
+Continue from where the content ends. Reply in {language}.`,
+    rewrite: `Finding title: "{findingTitle}"
+Field: {fieldName}
+Finding description context:
+{findingDescription}
+
+Existing proof context:
+{findingPoc}
+
+Audit context:
+{auditContext}
+Use audit context only for slight environment-specific adjustments when directly relevant, such as exposure, reachability, scope, or deployment assumptions. Do not let it override the finding evidence or substantially change the wording/style.
+Content to rewrite:
+{text}
+
+Reply in {language}.`
+};
+
 const DEFAULT_PROMPTS = {
     visionSystemPrompt: DEFAULT_VISION_SYSTEM_PROMPT,
     anonymizationPrompt: DEFAULT_INPUT_ANONYMIZATION_PROMPT,
-    generateSystemPrompt: `You are a cybersecurity expert writing professional penetration test reports.
-Generate clear, technical content for the "{fieldName}" section of a finding titled "{findingTitle}".
-If the requested field is "title", output one concise plain-text generic vulnerability-class title. Prefer CWE-style names over exploit narratives. Do not start with "Vulnerability of", "Vulnerabilidad de", "Issue in", or similar presentation wording.
-For non-title fields, the content should be in HTML format using only simple tags: <p>, <ul>, <li>, <strong>, <em>, <code>.
-Do not prefix the answer with the field name. Invalid examples: "**Title:** Stored XSS", "Title: Stored XSS", "Description: <p>...</p>".
-Do not include any markdown, backticks, or code fences. For non-title fields, output only the HTML fragment with no wrapping document tags.
-Reply exclusively in {language}.`,
 
     fillProofsUserPrompt: `Vulnerability: "{findingTitle}"
 Vulnerability description: {vulnDescription}
@@ -148,26 +188,6 @@ Image references to integrate (use these exact <img> tags in the output):
 
 Write the proof of concept narrative for this finding, integrating the images at appropriate positions. Reply in {language}.`,
 
-    generateUserPrompt: `Finding title: "{findingTitle}"
-Field to generate: {fieldName}
-Finding description context:
-{findingDescription}
-
-Existing proof context:
-{findingPoc}
-
-Audit context:
-{auditContext}
-Use audit context only for slight environment-specific adjustments when directly relevant, such as exposure, reachability, scope, or deployment assumptions. Do not let it override the finding evidence or substantially change the wording/style.
-{similarVulnsBlock}
-Write the {fieldName} content for this finding. Reply in {language}.`,
-
-    completeSystemPrompt: `You are a cybersecurity expert writing professional penetration test reports.
-Continue the "{fieldName}" section of the finding titled "{findingTitle}" naturally, maintaining the same technical tone and style.
-Output only the continuation as an HTML fragment using: <p>, <ul>, <li>, <strong>, <em>, <code>.
-Do not repeat the existing content. Do not include markdown or code fences.
-Reply exclusively in {language}.`,
-
     executiveSummaryUserPrompt: `Audit: "{auditName}"
 Auditor-selected overall risk:
 {overallRisk}
@@ -180,29 +200,6 @@ Findings (title, severity, CVSS score and description):
 {findingsDigest}
 
 Write only the executive-summary body that appears after the risk-level sentence and before the possible-risk-level legend. Reply in {language}.`,
-
-    completeUserPrompt: `Finding title: "{findingTitle}"
-Field: {fieldName}
-Finding description context:
-{findingDescription}
-
-Existing proof context:
-{findingPoc}
-
-Audit context:
-{auditContext}
-Use audit context only for slight environment-specific adjustments when directly relevant, such as exposure, reachability, scope, or deployment assumptions. Do not let it override the finding evidence or substantially change the wording/style.
-{similarVulnsBlock}
-Existing content:
-{text}
-
-Continue from where the content ends. Reply in {language}.`,
-
-    rewriteSystemPrompt: `You are a cybersecurity expert writing professional penetration test reports.
-Rewrite the "{fieldName}" section of the finding titled "{findingTitle}" to be clearer, more concise, and more professional.
-Output only the rewritten content as an HTML fragment using: <p>, <ul>, <li>, <strong>, <em>, <code>.
-Do not include markdown or code fences.
-Reply exclusively in {language}.`,
 
     severitySummaryUserPrompt: `Audit: "{auditName}"
 Severity level: {severity}
@@ -218,22 +215,6 @@ Use audit context only for engagement-level framing and slight environment-speci
 {findingsDigest}
 
 Return only the continuation to append after the prefix. Do not repeat the prefix, count, severity, or any equivalent prelude. Reply in {language}.`,
-
-    rewriteUserPrompt: `Finding title: "{findingTitle}"
-Field: {fieldName}
-Finding description context:
-{findingDescription}
-
-Existing proof context:
-{findingPoc}
-
-Audit context:
-{auditContext}
-Use audit context only for slight environment-specific adjustments when directly relevant, such as exposure, reachability, scope, or deployment assumptions. Do not let it override the finding evidence or substantially change the wording/style.
-Content to rewrite:
-{text}
-
-Reply in {language}.`,
 
     fillProofsSystemPrompt: `You are a cybersecurity expert writing professional penetration test reports.
 You will receive a proof-of-concept analysis of screenshots and evidence, along with the selected vulnerability details.
@@ -267,24 +248,6 @@ Reply exclusively in {language}.`,
 You are reformatting an existing Description field for the vulnerability titled "{findingTitle}" so it matches this report's house style. Preserve the meaning, facts, scope, and technical values of the supplied text exactly; do not add, remove, or invent any condition, asset, endpoint, version, CVE, payload, impact, or claim, and do not introduce illustrative examples or technical values that are not already written in the supplied text.
 Reshape only presentation and language: organise the content into approximately two formal, impersonal, technically precise prose paragraphs of about 90-140 words covering the vulnerable condition, why it is insecure, a realistic attack scenario, and the principal potential impact, in the order best supported by the text. Use conditional language for consequences the source does not state as confirmed. Never use bullet points or numbered lists. Prioritise preserving every substantive fact over hitting the word target; if the source already conforms, make only minimal adjustments.
 Output only the rewritten field as an HTML fragment using <p>, <strong>, <em>, and <code>. Do not output <ul>, <ol>, <li>, Markdown, headings, labels, code fences, or document wrappers.
-Reply exclusively in {language}.`,
-    field_observation_generateSystemPrompt: `You are a senior penetration-testing report writer.
-Write only the Observation field for the finding titled "{findingTitle}".
-Use the supplied description, proof context, and audit context only to summarize target-specific conditions actually observed. Audit context may slightly adjust environment-specific wording when directly relevant, but must not override evidence. Do not invent hosts, URLs, versions, parameters, headers, credentials, requests, responses, screenshots, tools, payloads, tester actions, or exploitation results.
-Do not convert generic vulnerability theory into an observed fact. If the supplied context contains no target-specific evidence, output exactly: <p>Insufficient evidence was provided to generate this section.</p>
-When evidence exists, write 45-90 words in formal, impersonal language. Do not include reproduction steps or remediation.
-Output only an HTML fragment using <p>, <strong>, <em>, and <code>. Do not output Markdown, headings, labels, code fences, or document wrappers.
-Reply exclusively in {language}.`,
-    field_observation_completeSystemPrompt: `You are a senior penetration-testing report writer.
-You are continuing an unfinished Observation field for the finding titled "{findingTitle}". Continue from exactly where the existing text ends, preserving its wording and formal, impersonal tone.
-Add only further target-specific conditions actually supported by the supplied description, proof context, and audit context. Audit context may slightly adjust environment-specific wording when directly relevant, but must not override evidence. Do not restate or contradict what is already written, do not convert generic vulnerability theory into an observed fact, and do not introduce hosts, URLs, versions, parameters, headers, credentials, requests, responses, screenshots, tools, payloads, tester actions, exploitation results, or any value not present in the supplied evidence. If there is no further target-specific evidence to add, output nothing.
-Keep the finished observation concise (about 45-90 words total) and free of reproduction steps or remediation.
-Output only the continuation as an HTML fragment using <p>, <strong>, <em>, and <code>. Do not repeat existing content and do not output Markdown, headings, labels, code fences, or document wrappers.
-Reply exclusively in {language}.`,
-    field_observation_rewriteSystemPrompt: `You are a senior penetration-testing report writer.
-You are reformatting an existing Observation field for the finding titled "{findingTitle}" so it matches this report's house style. Preserve the meaning, facts, and technical values exactly; do not add, remove, or invent hosts, URLs, versions, parameters, headers, credentials, requests, responses, screenshots, tools, payloads, tester actions, or exploitation results, do not convert generic theory into an observed fact, and do not introduce illustrative examples or values not already written in the supplied text.
-Reshape only presentation and language: express the observed target-specific condition as one concise, formal, impersonal paragraph of about 45-90 words, recording what was observed and why it is relevant, without reproduction steps or remediation. Prioritise preserving every substantive fact over hitting the word target; if the source already conforms, make only minimal adjustments.
-Output only the rewritten field as an HTML fragment using <p>, <strong>, <em>, and <code>. Do not output Markdown, headings, labels, code fences, or document wrappers.
 Reply exclusively in {language}.`,
     field_remediation_generateSystemPrompt: `You are a senior penetration-testing remediation specialist.
 Write only the Remediation field for the vulnerability titled "{findingTitle}".
@@ -437,6 +400,14 @@ Rules:
 {text}`
 };
 
+// User-message defaults share a stable context envelope, but each stored key is
+// field-specific so administrators can fork every action independently.
+['description', 'remediation', 'retestEvidence'].forEach(field => {
+    ['generate', 'complete', 'rewrite'].forEach(action => {
+        DEFAULT_PROMPTS[`field_${field}_${action}UserPrompt`] = DEFAULT_FIELD_USER_PROMPTS[action];
+    });
+});
+
 const LEGACY_DESCRIPTION_PROMPT_MARKERS = {
     field_description_generateSystemPrompt: 'Use a short list only when it materially improves clarity.',
     field_description_completeSystemPrompt: 'Prefer continuing in prose; use a short list only if the existing text already uses one or a list materially improves clarity.',
@@ -474,8 +445,8 @@ export default {
                 danger:{enabled:false,public:{nbdaydelete: 0}},
                 reviews:{enabled:false},
                 authentication:{enforce2fa:false,sso:{enabled:false,public:{providerId:'oauth2',providerName:'SSO',registrationEnabled:false,autoLinkExistingUsers:false,authorizationUrl:'',tokenUrl:'',userInfoUrl:'',scope:'openid profile email',subjectClaim:'sub',usernameClaim:'preferred_username',firstnameClaim:'given_name',lastnameClaim:'family_name',emailClaim:'email'},private:{clientId:'',clientSecret:''}}},
-                mcp:{enabled:false,apiKey:'',apiKeyCreatedAt:null,creator:null,appUrl:'',guidance:{...DEFAULT_MCP_GUIDANCE}},
-                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:32000,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8,vulnerabilityProcessing:{autoTranslateOnSave:false,matchThreshold:0.35}},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o',visionTemperature:0.7,visionMaxTokens:32000},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:DEFAULT_VISION_SYSTEM_PROMPT,visionAnonymizeLlm:false,visionAnonymizeRegex:false,anonymizeReviewBeforeSend:false,visionAnonymizeRegexRules:DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})),generateSystemPrompt:'',generateUserPrompt:'',completeSystemPrompt:'',completeUserPrompt:'',rewriteSystemPrompt:'',rewriteUserPrompt:'',fillProofsSystemPrompt:'',fillProofsUserPrompt:'',executiveSummarySystemPrompt:'',executiveSummaryUserPrompt:'',severitySummarySystemPrompt:'',severitySummaryUserPrompt:'',vulnerabilityTranslationSystemPrompt:'',vulnerabilityTranslationUserPrompt:'',field_description_generateSystemPrompt:'',field_description_completeSystemPrompt:'',field_description_rewriteSystemPrompt:'',field_observation_generateSystemPrompt:'',field_observation_completeSystemPrompt:'',field_observation_rewriteSystemPrompt:'',field_remediation_generateSystemPrompt:'',field_remediation_completeSystemPrompt:'',field_remediation_rewriteSystemPrompt:'',field_poc_generateSystemPrompt:'',field_poc_completeSystemPrompt:'',field_poc_rewriteSystemPrompt:'',field_retestEvidence_generateSystemPrompt:'',field_retestEvidence_completeSystemPrompt:'',field_retestEvidence_rewriteSystemPrompt:''}},
+                mcp:{enabled:false,appUrl:'',guidance:{...DEFAULT_MCP_GUIDANCE}},
+                ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:32000,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8,vulnerabilityProcessing:{autoTranslateOnSave:false,matchThreshold:0.35}},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o',visionTemperature:0.7,visionMaxTokens:32000},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:DEFAULT_VISION_SYSTEM_PROMPT,visionAnonymizeLlm:false,visionAnonymizeRegex:false,anonymizeReviewBeforeSend:false,visionAnonymizeRegexRules:DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})),fillProofsSystemPrompt:'',fillProofsUserPrompt:'',executiveSummarySystemPrompt:'',executiveSummaryUserPrompt:'',severitySummarySystemPrompt:'',severitySummaryUserPrompt:'',vulnerabilityTranslationSystemPrompt:'',vulnerabilityTranslationUserPrompt:'',field_description_generateSystemPrompt:'',field_description_completeSystemPrompt:'',field_description_rewriteSystemPrompt:'',field_remediation_generateSystemPrompt:'',field_remediation_completeSystemPrompt:'',field_remediation_rewriteSystemPrompt:'',field_poc_generateSystemPrompt:'',field_poc_completeSystemPrompt:'',field_poc_rewriteSystemPrompt:'',field_retestEvidence_generateSystemPrompt:'',field_retestEvidence_completeSystemPrompt:'',field_retestEvidence_rewriteSystemPrompt:''}},
                 report:{enabled:true,public:{chartTheme:{...DEFAULT_CHART_THEME},enableSpellCheck:true},private:{languageToolUrl:''}}
             },
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false},mcp:{enabled:false},ai:{enabled:false}},
@@ -488,7 +459,6 @@ export default {
             showEmbeddingApiKey: false,
             showVisionApiKey: false,
             showSsoClientSecret: false,
-            showMcpApiKey: false,
             reindexing: false,
             reindexStarted: false,
             activeSection: 'section-general',
@@ -525,8 +495,7 @@ export default {
                     { id: 'sub-ai-vuln-processing', label: 'aiVulnerabilityProcessing' },
                     { id: 'sub-ai-vision', label: 'aiVisionSection' },
                     { id: 'sub-ai-vision-anon', label: 'aiVisionAnonymization' },
-                    { id: 'sub-ai-advanced', label: 'aiAdvancedSettings' },
-                    { id: 'sub-ai-field-prompts', label: 'aiFieldPrompts' }
+                    { id: 'sub-ai-prompts', label: 'aiAdvancedSettings' }
                 ] },
                 { id: 'section-api', label: 'apiSettings', children: [
                     { id: 'sub-api-documentation', label: 'apiDocumentationTitle' },
@@ -534,7 +503,7 @@ export default {
                 ] },
                 { id: 'section-mcp', label: 'mcpSettings', children: [
                     { id: 'sub-mcp-server', label: 'mcpServer' },
-                    { id: 'sub-mcp-api-key', label: 'mcpApiKey' },
+                    { id: 'sub-mcp-api-key', label: 'mcpApiKeysTitle' },
                     { id: 'sub-mcp-guidance', label: 'mcpGuidanceTitle' },
                     { id: 'sub-mcp-sample-config', label: 'mcpSampleConfig' }
                 ] },
@@ -544,6 +513,10 @@ export default {
             apiKeyName: '',
             apiKeyCreating: false,
             newlyCreatedKey: null,
+            mcpKeys: [],
+            mcpKeyName: '',
+            mcpKeyCreating: false,
+            newlyCreatedMcpKey: null,
             DEFAULT_PROMPTS,
             DEFAULT_MCP_GUIDANCE,
             promptTags: ['{language}','{fieldName}','{findingTitle}','{findingDescription}','{findingPoc}','{findingPocVision}','{auditContext}','{similarVulnsBlock}','{text}','{auditName}','{severity}','{overallRisk}','{findingsDigest}','{visionSummary}','{imageRefsBlock}','{vulnDescription}','{fromLanguage}','{toLanguage}','{fromLocale}','{toLocale}'],
@@ -597,7 +570,6 @@ export default {
             ],
             aiFieldPromptFields: [
                 { key: 'description',    labelKey: 'fieldDescription',    icon: 'description' },
-                { key: 'observation',    labelKey: 'fieldObservation',     icon: 'visibility' },
                 { key: 'remediation',    labelKey: 'fieldRemediation',     icon: 'build' },
                 { key: 'poc',            labelKey: 'fieldPoc',             icon: 'bug_report' },
                 { key: 'retestEvidence', labelKey: 'fieldRetestEvidence',  icon: 'replay' }
@@ -637,7 +609,7 @@ export default {
             var priv = this.settings && this.settings.ai && this.settings.ai.private;
             if (!priv) return false;
             if (priv.visionAnonymizeLlm) return true;
-            return ['description', 'observation', 'remediation', 'poc', 'retestEvidence']
+            return ['description', 'remediation', 'poc', 'retestEvidence']
                 .some(function(f) { return priv['field_' + f + '_anonymizeLlm']; });
         },
         aiDefaultUrl: function() {
@@ -692,14 +664,14 @@ export default {
                         type: 'http',
                         url: this.mcpEndpointUrl,
                         headers: {
-                            'X-API-Key': this.settings.mcp.apiKey || 'YOUR_API_KEY_HERE'
+                            'X-API-Key': this.newlyCreatedMcpKey || 'YOUR_MCP_KEY_HERE'
                         }
                     }
                 }
             }, null, 2);
         },
         mcpCurlExample: function() {
-            var key = this.settings.mcp.apiKey || 'YOUR_API_KEY_HERE';
+            var key = this.newlyCreatedMcpKey || 'YOUR_MCP_KEY_HERE';
             return `curl -sk ${this.mcpEndpointUrl} \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: ${key}" \\
@@ -793,6 +765,10 @@ export default {
             .then(res => { this.apiKeys = res.data.datas || []; })
             .catch(() => {});
 
+            SettingsService.listMcpKeys()
+            .then(res => { this.mcpKeys = res.data.datas || []; })
+            .catch(() => {});
+
             SettingsService.getSettings()
             .then((data) => {
                 this.settings = this.$_.merge(
@@ -801,8 +777,8 @@ export default {
                       report: { enabled: true, public: { chartTheme: { ...DEFAULT_CHART_THEME }, enableSpellCheck: true }, private: { languageToolUrl: '' } },
                       reviews: { enabled: false, public: { minReviewers: 1 } },
                       authentication: { enforce2fa: false, sso: { enabled: false, public: { providerId: 'oauth2', providerName: 'SSO', registrationEnabled: false, autoLinkExistingUsers: false, authorizationUrl: '', tokenUrl: '', userInfoUrl: '', scope: 'openid profile email', subjectClaim: 'sub', usernameClaim: 'preferred_username', firstnameClaim: 'given_name', lastnameClaim: 'family_name', emailClaim: 'email' }, private: { clientId: '', clientSecret: '' } } },
-                      mcp: { enabled: false, apiKey: '', apiKeyCreatedAt: null, creator: null, appUrl: '', guidance: { ...DEFAULT_MCP_GUIDANCE } },
-                      ai: { enabled: false, embeddingEnabled: false, visionEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 32000, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8, vulnerabilityProcessing: { autoTranslateOnSave: false, matchThreshold: 0.35 } }, visionPublic: { visionProvider: 'openai', visionModel: 'gpt-4o', visionTemperature: 0.7, visionMaxTokens: 32000 }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionApiUrl: '', visionApiKey: '', visionAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionSystemPrompt: DEFAULT_VISION_SYSTEM_PROMPT, visionAnonymizeLlm: false,  visionAnonymizeRegex: false, anonymizeReviewBeforeSend: false, visionAnonymizeRegexRules: DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})), fillProofsSystemPrompt: '', fillProofsUserPrompt: '', executiveSummarySystemPrompt: '', executiveSummaryUserPrompt: '', severitySummarySystemPrompt: '', severitySummaryUserPrompt: '', vulnerabilityTranslationSystemPrompt: '', vulnerabilityTranslationUserPrompt: '', field_description_generateSystemPrompt: '', field_description_completeSystemPrompt: '', field_description_rewriteSystemPrompt: '', field_observation_generateSystemPrompt: '', field_observation_completeSystemPrompt: '', field_observation_rewriteSystemPrompt: '', field_remediation_generateSystemPrompt: '', field_remediation_completeSystemPrompt: '', field_remediation_rewriteSystemPrompt: '', field_poc_generateSystemPrompt: '', field_poc_completeSystemPrompt: '', field_poc_rewriteSystemPrompt: '', field_retestEvidence_generateSystemPrompt: '', field_retestEvidence_completeSystemPrompt: '', field_retestEvidence_rewriteSystemPrompt: '' } }
+                      mcp: { enabled: false, appUrl: '', guidance: { ...DEFAULT_MCP_GUIDANCE } },
+                      ai: { enabled: false, embeddingEnabled: false, visionEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 32000, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8, vulnerabilityProcessing: { autoTranslateOnSave: false, matchThreshold: 0.35 } }, visionPublic: { visionProvider: 'openai', visionModel: 'gpt-4o', visionTemperature: 0.7, visionMaxTokens: 32000 }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionApiUrl: '', visionApiKey: '', visionAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionSystemPrompt: DEFAULT_VISION_SYSTEM_PROMPT, visionAnonymizeLlm: false,  visionAnonymizeRegex: false, anonymizeReviewBeforeSend: false, visionAnonymizeRegexRules: DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})), fillProofsSystemPrompt: '', fillProofsUserPrompt: '', executiveSummarySystemPrompt: '', executiveSummaryUserPrompt: '', severitySummarySystemPrompt: '', severitySummaryUserPrompt: '', vulnerabilityTranslationSystemPrompt: '', vulnerabilityTranslationUserPrompt: '', field_description_generateSystemPrompt: '', field_description_completeSystemPrompt: '', field_description_rewriteSystemPrompt: '', field_remediation_generateSystemPrompt: '', field_remediation_completeSystemPrompt: '', field_remediation_rewriteSystemPrompt: '', field_poc_generateSystemPrompt: '', field_poc_completeSystemPrompt: '', field_poc_rewriteSystemPrompt: '', field_retestEvidence_generateSystemPrompt: '', field_retestEvidence_completeSystemPrompt: '', field_retestEvidence_rewriteSystemPrompt: '' } }
                     },
                     data.data.datas
                   );
@@ -813,15 +789,12 @@ export default {
                     : this.$_.cloneDeep(DEFAULT_VISION_REGEX_RULES);
                 const promptFields = [
                     'visionSystemPrompt','anonymizationPrompt',
-                    'generateSystemPrompt','generateUserPrompt',
-                    'completeSystemPrompt','completeUserPrompt',
-                    'rewriteSystemPrompt','rewriteUserPrompt',
                     'fillProofsSystemPrompt','fillProofsUserPrompt',
                     'executiveSummarySystemPrompt','executiveSummaryUserPrompt',
                     'severitySummarySystemPrompt','severitySummaryUserPrompt',
                     'vulnerabilityTranslationSystemPrompt','vulnerabilityTranslationUserPrompt'
                 ];
-                ['description','observation','remediation','poc','retestEvidence'].forEach(field => {
+                ['description','remediation','poc','retestEvidence'].forEach(field => {
                     ['generate','complete','rewrite'].forEach(action => {
                         promptFields.push(`field_${field}_${action}SystemPrompt`);
                         promptFields.push(`field_${field}_${action}UserPrompt`);
@@ -1107,54 +1080,52 @@ export default {
             }
         },
 
-        rotateMcpKey: function() {
-            Dialog.create({
-                title: $t('mcpGenerateKey'),
-                message: $t('mcpRotateKeyConfirm'),
-                ok: {label: $t('btn.confirm'), color: 'negative'},
-                cancel: {label: $t('btn.cancel'), color: 'white'}
-            })
-            .onOk(() => {
-                SettingsService.rotateMcpKey()
-                .then((res) => {
-                    this.settings.mcp.apiKey = res.data.datas.apiKey;
-                    this.settings.mcp.apiKeyCreatedAt = res.data.datas.apiKeyCreatedAt;
-                    this.settings.mcp.creator = res.data.datas.creator;
-                    this.settingsOrig = this.$_.cloneDeep(this.settings);
-                    Notify.create({ message: $t('mcpKeyRotated'), color: 'positive', textColor: 'white', position: 'top-right' });
-                })
-                .catch((err) => {
-                    Notify.create({ message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right' });
+        createMcpKey: function() {
+            if (!this.mcpKeyName.trim()) {
+                Notify.create({ message: $t('apiKeyNameRequired'), color: 'warning', position: 'top-right' });
+                return;
+            }
+            this.mcpKeyCreating = true;
+            SettingsService.createMcpKey(this.mcpKeyName.trim())
+            .then((res) => {
+                var created = res.data.datas;
+                this.newlyCreatedMcpKey = created.key;
+                this.mcpKeys.push({
+                    id: created.id,
+                    name: created.name,
+                    creator: created.creator,
+                    keyPrefix: created.key.substring(0, 8),
+                    createdAt: created.createdAt,
+                    lastUsedAt: null
                 });
-            });
+                this.mcpKeyName = '';
+                notifySuccess('mcpKeyCreated');
+            })
+            .catch((err) => { notifyError(err); })
+            .finally(() => { this.mcpKeyCreating = false; });
         },
 
-        clearMcpKey: function() {
+        revokeMcpKey: function(id) {
             Dialog.create({
-                title: $t('mcpClearKeyConfirmTitle'),
-                message: $t('mcpClearKeyConfirmMessage'),
-                ok: { label: $t('mcpClearKey'), color: 'negative', unelevated: true, noCaps: true },
+                title: $t('apiKeyRevoke'),
+                message: $t('mcpKeyRevokeConfirm'),
+                ok: { label: $t('apiKeyRevoke'), color: 'negative', unelevated: true, noCaps: true },
                 cancel: { label: $t('btn.cancel'), color: 'grey-7', flat: true, noCaps: true }
             }).onOk(() => {
-                SettingsService.clearMcpKey()
+                SettingsService.deleteMcpKey(id)
                 .then(() => {
-                    this.settings.mcp.apiKey = '';
-                    this.settings.mcp.apiKeyCreatedAt = null;
-                    this.settings.mcp.creator = null;
-                    this.settingsOrig = this.$_.cloneDeep(this.settings);
-                    notifySuccess('mcpKeyCleared');
+                    this.mcpKeys = this.mcpKeys.filter(key => key.id !== id);
+                    this.newlyCreatedMcpKey = null;
+                    notifySuccess('mcpKeyRevoked');
                 })
-                .catch((err) => {
-                    notifyError(err);
-                });
+                .catch((err) => { notifyError(err); });
             });
         },
 
-        claimMcpKey: function() {
-            SettingsService.claimMcpKey()
+        claimMcpKey: function(key) {
+            SettingsService.claimMcpKey(key.id)
             .then((res) => {
-                this.settings.mcp.creator = res.data.datas.creator;
-                this.settingsOrig = this.$_.cloneDeep(this.settings);
+                key.creator = res.data.datas.creator;
                 notifySuccess('apiKeyClaimed');
             })
             .catch((err) => { notifyError(err); });

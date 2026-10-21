@@ -13,7 +13,7 @@ npm run swagger-autogen
 
 Every new REST API key is owned by the signed-in user who created it, and the owner is displayed beside the key in Settings. Requests use that user's current role and additional permissions. Legacy keys without an owner are rejected; revoke and recreate an unassigned key before using it again.
 
-MCP keys follow the same rule: rotating the MCP key assigns it to the signed-in user, and MCP tools then execute with that user's identity and permissions.
+MCP keys follow the same rule. Administrators can create multiple named MCP keys; each key is assigned to its creator, executes tools with that user's current identity and permissions, and can be revoked independently. The complete secret is returned only once when the key is created.
 
 An administrator viewing an unassigned legacy REST or MCP key in Settings can use **Assign to me** to preserve the existing secret while binding it to their user. Claiming a legacy REST key also repairs audits previously created with that key's internal record ID as their invalid owner. This recovery is only available while the key is unassigned; owned keys cannot be transferred by this action.
 

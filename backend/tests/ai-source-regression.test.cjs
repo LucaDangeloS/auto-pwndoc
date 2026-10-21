@@ -37,6 +37,23 @@ assert.strictEqual(
     'custom description prompts must not be replaced'
 );
 
+for (const [fieldName, expectedText] of [
+    ['remediation', 'remediation specialist'],
+    ['poc', 'Proof of Concept field'],
+    ['retestEvidence', 'documenting a security retest']
+]) {
+    const prompt = aiService._selectFieldSystemPrompt(
+        'generate',
+        {},
+        fieldName,
+        `field_${fieldName}_generateSystemPrompt`
+    );
+    assert(
+        prompt.includes(expectedText),
+        `blank ${fieldName} overrides must use the latest field-specific default`
+    );
+}
+
 assert(
     route.includes("action: 'complete'") &&
         route.includes("fieldName: 'poc'") &&
@@ -47,6 +64,12 @@ assert(
 assert(
     !route.includes("generateProofFieldMaybe('observation'"),
     'proof completion must not generate Observation'
+);
+
+assert(
+    route.includes("fieldName === 'observation'") &&
+        route.includes('AI actions are not available for the Observation field'),
+    'the AI API must reject direct Observation generation, completion, and rewrite requests'
 );
 
 console.log('Backend AI source regression tests passed');

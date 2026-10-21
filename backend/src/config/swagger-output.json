@@ -116,6 +116,52 @@
         }
       }
     },
+    "/api/audits/{auditId}/owner": {
+      "put": {
+        "tags": [
+          "Audit"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "auditId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "req": {
+                  "example": "any"
+                },
+                "username": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/audits/{auditId}/clone": {
       "post": {
         "tags": [
@@ -1203,6 +1249,16 @@
         "description": "",
         "parameters": [
           {
+            "name": "company",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "type": "string"
+          },
+          {
             "name": "x-api-key",
             "in": "header",
             "type": "string"
@@ -1241,6 +1297,21 @@
                 "file": {
                   "example": "any"
                 },
+                "company": {
+                  "example": "any"
+                },
+                "reportDate": {
+                  "example": "any"
+                },
+                "auditType": {
+                  "example": "any"
+                },
+                "tags": {
+                  "example": "any"
+                },
+                "notes": {
+                  "example": "any"
+                },
                 "name": {
                   "example": "any"
                 },
@@ -1258,12 +1329,72 @@
         }
       }
     },
-    "/api/audit-archives/{archiveId}/file": {
-      "get": {
+    "/api/audit-archives/bulk": {
+      "put": {
         "description": "",
-        "produces": [
-          "application/pdf"
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "archiveIds": {
+                  "example": "any"
+                },
+                "company": {
+                  "example": "any"
+                }
+              }
+            }
+          }
         ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/audit-archives/{archiveId}": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "archiveId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "description": "",
         "parameters": [
           {
             "name": "archiveId",
@@ -1289,14 +1420,22 @@
         }
       }
     },
-    "/api/audit-archives/{archiveId}": {
-      "delete": {
+    "/api/audit-archives/{archiveId}/file": {
+      "get": {
         "description": "",
+        "produces": [
+          "application/pdf"
+        ],
         "parameters": [
           {
             "name": "archiveId",
             "in": "path",
             "required": true,
+            "type": "string"
+          },
+          {
+            "name": "download",
+            "in": "query",
             "type": "string"
           },
           {
@@ -1354,196 +1493,6 @@
           {
             "name": "state",
             "in": "query",
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "default": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/api/backups": {
-      "get": {
-        "tags": [
-          "Backup"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "type": "string"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "default": {
-            "description": ""
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Backup"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "type": "string"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "example": "any"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {
-          "default": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/api/backups/download/{slug}": {
-      "get": {
-        "tags": [
-          "Backup"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "type": "string"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "default": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/api/backups/upload": {
-      "post": {
-        "tags": [
-          "Backup"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "type": "string"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "req": {
-                  "example": "any"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {
-          "default": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/api/backups/{slug}/restore": {
-      "post": {
-        "tags": [
-          "Backup"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "type": "string"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "default": {
-            "description": ""
-          }
-        }
-      }
-    },
-    "/api/backups/{slug}": {
-      "delete": {
-        "tags": [
-          "Backup"
-        ],
-        "description": "",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "type": "string"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
             "type": "string"
           }
         ],
@@ -1662,6 +1611,34 @@
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/companies/{id}/overview": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
           {
             "name": "x-api-key",
             "in": "header",
@@ -2815,7 +2792,7 @@
             "schema": {
               "type": "object",
               "properties": {
-                "map(handleMessage": {
+                "map(message": {
                   "example": "any"
                 }
               }
@@ -3013,6 +2990,9 @@
               "properties": {
                 "ai": {
                   "example": "any"
+                },
+                "mcp": {
+                  "example": "any"
                 }
               }
             }
@@ -3075,8 +3055,8 @@
         }
       }
     },
-    "/api/settings/mcp/rotate-key": {
-      "post": {
+    "/api/settings/mcp/keys": {
+      "get": {
         "tags": [
           "Settings"
         ],
@@ -3098,15 +3078,87 @@
             "description": ""
           }
         }
+      },
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "req": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
       }
     },
-    "/api/settings/mcp/key": {
+    "/api/settings/mcp/keys/{id}/claim": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/settings/mcp/keys/{id}": {
       "delete": {
         "tags": [
           "Settings"
         ],
         "description": "",
         "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
           {
             "name": "x-api-key",
             "in": "header",
@@ -3176,6 +3228,37 @@
                 }
               }
             }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/settings/api-keys/{id}/claim": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
         "responses": {

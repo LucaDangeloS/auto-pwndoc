@@ -2,7 +2,7 @@
 
     <div class="col-md-2 gt-sm q-mt-md q-pr-md">
         <q-list class="settings-nav" dense>
-            <template v-for="s in settingsSections" :key="s.id">
+            <div v-for="s in settingsSections" :key="s.id">
                 <q-item
                     clickable
                     :active="activeSection === s.id"
@@ -31,7 +31,7 @@
                         </q-item>
                     </div>
                 </q-slide-transition>
-            </template>
+            </div>
         </q-list>
     </div>
 
@@ -1372,12 +1372,109 @@
                     {{$t('aiVisionRegexNoRules')}}
                 </div>
             </q-card-section>
-            <!-- ── Advanced Prompts ── -->
+            <!-- Prompt overrides -->
             <q-separator />
             <q-card-section>
-                <div class="text-bold" id="sub-ai-advanced">{{$t('aiAdvancedSettings')}}</div>
+                <div class="text-bold" id="sub-ai-prompts">{{$t('aiAdvancedSettings')}}</div>
                 <div class="text-grey-8 q-mt-xs">{{$t('aiAdvancedSettingsDescription')}}</div>
             </q-card-section>
+
+            <q-expansion-item
+                v-for="field in aiFieldPromptFields"
+                :key="field.key"
+                :label="$t(field.labelKey)"
+                :icon="field.icon"
+                header-class="text-weight-medium q-pl-md"
+                :disable="!canEdit || !settings.ai.enabled"
+            >
+                <q-card-section class="q-col-gutter-md row q-pt-sm q-pl-lg">
+                    <div class="col-12">
+                        <div class="text-caption text-grey-8 text-weight-medium q-mb-xs">{{$t('aiFieldAnonymization')}}</div>
+                        <div class="row q-col-gutter-md items-start">
+                            <div class="col-12 col-sm-6">
+                                <q-toggle
+                                    :label="$t('aiFieldAnonymizeLlm')"
+                                    v-model="settings.ai.private['field_' + field.key + '_anonymizeLlm']"
+                                    color="accent" keep-color
+                                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.private.visionAnonymizeLlm"
+                                />
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <q-toggle
+                                    :label="$t('aiFieldAnonymizeRegex')"
+                                    v-model="settings.ai.private['field_' + field.key + '_anonymizeRegex']"
+                                    color="secondary" keep-color
+                                    :disable="!canEdit || !settings.ai.enabled || !settings.ai.private.visionAnonymizeRegex"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12"><q-separator /></div>
+                    <div class="col-12">
+                        <div class="text-caption text-grey-7 q-mb-sm">{{$t('aiFieldPromptInheritNote')}}</div>
+                    </div>
+                    <div class="col-12" v-for="action in ['generate','complete','rewrite']" :key="action">
+                        <div class="row items-center justify-between q-mb-xs">
+                            <span class="text-caption text-grey-8">
+                                <q-chip dense size="sm" outline :color="action === 'generate' ? 'blue-5' : action === 'complete' ? 'green-5' : 'orange-5'" class="q-mr-xs">{{$t('aiPromptSection' + action.charAt(0).toUpperCase() + action.slice(1))}}</q-chip>
+                                {{$t('aiSystemPrompt')}}
+                            </span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('field_' + field.key + '_' + action + 'SystemPrompt')"><q-tooltip>{{$t('aiFieldPromptResetTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input
+                            v-model="settings.ai.private['field_' + field.key + '_' + action + 'SystemPrompt']"
+                            outlined type="textarea" autogrow
+                            :disable="!canEdit || !settings.ai.enabled"
+                            :placeholder="$t('aiFieldPromptPlaceholder')"
+                            hint="Tags: {fieldName}, {findingTitle}, {findingDescription}, {findingPoc}, {findingPocVision}, {auditContext}, {language}"
+                        />
+                        <div class="row items-center justify-between q-mb-xs q-mt-md">
+                            <span class="text-caption text-grey-8">
+                                <q-chip dense size="sm" outline :color="action === 'generate' ? 'blue-5' : action === 'complete' ? 'green-5' : 'orange-5'" class="q-mr-xs">{{$t('aiPromptSection' + action.charAt(0).toUpperCase() + action.slice(1))}}</q-chip>
+                                {{$t('aiUserPrompt')}}
+                            </span>
+                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('field_' + field.key + '_' + action + 'UserPrompt')"><q-tooltip>{{$t('aiFieldPromptResetTooltip')}}</q-tooltip></q-btn>
+                        </div>
+                        <q-input
+                            v-model="settings.ai.private['field_' + field.key + '_' + action + 'UserPrompt']"
+                            outlined type="textarea" autogrow
+                            :disable="!canEdit || !settings.ai.enabled"
+                            :placeholder="$t('aiFieldPromptPlaceholder')"
+                            hint="Tags: {fieldName}, {findingTitle}, {findingDescription}, {findingPoc}, {findingPocVision}, {auditContext}, {text}, {similarVulnsBlock}, {language}"
+                        />
+                    </div>
+
+                    <template v-if="field.key === 'poc'">
+                        <div class="col-12"><q-separator /></div>
+                        <div class="col-12 text-subtitle2">{{$t('aiVisionSystemPrompt')}}</div>
+                        <div class="col-12 text-caption text-grey-7">{{$t('aiVisionSystemPromptHint')}}</div>
+                        <div class="col-12">
+                            <div class="row items-center justify-between q-mb-xs">
+                                <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
+                                <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled" @click="resetPromptToDefault('visionSystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                            </div>
+                            <q-input v-model="settings.ai.private.visionSystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled" />
+                        </div>
+                        <div class="col-12"><q-separator /></div>
+                        <div class="col-12 text-subtitle2">{{$t('aiPromptSectionFillProofs')}}</div>
+                        <div class="col-12 text-caption text-grey-7">{{$t('aiPromptSectionFillProofsHint')}}</div>
+                        <div class="col-12">
+                            <div class="row items-center justify-between q-mb-xs">
+                                <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
+                                <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('fillProofsSystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                            </div>
+                            <q-input v-model="settings.ai.private.fillProofsSystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {findingTitle}, {findingDescription}, {findingPoc}, {auditContext}, {language}" />
+                        </div>
+                        <div class="col-12">
+                            <div class="row items-center justify-between q-mb-xs">
+                                <span class="text-caption text-grey-8">{{$t('aiUserPrompt')}}</span>
+                                <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('fillProofsUserPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
+                            </div>
+                            <q-input v-model="settings.ai.private.fillProofsUserPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {findingTitle}, {vulnDescription}, {visionSummary}, {imageRefsBlock}, {auditContext}, {language}" />
+                        </div>
+                    </template>
+                </q-card-section>
+            </q-expansion-item>
 
             <!-- Available tags hint -->
             <q-card-section class="q-pt-none">
@@ -1386,138 +1483,6 @@
                     <code v-for="tag in promptTags" :key="tag" class="q-mr-xs q-ml-xs">{{tag}}</code>
                 </div>
             </q-card-section>
-
-            <!-- Vision / Proof Analysis -->
-            <q-expansion-item
-                :label="$t('aiVisionSystemPrompt')"
-                :caption="$t('aiVisionSystemPromptHint')"
-                icon="image_search"
-                header-class="text-weight-medium"
-                :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
-            >
-                <q-card-section class="q-col-gutter-md row q-pt-sm">
-                    <div class="col-12">
-                        <div class="row items-center justify-between q-mb-xs">
-                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
-                            <q-btn
-                                flat dense size="sm" icon="restart_alt" color="grey-7"
-                                :label="$t('resetToDefault')"
-                                :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
-                                @click="resetPromptToDefault('visionSystemPrompt')"
-                            >
-                                <q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip>
-                            </q-btn>
-                        </div>
-                        <q-input
-                            v-model="settings.ai.private.visionSystemPrompt"
-                            outlined
-                            type="textarea"
-                            autogrow
-                            :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
-                        />
-                    </div>
-                </q-card-section>
-            </q-expansion-item>
-
-            <!-- Generate -->
-            <q-expansion-item
-                :label="$t('aiPromptSectionGenerate')"
-                icon="add_circle_outline"
-                header-class="text-weight-medium"
-                :disable="!canEdit || !settings.ai.enabled"
-            >
-                <q-card-section class="q-col-gutter-md row q-pt-sm">
-                    <div class="col-12">
-                        <div class="row items-center justify-between q-mb-xs">
-                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
-                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('generateSystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
-                        </div>
-                        <q-input v-model="settings.ai.private.generateSystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {findingDescription}, {findingPoc}, {findingPocVision}, {auditContext}, {language}" />
-                    </div>
-                    <div class="col-12">
-                        <div class="row items-center justify-between q-mb-xs">
-                            <span class="text-caption text-grey-8">{{$t('aiUserPrompt')}}</span>
-                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('generateUserPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
-                        </div>
-                        <q-input v-model="settings.ai.private.generateUserPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {findingDescription}, {findingPoc}, {findingPocVision}, {auditContext}, {similarVulnsBlock}, {language}" />
-                    </div>
-                </q-card-section>
-            </q-expansion-item>
-
-            <!-- Complete -->
-            <q-expansion-item
-                :label="$t('aiPromptSectionComplete')"
-                icon="edit_note"
-                header-class="text-weight-medium"
-                :disable="!canEdit || !settings.ai.enabled"
-            >
-                <q-card-section class="q-col-gutter-md row q-pt-sm">
-                    <div class="col-12">
-                        <div class="row items-center justify-between q-mb-xs">
-                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
-                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('completeSystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
-                        </div>
-                        <q-input v-model="settings.ai.private.completeSystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {findingDescription}, {findingPoc}, {findingPocVision}, {auditContext}, {language}" />
-                    </div>
-                    <div class="col-12">
-                        <div class="row items-center justify-between q-mb-xs">
-                            <span class="text-caption text-grey-8">{{$t('aiUserPrompt')}}</span>
-                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('completeUserPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
-                        </div>
-                        <q-input v-model="settings.ai.private.completeUserPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {findingDescription}, {findingPoc}, {findingPocVision}, {auditContext}, {text}, {similarVulnsBlock}, {language}" />
-                    </div>
-                </q-card-section>
-            </q-expansion-item>
-
-            <!-- Rewrite -->
-            <q-expansion-item
-                :label="$t('aiPromptSectionRewrite')"
-                icon="auto_fix_high"
-                header-class="text-weight-medium"
-                :disable="!canEdit || !settings.ai.enabled"
-            >
-                <q-card-section class="q-col-gutter-md row q-pt-sm">
-                    <div class="col-12">
-                        <div class="row items-center justify-between q-mb-xs">
-                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
-                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('rewriteSystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
-                        </div>
-                        <q-input v-model="settings.ai.private.rewriteSystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {findingDescription}, {findingPoc}, {findingPocVision}, {auditContext}, {language}" />
-                    </div>
-                    <div class="col-12">
-                        <div class="row items-center justify-between q-mb-xs">
-                            <span class="text-caption text-grey-8">{{$t('aiUserPrompt')}}</span>
-                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('rewriteUserPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
-                        </div>
-                        <q-input v-model="settings.ai.private.rewriteUserPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {fieldName}, {findingTitle}, {findingDescription}, {findingPoc}, {findingPocVision}, {auditContext}, {text}, {language}" />
-                    </div>
-                </q-card-section>
-            </q-expansion-item>
-
-            <!-- Fill Proofs -->
-            <q-expansion-item
-                :label="$t('aiPromptSectionFillProofs')"
-                icon="image_search"
-                header-class="text-weight-medium"
-                :disable="!canEdit || !settings.ai.enabled"
-            >
-                <q-card-section class="q-col-gutter-md row q-pt-sm">
-                    <div class="col-12">
-                        <div class="row items-center justify-between q-mb-xs">
-                            <span class="text-caption text-grey-8">{{$t('aiSystemPrompt')}}</span>
-                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('fillProofsSystemPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
-                        </div>
-                        <q-input v-model="settings.ai.private.fillProofsSystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {findingTitle}, {findingDescription}, {findingPoc}, {auditContext}, {language}" />
-                    </div>
-                    <div class="col-12">
-                        <div class="row items-center justify-between q-mb-xs">
-                            <span class="text-caption text-grey-8">{{$t('aiUserPrompt')}}</span>
-                            <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('fillProofsUserPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
-                        </div>
-                        <q-input v-model="settings.ai.private.fillProofsUserPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {findingTitle}, {vulnDescription}, {visionSummary}, {imageRefsBlock}, {auditContext}, {language}" />
-                    </div>
-                </q-card-section>
-            </q-expansion-item>
 
             <!-- Executive Summary -->
             <q-expansion-item
@@ -1606,80 +1571,6 @@
                         />
                     </div>
                 </q-card-section>
-            </q-expansion-item>
-
-            <!-- Per-field prompt overrides -->
-            <q-separator />
-            <q-card-section>
-                <div class="text-bold" id="sub-ai-field-prompts">{{$t('aiFieldPrompts')}}</div>
-                <div class="text-grey-8 q-mt-xs">{{$t('aiFieldPromptsDescription')}}</div>
-            </q-card-section>
-
-            <q-expansion-item
-                v-for="field in aiFieldPromptFields"
-                :key="field.key"
-                :label="$t(field.labelKey)"
-                :icon="field.icon"
-                header-class="text-weight-medium q-pl-md"
-                :disable="!canEdit || !settings.ai.enabled"
-            >
-                    <q-card-section class="q-col-gutter-md row q-pt-sm q-pl-lg">
-                        <div class="col-12">
-                            <div class="text-caption text-grey-8 text-weight-medium q-mb-xs">{{$t('aiFieldAnonymization')}}</div>
-                            <div class="row q-col-gutter-md items-start">
-                                <div class="col-12 col-sm-6">
-                                    <q-toggle
-                                        :label="$t('aiFieldAnonymizeLlm')"
-                                        v-model="settings.ai.private['field_' + field.key + '_anonymizeLlm']"
-                                        color="accent" keep-color
-                                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.private.visionAnonymizeLlm"
-                                    />
-                                </div>
-                                <div class="col-12 col-sm-6">
-                                    <q-toggle
-                                        :label="$t('aiFieldAnonymizeRegex')"
-                                        v-model="settings.ai.private['field_' + field.key + '_anonymizeRegex']"
-                                        color="secondary" keep-color
-                                        :disable="!canEdit || !settings.ai.enabled || !settings.ai.private.visionAnonymizeRegex"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12"><q-separator /></div>
-                        <div class="col-12">
-                            <div class="text-caption text-grey-7 q-mb-sm">{{$t('aiFieldPromptInheritNote')}}</div>
-                        </div>
-                        <div class="col-12" v-for="action in ['generate','complete','rewrite']" :key="action">
-                            <div class="row items-center justify-between q-mb-xs">
-                                <span class="text-caption text-grey-8">
-                                    <q-chip dense size="sm" outline :color="action === 'generate' ? 'blue-5' : action === 'complete' ? 'green-5' : 'orange-5'" class="q-mr-xs">{{$t('aiPromptSection' + action.charAt(0).toUpperCase() + action.slice(1))}}</q-chip>
-                                    {{$t('aiSystemPrompt')}}
-                                </span>
-                                <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('field_' + field.key + '_' + action + 'SystemPrompt')"><q-tooltip>{{$t('aiFieldPromptResetTooltip')}}</q-tooltip></q-btn>
-                            </div>
-                            <q-input
-                                v-model="settings.ai.private['field_' + field.key + '_' + action + 'SystemPrompt']"
-                                outlined type="textarea" autogrow
-                                :disable="!canEdit || !settings.ai.enabled"
-                                :placeholder="$t('aiFieldPromptPlaceholder')"
-                                hint="Tags: {fieldName}, {findingTitle}, {findingDescription}, {findingPoc}, {findingPocVision}, {auditContext}, {language}"
-                            />
-                            <div class="row items-center justify-between q-mb-xs q-mt-md">
-                                <span class="text-caption text-grey-8">
-                                    <q-chip dense size="sm" outline :color="action === 'generate' ? 'blue-5' : action === 'complete' ? 'green-5' : 'orange-5'" class="q-mr-xs">{{$t('aiPromptSection' + action.charAt(0).toUpperCase() + action.slice(1))}}</q-chip>
-                                    {{$t('aiUserPrompt')}}
-                                </span>
-                                <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('field_' + field.key + '_' + action + 'UserPrompt')"><q-tooltip>{{$t('aiFieldPromptResetTooltip')}}</q-tooltip></q-btn>
-                            </div>
-                            <q-input
-                                v-model="settings.ai.private['field_' + field.key + '_' + action + 'UserPrompt']"
-                                outlined type="textarea" autogrow
-                                :disable="!canEdit || !settings.ai.enabled"
-                                :placeholder="$t('aiFieldPromptPlaceholder')"
-                                hint="Tags: {fieldName}, {findingTitle}, {findingDescription}, {findingPoc}, {findingPocVision}, {auditContext}, {text}, {similarVulnsBlock}, {language}"
-                            />
-                        </div>
-                    </q-card-section>
             </q-expansion-item>
 
         </q-card>
@@ -1853,55 +1744,66 @@
             <q-separator />
 
             <q-card-section>
-                <div class="text-bold" id="sub-mcp-api-key">{{$t('mcpApiKey')}}</div>
-                <div class="text-grey-8 q-mt-xs">{{$t('mcpApiKeyHint')}}</div>
+                <div class="text-bold" id="sub-mcp-api-key">{{$t('mcpApiKeysTitle')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('mcpApiKeysDescription')}}</div>
             </q-card-section>
             <q-card-section>
                 <div class="row items-center q-col-gutter-md">
                     <div class="col-12 col-md">
                         <q-input
-                            :label="$t('mcpApiKey')"
-                            v-model="settings.mcp.apiKey"
+                            :label="$t('apiKeyName')"
+                            v-model="mcpKeyName"
                             outlined
-                            readonly
-                            :type="showMcpApiKey ? 'text' : 'password'"
+                            dense
                             hide-bottom-space
-                        >
-                            <template v-slot:append>
-                                <q-btn
-                                    flat round dense size="sm"
-                                    :icon="showMcpApiKey ? 'visibility_off' : 'visibility'"
-                                    :aria-label="showMcpApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey')"
-                                    @click="showMcpApiKey = !showMcpApiKey"
-                                >
-                                    <q-tooltip>{{ showMcpApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey') }}</q-tooltip>
-                                </q-btn>
-                                <q-btn
-                                    flat round dense size="sm"
-                                    icon="content_copy"
-                                    :disable="!settings.mcp.apiKey"
-                                    :aria-label="$t('mcpCopyKey')"
-                                    @click="copyText(settings.mcp.apiKey)"
-                                >
-                                    <q-tooltip>{{ $t('mcpCopyKey') }}</q-tooltip>
-                                </q-btn>
-                            </template>
-                        </q-input>
+                        />
                     </div>
-                    <div class="col-12 col-md-auto row items-center no-wrap q-gutter-x-sm">
-                        <q-btn color="primary" no-caps icon="vpn_key" :label="$t('mcpGenerateKey')" :disable="!canEdit" @click="rotateMcpKey" />
-                        <q-btn v-if="settings.mcp.apiKey && !settings.mcp.creator" outline color="primary" no-caps icon="person_add" :label="$t('apiKeyClaim')" :disable="!canEdit" @click="claimMcpKey" />
-                        <q-btn outline color="negative" no-caps icon="delete" :label="$t('mcpClearKey')" :disable="!canEdit || !settings.mcp.apiKey" @click="clearMcpKey" />
+                    <div class="col-12 col-md-auto">
+                        <q-btn color="primary" no-caps icon="add" :label="$t('mcpKeyCreate')" :disable="!canEdit" :loading="mcpKeyCreating" @click="createMcpKey" />
                     </div>
                 </div>
-                <div class="row q-col-gutter-x-md">
-                    <div class="col-12 col-md text-caption text-grey-7 q-mt-xs">
-                        {{settings.mcp.apiKeyCreatedAt ? $t('mcpKeyCreatedAt') + ': ' + new Date(settings.mcp.apiKeyCreatedAt).toLocaleString() : $t('mcpNoApiKey')}}
-                        <template v-if="settings.mcp.apiKey">
-                            &nbsp;&middot;&nbsp;{{$t('apiKeyOwner')}}: {{settings.mcp.creator ? (settings.mcp.creator.unavailable ? $t('apiKeyOwnerUnavailable') : settings.mcp.creator.username) : $t('apiKeyOwnerMissing')}}
-                        </template>
+                <div class="text-caption text-grey-6 q-mt-xs q-mb-md">{{$t('apiKeyNameHint')}}</div>
+
+                <q-banner v-if="newlyCreatedMcpKey" class="bg-warning q-mb-md" rounded>
+                    <template v-slot:avatar><q-icon name="warning" color="dark" /></template>
+                    <div class="text-bold text-dark q-mb-xs">{{$t('apiKeyOnceWarning')}}</div>
+                    <div class="row items-center q-col-gutter-sm">
+                        <div class="col">
+                            <div class="q-px-sm q-py-xs text-caption" style="font-family:monospace; word-break:break-all; user-select:all; background:rgba(255,255,255,0.9); color:#1d1d1d; border-radius:4px; border:1px solid rgba(0,0,0,0.15);">{{newlyCreatedMcpKey}}</div>
+                        </div>
+                        <div class="col-auto">
+                            <q-btn flat round dense icon="content_copy" color="dark" @click="copyText(newlyCreatedMcpKey)">
+                                <q-tooltip>{{$t('mcpCopyKey')}}</q-tooltip>
+                            </q-btn>
+                        </div>
                     </div>
-                </div>
+                </q-banner>
+
+                <div v-if="mcpKeys.length === 0" class="text-grey-6 text-caption q-py-sm">{{$t('mcpKeyNoKeys')}}</div>
+                <q-list v-else bordered separator class="rounded-borders">
+                    <q-item v-for="key in mcpKeys" :key="key.id">
+                        <q-item-section>
+                            <q-item-label>{{key.name}}</q-item-label>
+                            <q-item-label caption>
+                                {{$t('apiKeyPrefix')}}: {{key.keyPrefix}}...
+                                &nbsp;&middot;&nbsp;
+                                {{$t('apiKeyOwner')}}: {{key.creator ? (key.creator.unavailable ? $t('apiKeyOwnerUnavailable') : key.creator.username) : $t('apiKeyOwnerMissing')}}
+                                &nbsp;&middot;&nbsp;
+                                {{$t('apiKeyCreatedAt')}}: {{new Date(key.createdAt).toLocaleDateString()}}
+                                &nbsp;&middot;&nbsp;
+                                {{key.lastUsedAt ? $t('apiKeyLastUsed') + ': ' + new Date(key.lastUsedAt).toLocaleString() : $t('apiKeyNeverUsed')}}
+                            </q-item-label>
+                        </q-item-section>
+                        <q-item-section side>
+                            <q-btn v-if="!key.creator" flat round dense icon="person_add" color="primary" :aria-label="$t('apiKeyClaim')" @click="claimMcpKey(key)">
+                                <q-tooltip>{{$t('apiKeyClaim')}}</q-tooltip>
+                            </q-btn>
+                            <q-btn flat round dense icon="delete" color="negative" :aria-label="$t('apiKeyRevoke')" @click="revokeMcpKey(key.id)">
+                                <q-tooltip>{{$t('apiKeyRevoke')}}</q-tooltip>
+                            </q-btn>
+                        </q-item-section>
+                    </q-item>
+                </q-list>
             </q-card-section>
 
             <q-separator />

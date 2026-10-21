@@ -21,16 +21,20 @@ export default {
     return api.put(`settings/revert`)
   },
 
-  rotateMcpKey() {
-    return api.post(`settings/mcp/rotate-key`)
+  listMcpKeys() {
+    return api.get(`settings/mcp/keys`)
   },
 
-  claimMcpKey() {
-    return api.post(`settings/mcp/claim-key`)
+  createMcpKey(name) {
+    return api.post(`settings/mcp/keys`, { name })
   },
 
-  clearMcpKey() {
-    return api.delete(`settings/mcp/key`)
+  claimMcpKey(id) {
+    return api.post(`settings/mcp/keys/${id}/claim`)
+  },
+
+  deleteMcpKey(id) {
+    return api.delete(`settings/mcp/keys/${id}`)
   },
 
   listApiKeys() {

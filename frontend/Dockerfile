@@ -1,5 +1,5 @@
 ### STAGE 1: Build ###
-FROM node:22.13.1-alpine AS build
+FROM node:22.23.4-alpine AS build
 WORKDIR /app
 COPY . .
 RUN npm install

@@ -1197,6 +1197,7 @@
     archiveDeleteConfirm: 'Delete archived audit?',
     archiveDeleteOk: 'Archived audit deleted successfully',
     archiveError: 'Archive operation failed',
+    reportArchiveSyncFailed: 'Report downloaded, but its PDF could not be added to the audit archive.',
     archiveNoCompany: 'No company',
     archiveYear: 'Year',
     archiveTags: 'Tags',

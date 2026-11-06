@@ -3,7 +3,7 @@ module.exports = function(app, io) {
     var Response = require('../lib/httpResponse');
     var Audit = require('mongoose').model('Audit');
     var acl = require('../lib/auth').acl;
-    var reportGenerator = require('../lib/report-generator');
+    var auditArchiveSync = require('../lib/audit-archive-sync');
     var _ = require('lodash');
     var utils = require('../lib/utils');
     var Settings = require('mongoose').model('Settings');
@@ -563,7 +563,14 @@ module.exports = function(app, io) {
             if (!audit.template)
                 throw ({fn: 'BadParameters', message: 'Template not defined'})
 
-            var reportDoc = await reportGenerator.generateDoc(audit);
+            var reportDoc = await auditArchiveSync.generateDoc(audit);
+            var archiveSynced = false;
+            try {
+                archiveSynced = !!(await auditArchiveSync.syncGeneratedReport(audit, reportDoc));
+            } catch (err) {
+                console.error(`[audit-archive-sync] Could not archive generated report for audit ${audit._id}:`, err && err.stack || err);
+            }
+            res.setHeader('X-Audit-Archive-Sync', archiveSynced ? 'ok' : 'failed');
             Response.SendFile(res, `${audit.name.replace(/[\\\/:*?"<>|]/g, "")}.${audit.template.ext || 'docx'}`, reportDoc);
         })
         .catch(err => {

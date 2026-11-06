@@ -11,19 +11,24 @@ const archiveDir = path.join(__dirname, '../../audit-archives');
 const pending = new Map();
 const inFlight = new Map();
 let generationQueue = Promise.resolve();
+let pdfQueue = Promise.resolve();
 
-async function compilePdf(docxBuffer) {
+async function compilePdfNow(docxBuffer) {
     const workDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pwndoc-report-'));
     try {
         const inputPath = path.join(workDir, 'report.docx');
         await fs.promises.writeFile(inputPath, docxBuffer);
         await fs.promises.mkdir(officeProfileDir, {recursive: true});
-        await execFileAsync('soffice', ['--headless', `-env:UserInstallation=file://${officeProfileDir}`, '--convert-to', 'pdf', '--outdir', workDir, inputPath], {
+        const conversion = await execFileAsync('soffice', ['--headless', `-env:UserInstallation=file://${officeProfileDir}`, '--convert-to', 'pdf', '--outdir', workDir, inputPath], {
             timeout: 120000,
             maxBuffer: 1024 * 1024 * 4,
-            env: {...process.env, HOME: workDir, SAL_USE_VCLPLUGIN: 'gen'}
+            env: {...process.env, HOME: workDir}
         });
-        const pdf = await fs.promises.readFile(path.join(workDir, 'report.pdf'));
+        const outputPath = path.join(workDir, 'report.pdf');
+        const pdf = await fs.promises.readFile(outputPath).catch(async err => {
+            const files = await fs.promises.readdir(workDir).catch(() => []);
+            throw new Error(`LibreOffice did not create report.pdf (files: ${files.join(', ') || 'none'}; stdout: ${(conversion.stdout || '').trim() || 'empty'}; stderr: ${(conversion.stderr || '').trim() || 'empty'}): ${err.message}`);
+        });
         if (pdf.length < 5 || pdf.subarray(0, 5).toString() !== '%PDF-') throw new Error('Office converter returned an invalid PDF');
         return pdf;
     } finally {
@@ -31,24 +36,35 @@ async function compilePdf(docxBuffer) {
     }
 }
 
-async function syncAudit(auditId) {
+function compilePdf(docxBuffer) {
+    const current = pdfQueue.then(() => compilePdfNow(docxBuffer));
+    pdfQueue = current.then(() => undefined, () => undefined);
+    return current;
+}
+
+function generateDoc(audit) {
+    const reportGenerator = require('./report-generator');
+    const current = generationQueue.then(() => reportGenerator.generateDoc(audit));
+    generationQueue = current.then(() => undefined, () => undefined);
+    return current;
+}
+
+function withAuditLock(auditId, work) {
+    const key = String(auditId);
+    const previous = inFlight.get(key) || Promise.resolve();
+    const current = previous.catch(() => {}).then(work);
+    inFlight.set(key, current);
+    const clear = () => { if (inFlight.get(key) === current) inFlight.delete(key); };
+    current.then(clear, clear);
+    return current;
+}
+
+async function refreshInternalArchive(audit, docxBuffer) {
     const mongoose = require('mongoose');
-    const Audit = mongoose.model('Audit');
     const AuditArchive = mongoose.model('AuditArchive');
-    let docxPath;
     let pdfPath;
     try {
-        const audit = await Audit.getAudit(true, auditId);
-        if (!audit || !audit.template || !audit.template.name) return;
-        const currentArchive = await AuditArchive.findOne({audit: audit._id, internal: true}).select('updatedAt').lean();
-        if (currentArchive && currentArchive.updatedAt && audit.updatedAt && currentArchive.updatedAt >= audit.updatedAt) return currentArchive;
-        const reportGenerator = require('./report-generator');
-        // report-generator has module-level document state, so serialize compilations.
-        const docx = await (generationQueue = generationQueue.then(() => reportGenerator.generateDoc(audit)).catch(err => {
-            generationQueue = Promise.resolve();
-            throw err;
-        }));
-        const pdf = await compilePdf(docx);
+        const pdf = await compilePdf(docxBuffer);
         await fs.promises.mkdir(archiveDir, {recursive: true});
         const filename = `internal-${audit._id}-${crypto.randomBytes(8).toString('hex')}.pdf`;
         pdfPath = path.join(archiveDir, filename);
@@ -70,8 +86,54 @@ async function syncAudit(auditId) {
         return archive;
     } catch (err) {
         if (pdfPath) await fs.promises.unlink(pdfPath).catch(() => {});
-        console.error(`[audit-archive-sync] Could not refresh internal PDF for audit ${auditId}:`, err && err.stack || err);
+        throw err;
     }
+}
+
+async function syncGeneratedReport(audit, docxBuffer) {
+    if (!audit || !audit._id || !audit.template || !audit.template.name) return null;
+    const mongoose = require('mongoose');
+    const AuditArchive = mongoose.model('AuditArchive');
+    return withAuditLock(audit._id, async () => {
+        const currentArchive = await AuditArchive.findOne({audit: audit._id, internal: true}).select('updatedAt').lean();
+        if (currentArchive && currentArchive.updatedAt && audit.updatedAt && currentArchive.updatedAt >= audit.updatedAt)
+            return currentArchive;
+        return refreshInternalArchive(audit, docxBuffer);
+    });
+}
+
+async function syncAudit(auditId, {force = false} = {}) {
+    const mongoose = require('mongoose');
+    const Audit = mongoose.model('Audit');
+    const AuditArchive = mongoose.model('AuditArchive');
+    return withAuditLock(auditId, async () => {
+        try {
+            const audit = await Audit.getAudit(true, auditId);
+            if (!audit || !audit.template || !audit.template.name) return null;
+            const currentArchive = await AuditArchive.findOne({audit: audit._id, internal: true}).select('updatedAt').lean();
+            if (!force && currentArchive && currentArchive.updatedAt && audit.updatedAt && currentArchive.updatedAt >= audit.updatedAt)
+                return currentArchive;
+            const docx = await generateDoc(audit);
+            return await refreshInternalArchive(audit, docx);
+        } catch (err) {
+            console.error(`[audit-archive-sync] Could not refresh internal PDF for audit ${auditId}:`, err && err.stack || err);
+            return null;
+        }
+    });
+}
+
+async function regenerateAllInternalArchives() {
+    const mongoose = require('mongoose');
+    const Audit = mongoose.model('Audit');
+    const cursor = Audit.find({template: {$exists: true, $ne: null}}).select('_id').lean().cursor();
+    const summary = {total: 0, refreshed: 0, failed: 0};
+    for await (const audit of cursor) {
+        summary.total++;
+        const archive = await syncAudit(audit._id, {force: true});
+        if (archive) summary.refreshed++;
+        else summary.failed++;
+    }
+    return summary;
 }
 
 async function syncExistingAudits() {
@@ -95,11 +157,8 @@ function schedule(auditId) {
     if (pending.has(key)) clearTimeout(pending.get(key));
     pending.set(key, setTimeout(() => {
         pending.delete(key);
-        const previous = inFlight.get(key) || Promise.resolve();
-        const current = previous.catch(() => {}).then(() => syncAudit(key));
-        inFlight.set(key, current);
-        current.finally(() => { if (inFlight.get(key) === current) inFlight.delete(key); });
+        syncAudit(key);
     }, 500));
 }
 
-module.exports = {schedule, syncAudit, syncExistingAudits};
+module.exports = {schedule, generateDoc, syncGeneratedReport, syncAudit, syncExistingAudits, regenerateAllInternalArchives};

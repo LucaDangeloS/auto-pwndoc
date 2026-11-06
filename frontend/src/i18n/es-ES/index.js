@@ -1196,6 +1196,7 @@
     archiveDeleteConfirm: '¿Eliminar auditoría archivada?',
     archiveDeleteOk: 'Auditoría archivada eliminada correctamente',
     archiveError: 'La operación del archivo falló',
+    reportArchiveSyncFailed: 'El informe se descargó, pero no se pudo añadir su PDF al archivo de auditorías.',
     archiveNoCompany: 'Sin empresa',
     archiveYear: 'Año',
     archiveTags: 'Etiquetas',

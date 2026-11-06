@@ -205,6 +205,7 @@ export default {
     this.pageCanvases = {}
     this.pageTextLayers = {}
     this.renderTasks = {}
+    this.archiveRequestController = null
     this.pageObserver = null
     this.resizeTimer = null
     this.viewerDestroyPromise = Promise.resolve()
@@ -220,6 +221,8 @@ export default {
     window.removeEventListener('resize', this.onResize)
     clearTimeout(this.resizeTimer)
     this.renderToken++
+    this.archiveRequestController?.abort()
+    this.archiveRequestController = null
     this.destroyViewer()
   },
 
@@ -562,6 +565,9 @@ export default {
     async openArchive(archive) {
       const token = this.renderToken + 1
       this.renderToken = token
+      this.archiveRequestController?.abort()
+      const requestController = new AbortController()
+      this.archiveRequestController = requestController
       const previousViewerDestroyed = this.destroyViewer()
       this.selectedArchive = archive
       this.pdfLoading = true
@@ -578,9 +584,9 @@ export default {
       await previousViewerDestroyed
       if (token !== this.renderToken) return
 
-      AuditArchiveService.getArchiveFile(archive._id)
+      AuditArchiveService.getArchiveFile(archive._id, requestController.signal)
         .then(async response => {
-          if (token !== this.renderToken) return
+          if (token !== this.renderToken || this.selectedArchive?._id !== archive._id) return
           const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(response.data) })
           this.pdfLoadingTask = markRaw(loadingTask)
           const doc = await loadingTask.promise
@@ -597,10 +603,12 @@ export default {
           await this.loadOutline(token)
         })
         .catch(err => {
-          if (token === this.renderToken) this.notifyError(err)
+          const cancelled = err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.name === 'AbortError'
+          if (!cancelled && token === this.renderToken && this.selectedArchive?._id === archive._id) this.notifyError(err)
         })
         .finally(() => {
-          if (token === this.renderToken) this.pdfLoading = false
+          if (this.archiveRequestController === requestController) this.archiveRequestController = null
+          if (token === this.renderToken && this.selectedArchive?._id === archive._id) this.pdfLoading = false
         })
     },
 

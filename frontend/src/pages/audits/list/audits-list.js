@@ -9,6 +9,7 @@ import CompanyService from '@/services/company'
 import UserService from '@/services/user'
 
 import { $t } from '@/boot/i18n'
+import { rankSearchResults } from '@/services/search-ranking'
 
 export default {
     data: () => {
@@ -166,13 +167,11 @@ export default {
         filterAuditsForCloning: function(val, update) {
 			update(() => {
 				const needle = val.toLowerCase();
-				this.availableAuditsForCloning = this.auditsForCloningMaster
-					.filter(v => 
-						v.name.toLowerCase().includes(needle) ||
-						(v.company?.name?.toLowerCase().includes(needle)) ||
-						v.language.toLowerCase().includes(needle)
-					)
-					.sort((a, b) => a.name.localeCompare(b.name)); // Sort after filtering
+				this.availableAuditsForCloning = rankSearchResults(
+                    this.auditsForCloningMaster,
+                    needle,
+                    audit => [audit.name, audit.company?.name, audit.language]
+                )
 			});
         },
 
@@ -290,27 +289,6 @@ export default {
                 cancel: {label: 'Cancel', color: 'white'}
             })
             .onOk(() => this.deleteAudit(audit._id))
-        },
-
-        // Create a linked retest audit from an existing audit
-        confirmCreateRetest: function(audit) {
-            Dialog.create({
-                title: $t('createRetest'),
-                message: $t('msg.createRetestConfirm', {name: audit.name}),
-                ok: {label: $t('btn.confirm'), color: 'deep-purple-5'},
-                cancel: {label: $t('btn.cancel'), color: 'white'}
-            })
-            .onOk(() => {
-                AuditService.createRetest(audit._id)
-                .then((response) => {
-                    this.getAudits();
-                    this.$router.push('/audits/' + response.data.datas.audit._id);
-                    Notify.create({message: $t('msg.retestCreatedOk'), color: 'positive', textColor: 'white', position: 'top-right'});
-                })
-                .catch((err) => {
-                    Notify.create({message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right'});
-                });
-            });
         },
 
         // Convert blob to text

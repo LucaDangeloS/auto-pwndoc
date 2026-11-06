@@ -119,13 +119,20 @@ function findingMatchesChecklistRow(row, finding) {
     return taxonomies.some(taxonomy => taxonomyMatchesChecklistRow(row, taxonomy));
 }
 
-function applyChecklistRowsAutoMark(rows, findings) {
+function checklistFindings(audit) {
+    var findings = Array.isArray(audit.findings) ? audit.findings : [];
+    // A finding marked fixed in a retest no longer represents an active
+    // checklist failure, even though its original taxonomy is retained.
+    return audit.isRetest ? findings.filter(finding => finding.retestStatus !== 'ok') : findings;
+}
+
+function applyChecklistRowsAutoMark(rows, findings, forceBoundRows) {
     var changed = false;
     if (!Array.isArray(rows)) return changed;
 
     rows.forEach(row => {
         if (!checklistRowHasBinding(row)) return;
-        if (row.status && row.status !== 'untested' && row.auto !== true) return;
+        if (!forceBoundRows && row.status && row.status !== 'untested' && row.auto !== true) return;
 
         var hasFinding = (findings || []).some(finding => findingMatchesChecklistRow(row, finding));
         var nextStatus = hasFinding ? 'fail' : 'pass';
@@ -233,10 +240,10 @@ function syncChecklistSectionRows(auditSection, definition) {
 
 function applyChecklistAutoMarkToAudit(audit) {
     var changed = false;
-    var findings = Array.isArray(audit.findings) ? audit.findings : [];
+    var findings = checklistFindings(audit);
 
     (audit.sections || []).forEach(section => {
-        if (section.type === 'checklist' && applyChecklistRowsAutoMark(section.rows, findings))
+        if (section.type === 'checklist' && applyChecklistRowsAutoMark(section.rows, findings, audit.isRetest))
             changed = true;
     });
 
@@ -247,7 +254,7 @@ function applyChecklistAutoMarkToAudit(audit) {
 
     findings.forEach(finding => {
         (finding.customFields || []).forEach(field => {
-            if (field && field.customField && field.customField.fieldType === 'checklist' && applyChecklistRowsAutoMark(field.text, [finding]))
+            if (field && field.customField && field.customField.fieldType === 'checklist' && applyChecklistRowsAutoMark(field.text, checklistFindings(audit).includes(finding) ? [finding] : [], audit.isRetest))
                 changed = true;
         });
     });
@@ -278,6 +285,7 @@ var AuditSchema = new Schema({
     date_start:         String,
     date_end:           String,
     summary:            String,
+    retestSummary:      {type: String, default: ''},
     company:            {type: Schema.Types.ObjectId, ref: 'Company'},
     collaborators:      [{type: Schema.Types.ObjectId, ref: 'User'}],
     reviewers:          [{type: Schema.Types.ObjectId, ref: 'User'}],
@@ -338,7 +346,7 @@ AuditSchema.statics.getAudits = (isAdmin, userId, filters) => {
         query.populate('reviewers', 'username firstname lastname')
         query.populate('approvals', 'username firstname lastname')
         query.populate('company', 'name')
-        query.select('id name auditType language creator collaborators company createdAt state isRetest parentId')
+        query.select('id name auditType language creator collaborators reviewers company createdAt state isRetest parentId')
         query.exec()
         .then((rows) => {
             resolve(rows)
@@ -548,10 +556,10 @@ AuditSchema.statics.delete = (isAdmin, auditId, userId) => {
         if (!isAdmin)
             query.or([{creator: userId}])
         return query.exec()               
-        .then((row) => {
+        .then(async (row) => {
             if (!row)
                 throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
-            
+            await mongoose.model('AuditTask').deleteMany({audit: row._id})
             resolve(row)
         })
         .catch((err) => {
@@ -570,7 +578,7 @@ AuditSchema.statics.getGeneral = (isAdmin, auditId, userId) => {
         query.populate('collaborators', 'username firstname lastname')
         query.populate('reviewers', 'username firstname lastname')
         query.populate('company')
-        query.select('name auditType date date_start date_end summary collaborators language scope.name template customFields isRetest executiveSummary')
+        query.select('name auditType date date_start date_end summary collaborators language scope.name template customFields isRetest executiveSummary retestSummary')
         query.lean().exec()
         .then((row) => {
             if (!row)
@@ -1248,75 +1256,6 @@ AuditSchema.statics.clone = (auditId, newName, userId) => {
     });
 }
 
-// Get the retest child audit linked to a parent audit (Phase B)
-AuditSchema.statics.getRetest = (isAdmin, auditId, userId) => {
-    return new Promise((resolve, reject) => {
-        var query = Audit.findOne({parentId: auditId})
-        if (!isAdmin)
-            query.or([{creator: userId}, {collaborators: userId}, {reviewers: userId}])
-        query.select('_id name parentId isRetest state')
-        query.exec()
-        .then((row) => {
-            resolve(row || null)
-        })
-        .catch((err) => reject(err))
-    })
-}
-
-// Create a linked retest child audit from a parent audit. Clones scope and
-// findings (evidence reset) into a fresh audit flagged isRetest with parentId.
-AuditSchema.statics.createRetest = (isAdmin, auditId, userId, newName) => {
-    return new Promise((resolve, reject) => {
-        var query = Audit.findById(auditId)
-        if (!isAdmin)
-            query.or([{creator: userId}, {collaborators: userId}, {reviewers: userId}])
-        query.populate('company').populate('collaborators').populate('reviewers').populate('template')
-        query.exec()
-        .then(async (source) => {
-            if (!source)
-                throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
-
-            var existing = await Audit.findOne({parentId: auditId}).exec()
-            if (existing)
-                throw({fn: 'BadParameters', message: 'A retest already exists for this audit'})
-
-            // Carry findings forward but reset retest and workflow state so the
-            // retest starts from a clean slate for re-verification.
-            var retestFindings = (source.findings || []).map(f => {
-                var finding = f.toObject ? f.toObject() : f
-                delete finding._id
-                finding.retestEvidence = ''
-                finding.retestStatus = 'unknown'
-                finding.status = 1 // in progress
-                return finding
-            })
-
-            var retest = new Audit({
-                name: newName || `${source.name} (Retest)`,
-                auditType: source.auditType,
-                language: source.language,
-                company: source.company,
-                client: source.client,
-                collaborators: source.collaborators,
-                reviewers: source.reviewers,
-                template: source.template,
-                scope: source.scope,
-                findings: retestFindings,
-                sections: source.sections,
-                customFields: source.customFields,
-                sortFindings: source.sortFindings,
-                creator: userId,
-                isRetest: true,
-                parentId: source._id,
-                state: 'EDIT'
-            })
-            return retest.save()
-        })
-        .then((retest) => resolve(retest))
-        .catch((err) => reject(err))
-    })
-}
-
 // ### COMMENTS ###
 
 AuditSchema.statics.createComment = (isAdmin, auditId, userId, comment) => {
@@ -1378,6 +1317,17 @@ AuditSchema.statics.updateComment = (isAdmin, auditId, userId, commentId, newCom
 /*
 *** Methods ***
 */
+
+AuditSchema.post('save', function(doc) {
+    require('../lib/audit-archive-sync').schedule(doc._id);
+});
+AuditSchema.post('findOneAndUpdate', function(doc) {
+    if (doc) require('../lib/audit-archive-sync').schedule(doc._id);
+});
+AuditSchema.post('updateOne', function(result) {
+    const id = this.getQuery()._id;
+    if (id && result && result.modifiedCount) require('../lib/audit-archive-sync').schedule(id);
+});
 
 var Audit = mongoose.model('Audit', AuditSchema);
 // Audit.syncIndexes()

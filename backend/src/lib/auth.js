@@ -43,7 +43,11 @@ var builtInRoles = {
             'audits:comments:delete',
             'audit-archives:read',
             'audit-archives:create',
+            'audit-archives:update',
             'audit-archives:delete',
+            'tasks:read',
+            'tasks:create',
+            'tasks:update',
             // Images
             'images:create',
             'images:read',

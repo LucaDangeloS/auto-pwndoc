@@ -7,6 +7,7 @@ import SpellcheckService from '@/services/spellcheck'
 import { notifyError, notifySuccess } from '@/services/ai-helpers'
 
 import { $t } from 'boot/i18n'
+import { rankSearchResults } from '@/services/search-ranking'
 import LanguageSelector from '@/components/language-selector';
 
 const REINDEX_POLL_MS = 1500;
@@ -566,9 +567,9 @@ export default {
             },
             _reindexTimer: null,
             modelLists: {
-                generation: { loading: false, source: null, models: [], error: '' },
-                embedding:  { loading: false, source: null, models: [], error: '' },
-                vision:     { loading: false, source: null, models: [], error: '' }
+                generation: { loading: false, source: null, models: [], search: '', error: '' },
+                embedding:  { loading: false, source: null, models: [], search: '', error: '' },
+                vision:     { loading: false, source: null, models: [], search: '', error: '' }
             },
             cvssVersionOptions: [
                 { label: 'CVSS 3.1', value: '3.1' },
@@ -1040,7 +1041,7 @@ export default {
             this.aiTest[type].loading = true;
             this.aiTest[type].status = null;
             this.aiTest[type].response = '';
-            AiService.testConnection(type, controller.signal)
+            AiService.testConnection(type, {ai: this.settings.ai}, controller.signal)
             .then((res) => {
                 const data = res.data.datas;
                 this.aiTest[type].status = data.ok ? 'ok' : 'error';
@@ -1095,6 +1096,15 @@ export default {
                     ml.error = err.response?.data?.datas || err.message || 'Failed to load models';
                 })
                 .finally(() => { ml.loading = false; });
+        },
+
+        modelOptions: function(type) {
+            const list = this.modelLists[type];
+            return rankSearchResults(list.models, list.search);
+        },
+
+        filterModelOptions: function(type, value, update) {
+            update(() => { this.modelLists[type].search = value || ''; });
         },
 
         applyDefaultUrlIfEmpty: function(type) {

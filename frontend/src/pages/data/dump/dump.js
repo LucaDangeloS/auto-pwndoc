@@ -599,13 +599,13 @@ export default {
             .finally(() => { this.backupLoading = false; });
         },
 
-        downloadBackup: function(slug) {
-            BackupService.downloadBackup(slug)
+        downloadBackup: function(backup) {
+            BackupService.downloadBackup(backup.slug)
             .then((res) => {
-                const url = URL.createObjectURL(new Blob([res.data], {type: 'application/json'}));
+                const url = URL.createObjectURL(res.data);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `${slug}.json`;
+                a.download = `${backup.slug}.${backup.format === 'bundle' ? 'tgz' : 'json'}`;
                 document.body.appendChild(a);
                 a.click();
                 URL.revokeObjectURL(url);
@@ -616,6 +616,18 @@ export default {
 
         uploadBackup: function(files) {
             if (!files || !files.length) return;
+            if (/\.tgz$/i.test(files[0].name)) {
+                this.backupLoading = true;
+                BackupService.uploadBundle(files[0])
+                .then(() => {
+                    this.getBackups();
+                    Notify.create({message: $t('msg.backupUploadedOk'), color: 'positive', textColor: 'white', position: 'top-right'});
+                })
+                .catch(err => Notify.create({message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right'}))
+                .finally(() => { this.backupLoading = false; });
+                if (this.$refs.uploadBackupInput) this.$refs.uploadBackupInput.value = '';
+                return;
+            }
             const reader = new FileReader();
             reader.onload = () => {
                 BackupService.uploadBackup(reader.result)

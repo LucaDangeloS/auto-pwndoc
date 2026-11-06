@@ -193,7 +193,7 @@
                         </div>
                         <div class="col-12 col-md-6" v-if="UserService.isAllowed('backups:create')">
                             <q-btn :label="$t('createBackup')" color="secondary" no-caps unelevated :loading="backupLoading" @click="createBackup()" class="q-mr-sm" />
-                            <input ref="uploadBackupInput" value="" type="file" accept=".json" class="hidden" @change="uploadBackup($event.target.files)" />
+                            <input ref="uploadBackupInput" value="" type="file" accept=".tgz,.json" class="hidden" @change="uploadBackup($event.target.files)" />
                             <q-btn :label="$t('uploadBackup')" color="primary" no-caps outline icon="upload" @click="$refs.uploadBackupInput.click()" />
                         </div>
                     </q-card-section>
@@ -216,7 +216,7 @@
                                     <td class="text-right">{{b.documentCount}}</td>
                                     <td class="text-right">{{formatBackupSize(b.sizeBytes)}}</td>
                                     <td class="text-right" style="white-space: nowrap">
-                                        <q-btn flat dense size="sm" color="info" icon="download" @click="downloadBackup(b.slug)">
+                                        <q-btn flat dense size="sm" color="info" icon="download" @click="downloadBackup(b)">
                                             <q-tooltip>{{$t('tooltip.download')}}</q-tooltip>
                                         </q-btn>
                                         <q-btn v-if="UserService.isAllowed('backups:update')" flat dense size="sm" color="warning" icon="restore" @click="confirmRestoreBackup(b)">

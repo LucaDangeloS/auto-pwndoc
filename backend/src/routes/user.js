@@ -7,6 +7,7 @@ module.exports = function(app) {
     var jwt = require('jsonwebtoken')
     var _ = require('lodash')
     var passwordpolicy = require('../lib/passwordpolicy')
+    var {cookieOptions} = require('../lib/cookie-options')
     var Settings = require('mongoose').model('Settings');
     var mongoose = require('mongoose');
 
@@ -32,9 +33,9 @@ module.exports = function(app) {
         return Array.isArray(userIds) && userIds.length > 0 && userIds.every(id => mongoose.isValidObjectId(id))
     }
 
-    function clearAuthCookies(res) {
-        res.clearCookie('token', {secure: true, sameSite: 'strict', httpOnly: true})
-        res.clearCookie('refreshToken', {secure: true, httpOnly: true, sameSite: 'strict', path: '/api/users/refreshtoken'})
+    function clearAuthCookies(req, res) {
+        res.clearCookie('token', cookieOptions(req, {sameSite: 'strict', httpOnly: true}))
+        res.clearCookie('refreshToken', cookieOptions(req, {httpOnly: true, sameSite: 'strict', path: '/api/users/refreshtoken'}))
     }
 	
     // Check token validity
@@ -53,13 +54,13 @@ module.exports = function(app) {
         
         User.updateRefreshToken(token, userAgent)
         .then(msg => {
-            res.cookie('token', `JWT ${msg.token}`, {secure: true, sameSite: 'strict', httpOnly: true})
-            res.cookie('refreshToken', msg.refreshToken, {secure: true, httpOnly: true, sameSite: 'strict', path: '/api/users/refreshtoken'})
+            res.cookie('token', `JWT ${msg.token}`, cookieOptions(req, {sameSite: 'strict', httpOnly: true}))
+            res.cookie('refreshToken', msg.refreshToken, cookieOptions(req, {httpOnly: true, sameSite: 'strict', path: '/api/users/refreshtoken'}))
             Response.Ok(res, msg)
         })
         .catch(err => {
             if (err.fn === 'Unauthorized' || err.fn === 'NotFound') {
-                clearAuthCookies(res)
+                clearAuthCookies(req, res)
                 Response.Unauthorized(res, err.message)
                 return
             }
@@ -76,7 +77,7 @@ module.exports = function(app) {
             var decoded = jwt.verify(token, jwtRefreshSecret)
         }
         catch (err) {
-            clearAuthCookies(res)
+            clearAuthCookies(req, res)
             if (err.name === 'TokenExpiredError')
                 Response.Unauthorized(res, 'Expired refreshToken')
             else
@@ -85,7 +86,7 @@ module.exports = function(app) {
         }
         User.removeSession(decoded.userId, decoded.sessionId)
         .then(msg => {
-            clearAuthCookies(res)
+            clearAuthCookies(req, res)
             Response.Ok(res, msg)
         })
         .catch(err => Response.Internal(res, err))
@@ -118,8 +119,8 @@ module.exports = function(app) {
 
         user.getToken(req.headers['user-agent'])
         .then(msg => {
-            res.cookie('token', `JWT ${msg.token}`, {secure: true, sameSite: 'strict', httpOnly: true})
-            res.cookie('refreshToken', msg.refreshToken, {secure: true, sameSite: 'strict', httpOnly: true, path: '/api/users/refreshtoken'})
+            res.cookie('token', `JWT ${msg.token}`, cookieOptions(req, {sameSite: 'strict', httpOnly: true}))
+            res.cookie('refreshToken', msg.refreshToken, cookieOptions(req, {sameSite: 'strict', httpOnly: true, path: '/api/users/refreshtoken'}))
             Response.Ok(res, msg)
         })
         .catch(err => Response.Internal(res, err))
@@ -298,8 +299,8 @@ module.exports = function(app) {
 
                     newUser.getToken(req.headers['user-agent'])
                     .then(msg => {
-                        res.cookie('token', `JWT ${msg.token}`, {secure: true, sameSite: 'strict', httpOnly: true})
-                        res.cookie('refreshToken', msg.refreshToken, {secure: true, sameSite: 'strict', httpOnly: true, path: '/api/users/refreshtoken'})
+                        res.cookie('token', `JWT ${msg.token}`, cookieOptions(req, {sameSite: 'strict', httpOnly: true}))
+                        res.cookie('refreshToken', msg.refreshToken, cookieOptions(req, {sameSite: 'strict', httpOnly: true, path: '/api/users/refreshtoken'}))
                         Response.Created(res, msg)
                     })
                     .catch(err => Response.Internal(res, err))
@@ -345,7 +346,7 @@ module.exports = function(app) {
 
         User.updateProfile(req.decodedToken.username, user)
         .then(msg => {
-            res.cookie('token', msg.token, {secure: true, sameSite: 'strict', httpOnly: true})
+            res.cookie('token', msg.token, cookieOptions(req, {sameSite: 'strict', httpOnly: true}))
             Response.Ok(res, msg)
         })
         .catch(err => Response.Internal(res, err))

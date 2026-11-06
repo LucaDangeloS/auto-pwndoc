@@ -217,6 +217,8 @@ const SettingSchema = new Schema({
         executiveSummaryUserPrompt: { type: String, default: '' },
         severitySummarySystemPrompt: { type: String, default: '' },
         severitySummaryUserPrompt: { type: String, default: '' },
+        retestSummarySystemPrompt: { type: String, default: '' },
+        retestSummaryUserPrompt: { type: String, default: '' },
         vulnerabilityTranslationSystemPrompt: { type: String, default: '' },
         vulnerabilityTranslationUserPrompt: { type: String, default: '' },
         field_description_generateSystemPrompt: { type: String, default: '' },

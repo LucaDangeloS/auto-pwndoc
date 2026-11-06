@@ -78,6 +78,7 @@ Structure and style:
 - Ignore the structure of the findings digest as an output format; it is evidence only, not a template. Even if the digest contains bullets or tables, the answer must remain prose paragraphs.
 Reply exclusively in {language}.`,
 
+    'retest-summary': `You are a cybersecurity expert writing a concise retest summary. Summarize only documented retest outcomes and evidence. Return final HTML paragraphs in the requested language.`,
     'severity-summary': `You write only the stored continuation for a per-severity vulnerability-summary sentence in a penetration-test report.
 Do not include analysis, reasoning, planning, alternatives, or explanations. Return only the final answer.
 
@@ -381,7 +382,13 @@ Use audit context only for engagement-level framing and slight environment-speci
 {severity}-severity findings (title, CVSS score and description):
 {findingsDigest}
 
-Return only the continuation to append after the prefix. Do not repeat the prefix, count, severity, or any equivalent prelude. Reply in {language}.`
+Return only the continuation to append after the prefix. Do not repeat the prefix, count, severity, or any equivalent prelude. Reply in {language}.`,
+
+    'retest-summary': `Audit: "{auditName}"
+Retest findings and evidence:
+{findingsDigest}
+
+Summarize fixed, vulnerable, and partially mitigated findings using only supported outcomes. Reply in {language}.`
 };
 
 DEFAULT_USER_PROMPTS['executive-summary-complete'] = `Audit: "{auditName}"
@@ -781,6 +788,10 @@ function isExecutiveSummaryField(fieldName) {
     return fieldName === 'executiveSummary';
 }
 
+function isRetestSummaryField(fieldName) {
+    return fieldName === 'retestSummary';
+}
+
 function isSeveritySummaryField(fieldName) {
     return [
         'criticalSummary',
@@ -1030,6 +1041,9 @@ async function generate({ action, text, fieldName, context, aiSettings }) {
         } else if (isSeveritySummaryField(fieldName)) {
             systemTemplate = priv.severitySummarySystemPrompt || DEFAULT_SYSTEM_PROMPTS['severity-summary'];
             userTemplate = priv.severitySummaryUserPrompt || DEFAULT_USER_PROMPTS['severity-summary'];
+        } else if (isRetestSummaryField(fieldName)) {
+            systemTemplate = priv.retestSummarySystemPrompt || DEFAULT_SYSTEM_PROMPTS['retest-summary'];
+            userTemplate = priv.retestSummaryUserPrompt || `Audit: "{auditName}"\nRetest findings and evidence:\n{findingsDigest}\n\nSummarize fixed, vulnerable, or partially mitigated findings without unsupported conclusions. Reply in {language}.`;
         } else if (context && context.proofCompletion && fieldName === 'title') {
             systemTemplate = `You are a cybersecurity expert writing professional penetration test report finding titles.
 Generate one concise, generic vulnerability-class title from the supplied proof evidence.
@@ -1067,6 +1081,9 @@ Do not invent CVEs, vendor advisories, or product-specific references unless the
         } else if (isSeveritySummaryField(fieldName)) {
             systemTemplate = SEVERITY_SUMMARY_COMPLETE_SYSTEM_PROMPT;
             userTemplate = DEFAULT_USER_PROMPTS['severity-summary-complete'];
+        } else if (isRetestSummaryField(fieldName)) {
+            systemTemplate = priv.retestSummarySystemPrompt || DEFAULT_SYSTEM_PROMPTS['retest-summary'];
+            userTemplate = priv.retestSummaryUserPrompt || `Audit: "{auditName}"\nRetest findings and evidence:\n{findingsDigest}\n\nSummarize fixed, vulnerable, or partially mitigated findings without unsupported conclusions. Reply in {language}.`;
         } else {
             systemTemplate = selectFieldSystemPrompt('complete', priv, fieldName, fieldKey);
             userTemplate = selectFieldUserPrompt('complete', priv, fieldName, fieldUserKey);
@@ -1080,6 +1097,9 @@ Do not invent CVEs, vendor advisories, or product-specific references unless the
         } else if (isSeveritySummaryField(fieldName)) {
             systemTemplate = SEVERITY_SUMMARY_REWRITE_SYSTEM_PROMPT;
             userTemplate = DEFAULT_USER_PROMPTS['severity-summary-rewrite'];
+        } else if (isRetestSummaryField(fieldName)) {
+            systemTemplate = priv.retestSummarySystemPrompt || DEFAULT_SYSTEM_PROMPTS['retest-summary'];
+            userTemplate = priv.retestSummaryUserPrompt || `Audit: "{auditName}"\nRetest findings and evidence:\n{findingsDigest}\n\nRewrite the retest summary using only supported outcomes. Reply in {language}.`;
         } else {
             systemTemplate = selectFieldSystemPrompt('rewrite', priv, fieldName, fieldKey);
             userTemplate = selectFieldUserPrompt('rewrite', priv, fieldName, fieldUserKey);

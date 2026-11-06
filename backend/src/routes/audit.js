@@ -166,25 +166,6 @@ module.exports = function(app, io) {
         .then(inserted => Response.Created(res, {message: 'Audit cloned successfully', audit: inserted}))
         .catch(err => Response.Internal(res, err))
     });
-
-    // Get the linked retest child audit of an audit (null if none)
-    app.get("/api/audits/:auditId/retest", acl.hasPermission('audits:read'), function(req, res) {
-        // #swagger.tags = ['Audit']
-
-        Audit.getRetest(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id)
-        .then(msg => Response.Ok(res, msg))
-        .catch(err => Response.Internal(res, err))
-    });
-
-    // Create a linked retest child audit from an audit
-    app.post("/api/audits/:auditId/retest", acl.hasPermission('audits:create'), function(req, res) {
-        // #swagger.tags = ['Audit']
-
-        Audit.createRetest(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id, req.body.name)
-        .then(inserted => Response.Created(res, {message: 'Audit retest created successfully', audit: inserted}))
-        .catch(err => Response.Internal(res, err))
-    });
-
     // Delete audit if creator or admin
     app.delete("/api/audits/:auditId", acl.hasPermission('audits:delete'), function(req, res) {
         // #swagger.tags = ['Audit']
@@ -310,6 +291,7 @@ module.exports = function(app, io) {
         if (req.body.customFields) update.customFields = req.body.customFields;
         if (req.body.isRetest !== undefined) update.isRetest = req.body.isRetest;
         if (req.body.executiveSummary !== undefined) update.executiveSummary = req.body.executiveSummary;
+        if (req.body.retestSummary !== undefined) update.retestSummary = req.body.retestSummary;
         if (settings.reviews.enabled && settings.reviews.private.removeApprovalsUponUpdate) update.approvals = [];
 
         Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, update)

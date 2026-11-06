@@ -2,7 +2,8 @@ import UserService from '@/services/user'
 
 export default [
   {path: '/', component: () => import('layouts/home'), meta: {breadcrumb: 'Home'}, children: [
-    {path: '', redirect: 'audits' },
+    {path: '', redirect: 'dashboard' },
+    {path: 'dashboard', component: () => import('pages/dashboard'), meta: {breadcrumb: 'Dashboard'}},
     {path: 'audits', component: () => import('pages/audits'), meta: {breadcrumb: 'Audits'}, children: [
       {path: '', name:'audits', component: () => import('pages/audits/list')},
       {path: ':finding', name:'audits_by_find', component: () => import('pages/audits/list')},
@@ -21,7 +22,8 @@ export default [
       {path: '', redirect: 'collaborators'},
       {path: 'collaborators', component: () => import('pages/data/collaborators')},
       {path: 'roles', component: () => import('pages/data/roles')},
-      {path: 'companies', component: () => import('pages/data/companies')},
+      {path: 'companies', redirect: '/clients'},
+      {path: 'companies/:companyId', redirect: to => `/clients/${to.params.companyId}`},
       {path: 'templates', redirect: {path: '/data/audits-data', query: {tab: 'templates'}}},
       {path: 'vulnerabilities-data', component: () => import('pages/data/vulnerabilities-data')},
       {path: 'vulnerability-taxonomy', component: () => import('pages/data/vulnerability-taxonomy')},
@@ -30,6 +32,8 @@ export default [
       {path: 'dump', component: () => import('pages/data/dump')}
     ]},
     {path: 'audits-archive', component: () => import('@/pages/audits-archive'), meta: {breadcrumb: 'Audits Archive'}},
+    {path: 'clients', component: () => import('@/pages/data/companies'), meta: {breadcrumb: 'Clients'}},
+    {path: 'clients/:companyId', component: () => import('@/pages/data/companies/profile.vue'), meta: {breadcrumb: 'Client Profile'}},
     {path: 'vulnerabilities', component: () => import('@/pages/vulnerabilities'), meta: {breadcrumb: 'Vulnerabilities'}},
     {path: 'profile', component: () => import('pages/profile')},
     {path: 'settings', component: () => import('pages/settings')},

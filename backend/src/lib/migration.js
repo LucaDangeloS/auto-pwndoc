@@ -1436,6 +1436,53 @@ const STEPS = [
         },
     },
 
+    // Step 38: Archived PDF reports gain client metadata (company, reportDate,
+    // auditType, tags, notes). Existing archives stay unassigned (company null)
+    // and are shown under "No company" until users organise them.
+    {
+        id: 38,
+        name: 'backfill-audit-archive-metadata',
+        async run(_srcDb, dstDb) {
+            const col = dstDb.collection('auditarchives');
+            const defaults = { company: null, reportDate: null, auditType: '', tags: [], notes: '' };
+            let modified = 0;
+            for (const [field, value] of Object.entries(defaults)) {
+                const result = await col.updateMany({ [field]: { $exists: false } }, { $set: { [field]: value } });
+                modified += result.modifiedCount;
+            }
+            console.log(`[migration] backfill-audit-archive-metadata: ${modified} fields initialized`);
+        },
+    },
+
+    {
+        id: 42,
+        name: 'initialize-audit-task-indexes',
+        async run(_srcDb, dstDb) {
+            await dstDb.collection('audittasks').createIndex({audit: 1});
+            await dstDb.collection('audittasks').createIndex({assignee: 1, status: 1, dueOn: 1});
+        },
+    },
+
+    {
+        id: 43,
+        name: 'add-retest-summary-and-internal-audit-archive-link',
+        async run(_srcDb, dstDb) {
+            const result = await dstDb.collection('audits').updateMany(
+                { retestSummary: { $exists: false } },
+                { $set: { retestSummary: '' } }
+            );
+            console.log(`[migration] add-retest-summary-to-audits: ${result.modifiedCount} audits updated`);
+            await dstDb.collection('auditarchives').updateMany(
+                { internal: { $exists: false } },
+                { $set: { internal: false, audit: null } }
+            );
+            await dstDb.collection('auditarchives').createIndex(
+                {audit: 1},
+                {unique: true, partialFilterExpression: {internal: true, audit: {$type: 'objectId'}}}
+            );
+        },
+    },
+
 ];
 
 // Runner

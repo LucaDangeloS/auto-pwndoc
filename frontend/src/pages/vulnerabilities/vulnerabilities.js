@@ -8,9 +8,11 @@ import CustomFields from 'components/custom-fields'
 import TaxonomyPicker from 'components/taxonomy-picker'
 
 import VulnerabilityService from '@/services/vulnerability'
+import AiService from '@/services/ai'
 import DataService from '@/services/data'
 import UserService from '@/services/user'
 import Utils from '@/services/utils'
+import { rankSearchResults } from '@/services/search-ranking'
 import { extractErrorMessage } from '@/services/ai-helpers'
 
 import { $t } from 'boot/i18n'
@@ -144,6 +146,7 @@ export default {
             // Vulnerability categories
             vulnCategories: [],
             currentCategory: null,
+            reindexing: false,
             // Custom Fields
             customFields: []
         }
@@ -302,7 +305,7 @@ export default {
         filteredRelationCandidates: function() {
             if (!this.relationCandidateSearch) return this.relationCandidates;
             var needle = this.relationCandidateSearch;
-            return this.relationCandidates.filter(vuln => this.getVulnTitleLocale(vuln, this.relationCandidateLocale).toLowerCase().includes(needle));
+            return rankSearchResults(this.relationCandidates, needle, vuln => this.getVulnTitleLocale(vuln, this.relationCandidateLocale));
         },
         missingTranslationLanguageOptions: function() {
             return this.languages.filter(lang =>
@@ -352,6 +355,23 @@ export default {
     },
 
     methods: {
+        reindexVulnerabilities: function() {
+            Dialog.create({
+                title: $t('aiReindexConfirmTitle'),
+                message: $t('aiReindexConfirmMessage'),
+                ok: {label: $t('btn.confirm'), color: 'primary', noCaps: true},
+                cancel: {label: $t('btn.cancel'), color: 'grey-7', flat: true, noCaps: true}
+            }).onOk(() => {
+                this.reindexing = true;
+                AiService.reindexAll()
+                    .then((res) => {
+                        const data = res.data?.datas || {};
+                        Notify.create({message: $t(data.alreadyRunning ? 'aiReindexAlreadyRunning' : 'aiReindexStarted'), color: 'positive', textColor: 'white', position: 'top-right'});
+                    })
+                    .catch((err) => Notify.create({message: extractErrorMessage(err) || $t('aiTestFailed'), color: 'negative', textColor: 'white', position: 'top-right'}))
+                    .finally(() => { this.reindexing = false; });
+            });
+        },
         columnStyle: function(columnName) {
             const width = this.columnWidths[columnName]
             if (!width) return {}

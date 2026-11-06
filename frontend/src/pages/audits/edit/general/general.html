@@ -20,6 +20,22 @@
     <div class="col-md-8 offset-md-2 col-12">
         <q-card>
             <q-card-section>
+                <q-input
+                    v-if="audit.isRetest"
+                    v-model="audit.retestSummary"
+                    :label="$t('retestSummary')"
+                    type="textarea"
+                    autogrow
+                    outlined
+                    stack-label
+                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                >
+                    <template #append>
+                        <template-hint template-var="retest_summary" :description="$t('templateHintAuditRoot')" />
+                    </template>
+                </q-input>
+            </q-card-section>
+            <q-card-section>
                 <div class="row q-col-gutter-md">
                     <q-input
                         class="col-md-6 col-12"

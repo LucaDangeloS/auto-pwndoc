@@ -4,6 +4,7 @@ module.exports = function(app) {
     var Settings = require('mongoose').model('Settings');
     var User = require('mongoose').model('User');
     var crypto = require('crypto');
+    var {cookieOptions} = require('../lib/cookie-options');
 
     var STATE_COOKIE = 'ssoState';
 
@@ -15,12 +16,12 @@ module.exports = function(app) {
         return `${getAppUrl()}/api/auth/sso/callback`;
     }
 
-    function clearStateCookie(res) {
-        res.clearCookie(STATE_COOKIE, {secure: true, httpOnly: true, sameSite: 'lax', path: '/api/auth/sso/callback'});
+    function clearStateCookie(req, res) {
+        res.clearCookie(STATE_COOKIE, cookieOptions(req, {httpOnly: true, sameSite: 'lax', path: '/api/auth/sso/callback'}));
     }
 
-    function fail(res, reason) {
-        clearStateCookie(res);
+    function fail(req, res, reason) {
+        clearStateCookie(req, res);
         res.redirect(`${getAppUrl()}/login?ssoError=${encodeURIComponent(reason)}`);
     }
 
@@ -148,7 +149,7 @@ module.exports = function(app) {
             var pub = sso.public || {};
             var priv = sso.private || {};
             var state = crypto.randomBytes(32).toString('hex');
-            res.cookie(STATE_COOKIE, state, {secure: true, httpOnly: true, sameSite: 'lax', maxAge: 10 * 60 * 1000, path: '/api/auth/sso/callback'});
+            res.cookie(STATE_COOKIE, state, cookieOptions(req, {httpOnly: true, sameSite: 'lax', maxAge: 10 * 60 * 1000, path: '/api/auth/sso/callback'}));
 
             var authorizationUrl = new URL(pub.authorizationUrl);
             authorizationUrl.searchParams.set('response_type', 'code');
@@ -166,26 +167,26 @@ module.exports = function(app) {
     app.get('/api/auth/sso/callback', async function(req, res) {
         try {
             if (!req.query.code)
-                return fail(res, 'missing_code');
+                return fail(req, res, 'missing_code');
             if (!req.query.state || req.query.state !== req.cookies[STATE_COOKIE])
-                return fail(res, 'invalid_state');
+                return fail(req, res, 'invalid_state');
 
             var settings = await Settings.getAll();
             var sso = ssoConfig(settings);
             if (!sso.enabled)
-                return fail(res, 'disabled');
+                return fail(req, res, 'disabled');
 
-            clearStateCookie(res);
+            clearStateCookie(req, res);
             var token = await exchangeCode(sso, req.query.code);
             var profile = await loadUserInfo(sso, token.access_token);
             var user = await findOrCreateUser(sso, profile);
             var msg = await User.issueTokensForUser(user, req.headers['user-agent']);
-            res.cookie('token', `JWT ${msg.token}`, {secure: true, sameSite: 'strict', httpOnly: true});
-            res.cookie('refreshToken', msg.refreshToken, {secure: true, sameSite: 'strict', httpOnly: true, path: '/api/users/refreshtoken'});
+            res.cookie('token', `JWT ${msg.token}`, cookieOptions(req, {sameSite: 'strict', httpOnly: true}));
+            res.cookie('refreshToken', msg.refreshToken, cookieOptions(req, {sameSite: 'strict', httpOnly: true, path: '/api/users/refreshtoken'}));
             res.redirect(`${getAppUrl()}/`);
         }
         catch (err) {
-            fail(res, err.message || 'sso_failed');
+            fail(req, res, err.message || 'sso_failed');
         }
     });
 }

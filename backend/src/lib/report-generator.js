@@ -1900,6 +1900,7 @@ async function prepAuditData(data, settings) {
     result.summary = data.summary || ""
     result.scope = data.scope.toObject() || []
     result.is_retest = data.isRetest === true
+    result.retest_summary = data.retestSummary || ''
 
     const execSummary = data.executiveSummary || {}
     result.overall_risk = execSummary.overallRisk ? ($t(execSummary.overallRisk) || execSummary.overallRisk) : ''

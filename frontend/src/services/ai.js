@@ -39,8 +39,8 @@ export default {
         return api.post('ai/search-proof-similar', payload, { signal })
     },
 
-    testConnection(type, signal) {
-        return api.post('ai/test', { type }, { signal })
+    testConnection(type, options = {}, signal) {
+        return api.post('ai/test', { type, ...options }, { signal })
     },
 
     listModels(type, signal) {

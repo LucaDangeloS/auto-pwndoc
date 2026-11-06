@@ -13,6 +13,7 @@ import ReviewerService from '@/services/reviewer';
 import TemplateService from '@/services/template';
 import DataService from '@/services/data';
 import Utils from '@/services/utils';
+import { rankSearchResults } from '@/services/search-ranking';
 
 import { $t } from '@/boot/i18n'
 
@@ -40,6 +41,7 @@ export default {
                 date_start: "",
                 date_end: "",
                 summary: "",
+                retestSummary: "",
                 scope: [],
                 language: "",
                 template: "",
@@ -314,7 +316,7 @@ export default {
               }
             update(() => {
                 const needle = Utils.normalizeString(val)
-                this.selectCompanies = this.$_.clone(this.companies.filter(v => Utils.normalizeString(v.name).indexOf(needle) > -1))
+                this.selectCompanies = rankSearchResults(this.companies, needle, v => Utils.normalizeString(v.name))
             })
         },
 

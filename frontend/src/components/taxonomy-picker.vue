@@ -8,6 +8,7 @@
       @update:model-value="onTypeChange"
       :options="typeOptions"
       use-input input-debounce="0"
+      @filter="(value, update) => filterOptions('type', value, update)"
       new-value-mode="add-unique"
       clearable
       options-sanitize
@@ -22,6 +23,7 @@
       @update:model-value="onCategoryChange"
       :options="categoryOptions"
       use-input input-debounce="0"
+      @filter="(value, update) => filterOptions('category', value, update)"
       new-value-mode="add-unique"
       clearable
       options-sanitize
@@ -36,6 +38,7 @@
       @update:model-value="onSubcategoryChange"
       :options="subcategoryOptions"
       use-input input-debounce="0"
+      @filter="(value, update) => filterOptions('subcategory', value, update)"
       new-value-mode="add-unique"
       clearable
       options-sanitize
@@ -50,6 +53,7 @@
       @update:model-value="onCodeChange"
       :options="codeOptions"
       use-input input-debounce="0"
+      @filter="(value, update) => filterOptions('code', value, update)"
       new-value-mode="add-unique"
       clearable
       options-sanitize
@@ -62,6 +66,7 @@
 <script>
 import { defineComponent } from 'vue';
 import DataService from '@/services/data';
+import { rankSearchResults } from '@/services/search-ranking';
 
 const EMPTY = { type: '', category: '', subcategory: '', code: '' };
 
@@ -76,7 +81,8 @@ export default defineComponent({
 
   data() {
     return {
-      taxonomy: []
+      taxonomy: [],
+      searchTerms: { type: '', category: '', subcategory: '', code: '' }
     };
   },
 
@@ -91,25 +97,25 @@ export default defineComponent({
       };
     },
     typeOptions() {
-      return Array.from(new Set(this.taxonomy.map(r => r.type))).filter(Boolean).sort();
+      return rankSearchResults(Array.from(new Set(this.taxonomy.map(r => r.type))).filter(Boolean).sort(), this.searchTerms.type);
     },
     categoryOptions() {
       if (!this.current.type) return [];
-      return Array.from(new Set(
+      return rankSearchResults(Array.from(new Set(
         this.taxonomy.filter(r => r.type === this.current.type && r.category).map(r => r.category)
-      )).sort();
+      )).sort(), this.searchTerms.category);
     },
     subcategoryOptions() {
       if (!this.current.type || !this.current.category) return [];
-      return Array.from(new Set(
+      return rankSearchResults(Array.from(new Set(
         this.taxonomy
           .filter(r => r.type === this.current.type && r.category === this.current.category && r.subcategory)
           .map(r => r.subcategory)
-      )).sort();
+      )).sort(), this.searchTerms.subcategory);
     },
     codeOptions() {
       if (!this.current.type) return [];
-      return Array.from(new Set(
+      return rankSearchResults(Array.from(new Set(
         this.taxonomy
           .filter(r =>
             r.type === this.current.type &&
@@ -118,7 +124,7 @@ export default defineComponent({
             r.code
           )
           .map(r => r.code)
-      )).sort();
+      )).sort(), this.searchTerms.code);
     }
   },
 
@@ -127,6 +133,9 @@ export default defineComponent({
   },
 
   methods: {
+    filterOptions(field, value, update) {
+      update(() => { this.searchTerms[field] = value || ''; });
+    },
     loadTaxonomy() {
       DataService.getVulnerabilityTaxonomy()
         .then(res => { this.taxonomy = res.data.datas || []; })

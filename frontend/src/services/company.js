@@ -5,6 +5,10 @@ export default {
     return  api.get(`companies`)
   },
 
+  getOverview: function(companyId) {
+    return api.get(`companies/${companyId}/overview`)
+  },
+
   exportCompanies: function() {
     return  api.get(`companies/export`)
   },

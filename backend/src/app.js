@@ -63,6 +63,7 @@ require('./models/image');
 require('./models/settings');
 require('./models/dictionary');
 require('./models/role');
+require('./models/audit-task');
 
 // Database migration (runs only when MIGRATE_FROM env var is set)
 const { runMigration } = require('./lib/migration');
@@ -74,6 +75,8 @@ runMigration()
     // Load DB-stored custom roles into the ACL once migrations (incl. the
     // roles.json seed) have run.
     await require('./lib/auth').acl.reload();
+    require('./lib/audit-archive-sync').syncExistingAudits()
+      .catch(err => console.error('[audit-archive-sync] Startup sync failed:', err && err.stack || err));
   });
 
 // Socket IO configuration
@@ -136,6 +139,8 @@ require('./routes/user')(app);
 require('./routes/auth')(app);
 require('./routes/audit')(app, io);
 require('./routes/audit-archive')(app);
+require('./routes/audit-task')(app);
+require('./routes/dashboard')(app);
 require('./routes/company')(app);
 require('./routes/vulnerability')(app);
 require('./routes/template')(app);
@@ -221,6 +226,10 @@ if(config.apidoc) {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 }
 
+
+app.get('/api/health', function(req, res) {
+    res.status(200).json({status: 'ok'});
+});
 
 app.use(function(req, res) {
     res.status(404).json({"status": "error", "data": "Route undefined"});

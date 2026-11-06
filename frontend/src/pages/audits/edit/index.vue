@@ -315,7 +315,8 @@ export default defineComponent({
         vulnCategories: [],
         findingList: [],
         frontEndAuditState: Utils.AUDIT_VIEW_STATE.EDIT_READONLY,
-        AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
+        AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
+        userService: UserService
       }
   },
 

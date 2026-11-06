@@ -781,6 +781,19 @@ module.exports = function(app) {
 
         var aiSettings = await getAiSettings();
         if (!aiSettings) return Response.Internal(res, 'Could not load AI settings');
+        // Connection tests should exercise the values currently in the form,
+        // including unsaved model/provider changes, without persisting them.
+        if (req.body.ai && typeof req.body.ai === 'object') {
+            const draft = req.body.ai;
+            if (draft.public) aiSettings.public = { ...aiSettings.public, ...draft.public };
+            if (draft.visionPublic) aiSettings.visionPublic = { ...aiSettings.visionPublic, ...draft.visionPublic };
+            if (draft.private) {
+                aiSettings.private = { ...aiSettings.private, ...draft.private };
+                for (const key of ['azure', 'embeddingAzure', 'visionAzure']) {
+                    if (draft.private[key]) aiSettings.private[key] = { ...(aiSettings.private[key] || {}), ...draft.private[key] };
+                }
+            }
+        }
 
         try {
             if (type === 'generation') {

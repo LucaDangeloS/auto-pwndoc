@@ -56,8 +56,24 @@
                 </q-td>
               </template>
 
-              <template v-slot:body-cell-action="props">
+            <template v-slot:body-cell-name="props">
+                <q-td :props="props">
+                  <q-btn flat dense no-caps color="primary" :label="props.row.name" :to="`/clients/${props.row._id}`" />
+                </q-td>
+            </template>
+
+            <template v-slot:body-cell-action="props">
                 <q-td :props="props" style="width: 1px">
+                  <q-btn
+                    size="sm"
+                    flat
+                    color="primary"
+                    icon="visibility"
+                    :label="$t('clientOpenProfile')"
+                    :to="`/clients/${props.row._id}`"
+                  >
+                    <q-tooltip>{{ $t('clientOpenProfile') }}</q-tooltip>
+                  </q-btn>
                   <q-btn
                     size="sm"
                     flat

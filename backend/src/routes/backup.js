@@ -3,6 +3,9 @@ module.exports = function(app) {
     const path = require('path');
     const mongoose = require('mongoose');
     const { EJSON } = require('bson');
+    const crypto = require('crypto');
+    const tar = require('tar');
+    const {receiveFile} = require('../lib/multipart-upload');
 
     const Response = require('../lib/httpResponse.js');
     const acl = require('../lib/auth.js').acl;
@@ -24,6 +27,51 @@ module.exports = function(app) {
         return path.join(backupPath, `${slug}.json`);
     }
 
+    function bundleFile(slug) {
+        return path.join(backupPath, `${slug}.tgz`);
+    }
+
+    function safeArchiveFilename(filename) {
+        return typeof filename === 'string' && filename === path.basename(filename) && /^[a-zA-Z0-9_.-]+\.pdf$/.test(filename);
+    }
+
+    async function archiveNames(data) {
+        const rows = data.auditarchives || [];
+        const names = [...new Set(rows.map(row => row.filename))];
+        if (names.some(name => !safeArchiveFilename(name)))
+            throw {fn: 'BadParameters', message: 'Backup contains an invalid PDF filename'};
+        return names;
+    }
+
+    async function unpackBundle(file) {
+        const stage = await fs.promises.mkdtemp(path.join(backupPath, '.restore-'));
+        try {
+            const entries = [];
+            await tar.t({file, onReadEntry: entry => {
+                const name = entry.path.replace(/\\/g, '/');
+                if (entry.type !== 'File' && entry.type !== 'Directory')
+                    throw new Error('Backup contains an unsupported entry');
+                if (!/^(backups\/[a-zA-Z0-9_.-]+\.json|audit-archives\/[a-zA-Z0-9_.-]+\.pdf|backups\/|audit-archives\/)$/i.test(name))
+                    throw new Error('Backup contains an unsafe path');
+                entries.push(name);
+            }});
+            const jsonEntries = entries.filter(name => /^backups\/[a-zA-Z0-9_.-]+\.json$/.test(name));
+            if (jsonEntries.length !== 1) throw new Error('Backup must contain one database file');
+            await tar.x({file, cwd: stage, preservePaths: false});
+            const payload = EJSON.parse(await fs.promises.readFile(path.join(stage, jsonEntries[0]), 'utf8'), {relaxed: false});
+            if (!payload || !payload.data || typeof payload.data !== 'object') throw new Error('Invalid backup data');
+            for (const filename of await archiveNames(payload.data)) {
+                const filePath = path.join(stage, 'audit-archives', filename);
+                if (!(await fs.promises.stat(filePath).catch(() => null))?.isFile())
+                    throw new Error(`Backup is missing archived PDF ${filename}`);
+            }
+            return {stage, payload};
+        } catch (err) {
+            await fs.promises.rm(stage, {recursive: true, force: true});
+            throw err;
+        }
+    }
+
     // Parse a backup file. Backups are MongoDB Extended JSON so ObjectIds and
     // Dates round-trip losslessly.
     function readBackup(slug) {
@@ -41,7 +89,8 @@ module.exports = function(app) {
                 createdAt: parsed.createdAt || null,
                 collections: Object.keys(parsed.data || {}),
                 documentCount: Object.values(parsed.data || {}).reduce((a, arr) => a + (Array.isArray(arr) ? arr.length : 0), 0),
-                sizeBytes: stats.size
+                sizeBytes: fs.existsSync(bundleFile(slug)) ? fs.statSync(bundleFile(slug)).size : stats.size,
+                format: fs.existsSync(bundleFile(slug)) ? 'bundle' : 'json'
             };
         }
         catch (_) {
@@ -88,7 +137,21 @@ module.exports = function(app) {
             }
 
             const payload = {name: name, createdAt: new Date().toISOString(), data: data};
+            const names = await archiveNames(data);
+            const archiveDir = path.join(__basedir, '..', 'audit-archives');
+            for (const filename of names) {
+                if (!(await fs.promises.stat(path.join(archiveDir, filename)).catch(() => null))?.isFile())
+                    return Response.BadParameters(res, `Archived PDF is missing: ${filename}`);
+            }
             fs.writeFileSync(backupFile(slug), EJSON.stringify(payload, {relaxed: false}));
+            try {
+                await tar.c({gzip: true, file: bundleFile(slug), cwd: path.join(__basedir, '..')},
+                    [`backups/${slug}.json`, ...names.map(name => `audit-archives/${name}`)]);
+            } catch (err) {
+                await fs.promises.unlink(backupFile(slug)).catch(() => {});
+                await fs.promises.unlink(bundleFile(slug)).catch(() => {});
+                throw err;
+            }
             Response.Created(res, readMeta(slug));
         }
         catch (err) {
@@ -105,6 +168,8 @@ module.exports = function(app) {
         if (!fs.existsSync(file))
             return Response.NotFound(res, 'Backup not found');
         try {
+            if (fs.existsSync(bundleFile(req.params.slug)))
+                return res.download(bundleFile(req.params.slug), `${req.params.slug}.tgz`);
             Response.SendFile(res, `${req.params.slug}.json`, fs.readFileSync(file));
         }
         catch (err) {
@@ -135,6 +200,29 @@ module.exports = function(app) {
         }
     });
 
+    app.post('/api/backups/upload-bundle', acl.hasPermission('backups:create'), async function(req, res) {
+        let upload;
+        let target;
+        let unpacked;
+        try {
+            upload = await receiveFile(req, backupPath, 300 * 1024 * 1024, {maxFields: 1});
+            if (!/\.tgz$/i.test(upload.file.originalName))
+                throw {fn: 'BadParameters', message: 'Expected a .tgz backup bundle'};
+            unpacked = await unpackBundle(upload.file.path);
+            const slug = makeSlug(unpacked.payload.name || 'uploaded');
+            target = bundleFile(slug);
+            await fs.promises.rename(upload.file.path, target);
+            await fs.promises.writeFile(backupFile(slug), EJSON.stringify(unpacked.payload, {relaxed: false}));
+            Response.Created(res, readMeta(slug));
+        } catch (err) {
+            if (target) await fs.promises.unlink(target).catch(() => {});
+            if (upload) await fs.promises.unlink(upload.file.path).catch(() => {});
+            Response.BadParameters(res, err.message || 'Invalid backup bundle');
+        } finally {
+            if (unpacked) await fs.promises.rm(unpacked.stage, {recursive: true, force: true});
+        }
+    });
+
     // Restore from a backup: replaces each backed-up collection
     app.post("/api/backups/:slug/restore", acl.hasPermission('backups:update'), async function(req, res) {
         // #swagger.tags = ['Backup']
@@ -142,9 +230,25 @@ module.exports = function(app) {
             return Response.BadParameters(res, 'Invalid backup identifier');
         if (!fs.existsSync(backupFile(req.params.slug)))
             return Response.NotFound(res, 'Backup not found');
+        let bundle;
         try {
-            const payload = readBackup(req.params.slug);
+            bundle = fs.existsSync(bundleFile(req.params.slug))
+                ? await unpackBundle(bundleFile(req.params.slug)) : null;
+            const payload = bundle ? bundle.payload : readBackup(req.params.slug);
             const data = payload.data || {};
+            const filenames = await archiveNames(data);
+            const liveArchiveDir = path.join(__basedir, '..', 'audit-archives');
+            for (const filename of filenames) {
+                const source = bundle ? path.join(bundle.stage, 'audit-archives', filename) : path.join(liveArchiveDir, filename);
+                if (!(await fs.promises.stat(source).catch(() => null))?.isFile()) {
+                    return Response.BadParameters(res, `Archived PDF is missing: ${filename}`);
+                }
+            }
+            if (bundle) {
+                await fs.promises.mkdir(liveArchiveDir, {recursive: true});
+                for (const filename of filenames)
+                    await fs.promises.copyFile(path.join(bundle.stage, 'audit-archives', filename), path.join(liveArchiveDir, filename));
+            }
             const db = mongoose.connection.db;
             let restoredCollections = 0;
             let restoredDocs = 0;
@@ -167,6 +271,8 @@ module.exports = function(app) {
         }
         catch (err) {
             Response.Internal(res, err);
+        } finally {
+            if (bundle) await fs.promises.rm(bundle.stage, {recursive: true, force: true});
         }
     });
 
@@ -180,6 +286,7 @@ module.exports = function(app) {
             return Response.NotFound(res, 'Backup not found');
         try {
             fs.unlinkSync(file);
+            if (fs.existsSync(bundleFile(req.params.slug))) fs.unlinkSync(bundleFile(req.params.slug));
             Response.Ok(res, 'Backup deleted successfully');
         }
         catch (err) {

@@ -583,6 +583,68 @@ module.exports = function(request, app) {
         .send({jsonrpc: '2.0', id: 1, method: 'tools/list'});
       expect(mcpTools.status).toBe(200);
       expect(mcpTools.body.result.tools.map(tool => tool.name)).toContain('list_taxonomies');
+      expect(mcpTools.body.result.tools.map(tool => tool.name)).toEqual(expect.arrayContaining([
+        'list_tools', 'create_tool', 'update_tool', 'delete_tool',
+        'list_licenses', 'create_license', 'update_license', 'delete_license',
+        'list_guides', 'get_guide', 'create_guide', 'update_guide', 'delete_guide'
+      ]));
+
+      var mcpId = 10;
+      var mcpCall = async (name, args) => {
+        var call = await request(app).post('/api/mcp')
+          .set('X-API-Key', rotate.body.datas.apiKey)
+          .send({jsonrpc: '2.0', id: mcpId++, method: 'tools/call', params: {name, arguments: args || {}}});
+        expect(call.status).toBe(200);
+        expect(call.body.result.isError).not.toBe(true);
+        return JSON.parse(call.body.result.content[0].text);
+      };
+
+      var mcpTool = await mcpCall('create_tool', {tool: {name: 'MCP Scanner', vendor: 'Test', status: 'active'}});
+      expect(mcpTool.name).toBe('MCP Scanner');
+      mcpTool = await mcpCall('update_tool', {toolId: mcpTool._id, tool: {
+        name: 'MCP Scanner Updated', vendor: 'Test', edition: '', category: '', purpose: '', website: '',
+        version: '2', status: 'trial', owner: null, tags: ['mcp']
+      }});
+      expect(mcpTool.version).toBe('2');
+      var mcpToolId = mcpTool._id;
+      var mcpToolList = await mcpCall('list_tools');
+      expect(mcpToolList.some(tool => String(tool._id) === String(mcpToolId))).toBe(true);
+
+      var mcpLicense = await mcpCall('create_license', {license: {
+        tool: mcpToolId, label: 'MCP License', type: 'subscription', seats: 2,
+        assignedTo: [], purchasedOn: '2026-01-01', expiresOn: '2027-01-01', renewalOwner: null,
+        purchaseRef: 'MCP-1', notes: 'Created through MCP'
+      }});
+      expect(mcpLicense.label).toBe('MCP License');
+      mcpLicense = await mcpCall('update_license', {licenseId: mcpLicense._id, license: {
+        tool: mcpToolId, label: 'MCP License Updated', type: 'subscription', seats: 3,
+        assignedTo: [], purchasedOn: '2026-01-01', expiresOn: '2027-06-01', renewalOwner: null,
+        purchaseRef: 'MCP-2', notes: 'Updated through MCP'
+      }});
+      expect(mcpLicense.seats).toBe(3);
+      var mcpLicenseId = mcpLicense._id;
+      var mcpLicenseList = await mcpCall('list_licenses');
+      expect(mcpLicenseList.some(license => String(license._id) === String(mcpLicenseId))).toBe(true);
+
+      var mcpGuide = await mcpCall('create_guide', {guide: {
+        title: 'MCP Guide', summary: 'MCP CRUD test', content: 'Initial content', steps: ['Prepare'],
+        tags: ['mcp'], references: [], tool: mcpToolId, status: 'draft', reviewedAt: null
+      }});
+      expect(mcpGuide.version).toBe(1);
+      mcpGuide = await mcpCall('update_guide', {guideId: mcpGuide._id, guide: {
+        title: 'MCP Guide Updated', summary: 'MCP CRUD test', content: 'Updated content', steps: ['Prepare', 'Run'],
+        tags: ['mcp'], references: [], tool: mcpToolId, status: 'published', reviewedAt: null
+      }});
+      expect(mcpGuide.version).toBe(2);
+      var mcpGuideId = mcpGuide._id;
+      var fetchedMcpGuide = await mcpCall('get_guide', {guideId: mcpGuideId});
+      expect(fetchedMcpGuide.title).toBe('MCP Guide Updated');
+      var mcpGuideList = await mcpCall('list_guides');
+      expect(mcpGuideList.some(guide => String(guide._id) === String(mcpGuideId))).toBe(true);
+
+      expect(await mcpCall('delete_guide', {guideId: mcpGuideId})).toBe('Guide deleted');
+      expect(await mcpCall('delete_license', {licenseId: mcpLicenseId})).toBe('License deleted');
+      expect(await mcpCall('delete_tool', {toolId: mcpToolId})).toBe('Tool deleted');
 
       var mcpTaxonomies = await request(app).post('/api/mcp')
         .set('X-API-Key', rotate.body.datas.apiKey)

@@ -22,6 +22,22 @@ module.exports = function(app) {
         .catch(err => Response.Internal(res, err))
     });
 
+    app.get('/api/companies/:id/overview', acl.hasPermission('companies:read'), async function(req, res) {
+        try {
+            const token = req.decodedToken;
+            const overview = await Company.getOverview(req.params.id, token.id, {
+                audits: acl.isTokenAllowed(token, 'audits:read'),
+                allAudits: acl.isTokenAllowed(token, 'audits:read-all'),
+                archives: acl.isTokenAllowed(token, 'audit-archives:read')
+            });
+            Response.Ok(res, overview);
+        } catch (err) {
+            if (err.fn === 'NotFound') Response.NotFound(res, err.message);
+            else if (err.name === 'CastError') Response.BadParameters(res, 'Invalid company ID');
+            else Response.Internal(res, err);
+        }
+    });
+
     // Create company
     app.post("/api/companies", acl.hasPermission('companies:create'), function(req, res) {
         // #swagger.tags = ['Company']
@@ -91,7 +107,9 @@ module.exports = function(app) {
         Company.delete(req.params.id)
         .then(msg => Response.Ok(res, 'Company deleted successfully'))
         .catch(err => {
-            if (err.fn === 'NotFound') {
+            if (err.fn === 'BadParameters') {
+                Response.BadParameters(res, err.message);
+            } else if (err.fn === 'NotFound') {
                 Response.NotFound(res, err.message);
             } else {
                 Response.Internal(res, err);

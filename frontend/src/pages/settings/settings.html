@@ -816,12 +816,14 @@
                     :label="$t('aiModel')"
                     v-model="settings.ai.public.model"
                     use-input
+                    input-debounce="0"
                     new-value-mode="add-unique"
-                    :options="modelLists.generation.models"
+                    :options="modelOptions('generation')"
                     options-sanitize
                     outlined
                     :disable="!canEdit || !settings.ai.enabled"
                     @popup-show="loadModelList('generation')"
+                    @filter="(value, update) => filterModelOptions('generation', value, update)"
                 >
                     <template v-slot:append>
                         <q-spinner v-if="modelLists.generation.loading" size="xs" />
@@ -975,13 +977,15 @@
                     :label="$t('aiEmbeddingModel')"
                     v-model="settings.ai.public.embeddingModel"
                     use-input
+                    input-debounce="0"
                     new-value-mode="add-unique"
-                    :options="modelLists.embedding.models"
+                    :options="modelOptions('embedding')"
                     options-sanitize
                     outlined
                     :disable="!canEdit || !settings.ai.enabled || !settings.ai.embeddingEnabled"
                     :hint="$t('aiEmbeddingModelHint')"
                     @popup-show="loadModelList('embedding')"
+                    @filter="(value, update) => filterModelOptions('embedding', value, update)"
                 >
                     <template v-slot:append>
                         <q-spinner v-if="modelLists.embedding.loading" size="xs" />
@@ -1174,13 +1178,15 @@
                     :label="$t('aiVisionModel')"
                     v-model="settings.ai.visionPublic.visionModel"
                     use-input
+                    input-debounce="0"
                     new-value-mode="add-unique"
-                    :options="modelLists.vision.models"
+                    :options="modelOptions('vision')"
                     options-sanitize
                     outlined
                     :disable="!canEdit || !settings.ai.enabled || !settings.ai.visionEnabled"
                     :hint="$t('aiVisionModelHint')"
                     @popup-show="loadModelList('vision')"
+                    @filter="(value, update) => filterModelOptions('vision', value, update)"
                 >
                     <template v-slot:append>
                         <q-spinner v-if="modelLists.vision.loading" size="xs" />
@@ -1565,6 +1571,19 @@
                             <q-btn flat dense size="sm" icon="restart_alt" color="grey-7" :label="$t('resetToDefault')" :disable="!canEdit || !settings.ai.enabled" @click="resetPromptToDefault('severitySummaryUserPrompt')"><q-tooltip>{{$t('resetToDefaultTooltip')}}</q-tooltip></q-btn>
                         </div>
                         <q-input v-model="settings.ai.private.severitySummaryUserPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {auditName}, {auditContext}, {severity}, {severityCount}, {severityPrefix}, {findingsDigest}, {language}" />
+                    </div>
+                </q-card-section>
+            </q-expansion-item>
+
+            <q-expansion-item icon="summarize" :label="$t('retestSummary')" header-class="text-primary">
+                <q-card-section class="q-col-gutter-md row q-pt-sm">
+                    <div class="col-12">
+                        <div class="text-caption text-grey-8 q-mb-xs">{{$t('aiSystemPrompt')}}</div>
+                        <q-input v-model="settings.ai.private.retestSummarySystemPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {auditName}, {auditContext}, {findingsDigest}, {language}" />
+                    </div>
+                    <div class="col-12">
+                        <div class="text-caption text-grey-8 q-mb-xs">{{$t('aiUserPrompt')}}</div>
+                        <q-input v-model="settings.ai.private.retestSummaryUserPrompt" outlined type="textarea" autogrow :disable="!canEdit || !settings.ai.enabled" hint="Tags: {auditName}, {auditContext}, {findingsDigest}, {language}" />
                     </div>
                 </q-card-section>
             </q-expansion-item>

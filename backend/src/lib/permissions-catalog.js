@@ -28,7 +28,20 @@ const catalog = [
         permissions: [
             {scope: 'audit-archives:read', core: true},
             {scope: 'audit-archives:create', core: true},
-            {scope: 'audit-archives:delete', core: true}
+            {scope: 'audit-archives:update', core: true},
+            {scope: 'audit-archives:delete', core: true},
+            {scope: 'audit-archives:update-all', core: false},
+            {scope: 'audit-archives:delete-all', core: false}
+        ]
+    },
+    {
+        key: 'tasks',
+        label: 'Audit Tasks',
+        permissions: [
+            {scope: 'tasks:read', core: true},
+            {scope: 'tasks:create', core: true},
+            {scope: 'tasks:update', core: true},
+            {scope: 'tasks:delete', core: false}
         ]
     },
     {

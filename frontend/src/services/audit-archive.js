@@ -27,8 +27,8 @@ export default {
     return api.delete(`audit-archives/${archiveId}`)
   },
 
-  getArchiveFile(archiveId) {
-    return api.get(`audit-archives/${archiveId}/file`, { responseType: 'arraybuffer' })
+  getArchiveFile(archiveId, signal) {
+    return api.get(`audit-archives/${archiveId}/file`, { responseType: 'arraybuffer', signal })
   },
 
   getArchiveDownloadUrl(archiveId) {

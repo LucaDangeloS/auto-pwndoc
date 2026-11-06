@@ -775,12 +775,13 @@ export default defineComponent({
         link.click();
         link.remove();
         
+        const archiveFailed = response.headers['x-audit-archive-sync'] === 'failed'
         downloadNotif({
-          icon: 'done',
+          icon: archiveFailed ? 'warning' : 'done',
           spinner: false,
-          message: 'Report successfully generated',
-          color: 'green',
-          timeout: 2500
+          message: archiveFailed ? $t('reportArchiveSyncFailed') : 'Report successfully generated',
+          color: archiveFailed ? 'warning' : 'green',
+          timeout: archiveFailed ? 7000 : 2500
         })
       })
       .catch( async err => {

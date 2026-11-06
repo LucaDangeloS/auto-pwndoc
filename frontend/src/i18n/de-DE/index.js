@@ -1193,6 +1193,7 @@
     archiveDeleteConfirm: 'Archiviertes Audit löschen?',
     archiveDeleteOk: 'Archiviertes Audit erfolgreich gelöscht',
     archiveError: 'Archivvorgang fehlgeschlagen',
+    reportArchiveSyncFailed: 'Der Bericht wurde heruntergeladen, aber sein PDF konnte nicht zum Audit-Archiv hinzugefügt werden.',
     archiveNoCompany: 'Keine Firma',
     archiveYear: 'Jahr',
     archiveTags: 'Tags',

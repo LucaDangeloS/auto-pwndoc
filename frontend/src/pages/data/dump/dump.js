@@ -6,7 +6,7 @@ import CustomFields from 'components/custom-fields'
 import DataService from '@/services/data'
 import Utils from '@/services/utils'
 import Vue from 'vue'
-import YAML from 'js-yaml'
+import { load as loadYaml, dump as dumpYaml } from 'js-yaml'
 
 import VulnerabilityService from '@/services/vulnerability'
 import CompanyService from '@/services/company'
@@ -118,7 +118,7 @@ export default {
                         var ext = file.name.split('.').pop();
                         if (ext === "yml") {
                             try {
-                                vulnFile = YAML.load(fileReader.result);
+                                vulnFile = loadYaml(fileReader.result);
                                 if (typeof vulnFile === 'object') {
                                     if (Array.isArray(vulnFile)) {
                                         vulnFile.forEach(vuln => {
@@ -255,7 +255,7 @@ export default {
         },
 
         downloadVulnerabilities: function() {
-            var data = YAML.dump(this.vulnerabilities);
+            var data = dumpYaml(this.vulnerabilities);
             var blob = new Blob([data], {type: 'application/yaml'});
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
@@ -360,7 +360,7 @@ export default {
                         var ext = file.name.split('.').pop();
                         if (ext === "yml") {
                             try {
-                                compFile = YAML.load(fileReader.result);
+                                compFile = loadYaml(fileReader.result);
                                 if (typeof compFile === 'object') {
                                     if (Array.isArray(compFile)) {
                                         this.companies = compFile;
@@ -396,7 +396,7 @@ export default {
         },
 
         downloadCompanies: function() {
-            var data = YAML.dump(this.companies);
+            var data = dumpYaml(this.companies);
             var blob = new Blob([data], {type: 'application/yaml'});
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
@@ -503,7 +503,7 @@ export default {
                         var ext = file.name.split('.').pop();
                         if (ext === "yml") {
                             try {
-                                cltsFile = YAML.load(fileReader.result);
+                                cltsFile = loadYaml(fileReader.result);
                                 if (typeof cltsFile === 'object') {
                                     if (Array.isArray(cltsFile)) {
                                         this.users = cltsFile;
@@ -539,7 +539,7 @@ export default {
         },
 
         downloadUsers: function() {
-            var data = YAML.dump(this.users);
+            var data = dumpYaml(this.users);
             var blob = new Blob([data], {type: 'application/yaml'});
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');

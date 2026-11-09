@@ -4,9 +4,9 @@ RUN mkdir -p /app
 WORKDIR /app
 COPY package*.json ./
 RUN apk --no-cache add --virtual builds-deps build-base python3 git && apk --no-cache add libreoffice fontconfig font-liberation font-dejavu font-noto && fc-cache -f
-RUN npm install
+ENV NODE_ENV=production
+RUN npm ci --omit=dev
 COPY . .
 EXPOSE 4242
-ENV NODE_ENV prod
 ENV NODE_ICU_DATA=node_modules/full-icu
 ENTRYPOINT ["npm", "start"]

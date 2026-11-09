@@ -547,13 +547,11 @@ export default {
       this.pageCanvases = {}
       this.pageTextLayers = {}
       const loadingTask = this.pdfLoadingTask
-      const pdfDoc = this.pdfDoc
       this.pdfLoadingTask = null
       this.pdfDoc = null
       const destroy = async () => {
         await Promise.allSettled(renderTasks.map(task => task.promise))
         if (loadingTask) await loadingTask.destroy()
-        else if (pdfDoc) await pdfDoc.destroy()
       }
       this.viewerDestroyPromise = this.viewerDestroyPromise
         .catch(() => {})

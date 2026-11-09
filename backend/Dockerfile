@@ -4,7 +4,7 @@ RUN mkdir -p /app
 WORKDIR /app
 COPY package*.json ./
 RUN apk --no-cache add --virtual builds-deps build-base python3 git && apk --no-cache add libreoffice fontconfig font-liberation font-dejavu font-noto && fc-cache -f
-ENV NODE_ENV=production
+ENV NODE_ENV=prod
 RUN npm ci --omit=dev
 COPY . .
 EXPOSE 4242

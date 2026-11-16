@@ -597,8 +597,13 @@ module.exports = function(app, io) {
         .catch(err => {
             if (err.code === "ENOENT")
                 Response.BadParameters(res, 'Template File not found')
-            else
-                Response.Internal(res, err)
+            else {
+                const templateErrors = err.properties && err.properties.errors;
+                const details = Array.isArray(templateErrors)
+                    ? templateErrors.map(error => error.properties?.rootError?.message || error.properties?.explanation || error.message).filter(Boolean)
+                    : [];
+                Response.Internal(res, details.length ? {message: details.join('\n')} : err)
+            }
         });
     });
 

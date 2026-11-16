@@ -1356,7 +1356,8 @@ var angularParser = function(tag) {
         };
     }
     const expr = expressions.compile(
-        tag.replace(/(’|‘)/g, "'").replace(/(“|”)/g, '"')
+        tag.replace(/(’|‘)/g, "'").replace(/(“|”)/g, '"'),
+        { maxExpressionLength: 1000 }
     );
     return {
         get: function(scope, context) {

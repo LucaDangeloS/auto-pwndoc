@@ -1483,6 +1483,17 @@ const STEPS = [
         },
     },
 
+    {
+        id: 44,
+        name: 'add-audit-finished-fields',
+        async run(_srcDb, dstDb) {
+            await dstDb.collection('audits').updateMany(
+                {finished: {$exists: false}},
+                {$set: {finished: false, finishedAt: null}}
+            );
+        },
+    },
+
 ];
 
 // Runner

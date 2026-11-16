@@ -11,7 +11,7 @@ module.exports = function(app) {
             const scope = acl.isTokenAllowed(token, 'audits:read-all') ? {} :
                 {$or: [{creator: token.id}, {collaborators: token.id}, {reviewers: token.id}]};
             const ids = await Audit.distinct('_id', scope);
-            const activeFilter = {_id: {$in: ids}, state: {$ne: 'APPROVED'}};
+            const activeFilter = {_id: {$in: ids}, state: {$ne: 'APPROVED'}, finished: {$ne: true}};
             const [activeCount, reviewCount, audits, findingCounts, tasks, taskCount] =
                 await Promise.all([
                     Audit.countDocuments(activeFilter),

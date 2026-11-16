@@ -25,6 +25,10 @@ export default {
     return  api.delete(`audits/${auditId}`)
   },
 
+  setAuditFinished: function(auditId, finished) {
+    return  api.put(`audits/${auditId}/finished`, {finished})
+  },
+
   getAuditGeneral: function(auditId) {
     return  api.get(`audits/${auditId}/general`)
   },

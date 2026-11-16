@@ -13,6 +13,7 @@ import ReviewerService from '@/services/reviewer';
 import TemplateService from '@/services/template';
 import DataService from '@/services/data';
 import Utils from '@/services/utils';
+import UserService from '@/services/user';
 import { rankSearchResults } from '@/services/search-ranking';
 
 import { $t } from '@/boot/i18n'
@@ -66,6 +67,8 @@ export default {
             auditTypes: [],
             // List of CustomFields
             customFields: [],
+            finishing: false,
+            canFinish: UserService.isAllowed('audits:update'),
             AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
         }
     },
@@ -183,6 +186,33 @@ export default {
             })
             .catch((err) => {              
                 console.log(err.response)
+            })
+        },
+
+        // Finishing compiles the saved audit into the archive, so unsaved edits must be saved first.
+        toggleFinished: function() {
+            Utils.syncEditors(this.$refs)
+            if (!this.audit.finished && !this.$_.isEqual(this.audit, this.auditOrig)) {
+                Notify.create({message: $t('auditSaveBeforeFinish'), color: 'warning', textColor: 'dark', position: 'top-right'})
+                return
+            }
+            this.finishing = true
+            AuditService.setAuditFinished(this.auditId, !this.audit.finished)
+            .then((data) => {
+                var result = data.data.datas
+                this.audit.finished = result.finished
+                this.audit.finishedAt = result.finishedAt
+                this.auditOrig.finished = result.finished
+                this.auditOrig.finishedAt = result.finishedAt
+                var message = !result.finished ? 'auditReopenedMsg' : result.archived ? 'auditFinishedArchiveMsg' : 'auditFinishedNoTemplate'
+                Notify.create({message: $t(message), color: result.finished && !result.archived ? 'warning' : 'positive',
+                    textColor: result.finished && !result.archived ? 'dark' : 'white', position: 'top-right'})
+            })
+            .catch((err) => {
+                Notify.create({message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right'})
+            })
+            .finally(() => {
+                this.finishing = false
             })
         },
 

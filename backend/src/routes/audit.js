@@ -84,6 +84,8 @@ module.exports = function(app, io) {
                     a.state = audit.state
                     a.isRetest = audit.isRetest
                     a.parentId = audit.parentId
+                    a.finished = audit.finished
+                    a.finishedAt = audit.finishedAt
                     if (acl.isAllowed(req.decodedToken.role, 'audits:users-connected')){
                         a.connected = getUsersRoom(audit._id.toString())
                     }
@@ -172,6 +174,25 @@ module.exports = function(app, io) {
 
         Audit.delete(acl.isAllowed(req.decodedToken.role, 'audits:delete-all'), req.params.auditId, req.decodedToken.id)
         .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    })
+
+    // Mark an audit as finished or reopen it
+    app.put("/api/audits/:auditId/finished", acl.hasPermission('audits:update'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        if (typeof req.body.finished !== 'boolean') {
+            Response.BadParameters(res, 'Missing or invalid parameter: finished');
+            return;
+        }
+        var update = {finished: req.body.finished, finishedAt: req.body.finished ? new Date() : null}
+        Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, update)
+        .then(() => Audit.findById(req.params.auditId).select('template').lean())
+        .then(audit => {
+            io.to(req.params.auditId).emit('updateAudit');
+            // The PDF is compiled into the audit archive in the background (audit-archive-sync).
+            Response.Ok(res, {...update, archived: update.finished && !!(audit && audit.template)})
+        })
         .catch(err => Response.Internal(res, err))
     })
 

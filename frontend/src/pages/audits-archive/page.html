@@ -148,7 +148,7 @@
                     </q-item-section>
                     <q-item-section>
                       <q-item-label lines="2">{{ archive.name }}</q-item-label>
-                      <q-badge v-if="archive.internal" class="q-mt-xs" color="teal" :label="$t('archiveInternal')" />
+                      <q-badge v-if="archive.internal" class="q-my-xs self-start" color="secondary" :label="$t('archiveInternal')" />
                       <q-item-label caption>
                         {{ archiveDate(archive) }} · {{ formatSize(archive.size) }}<template v-if="archive.auditType"> · {{ archive.auditType }}</template>
                       </q-item-label>
@@ -194,7 +194,7 @@
             <q-bar class="bg-fixed-primary text-white archive-viewer-bar">
               <q-icon name="picture_as_pdf" />
               <span class="q-ml-sm text-body1 ellipsis">{{ selectedArchive.name }}</span>
-              <q-badge v-if="selectedArchive.internal" color="teal" :label="$t('archiveInternal')" />
+              <q-badge v-if="selectedArchive.internal" color="secondary" :label="$t('archiveInternal')" />
               <q-space />
               <q-btn v-if="selectedArchive.audit?._id" dense flat icon="open_in_new" :to="`/audits/${selectedArchive.audit._id}/general`">
                 <q-tooltip>{{ $t('archiveOpenAudit') }}</q-tooltip>

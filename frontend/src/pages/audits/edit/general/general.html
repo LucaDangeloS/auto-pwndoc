@@ -7,6 +7,18 @@
   >
     <template v-slot:buttons>
       <q-btn
+        v-if="canFinish && auditOrig._id"
+        class="q-mr-sm"
+        :color="audit.finished ? 'warning' : 'primary'"
+        :text-color="audit.finished ? 'dark' : 'primary'"
+        :outline="!audit.finished"
+        :icon="audit.finished ? 'undo' : 'task_alt'"
+        :label="audit.finished ? $t('tooltip.reopenAudit') : $t('tooltip.markFinished')"
+        :loading="finishing"
+        no-caps
+        @click="toggleFinished"
+      />
+      <q-btn
         v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
         color="positive"
         :label="$t('btn.save') + ' (ctrl+s)'"

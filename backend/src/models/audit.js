@@ -314,6 +314,8 @@ var AuditSchema = new Schema({
     customFields:       [customField],
     sortFindings:       [SortOption],
     isRetest:           {type: Boolean, default: false},
+    finished:           {type: Boolean, default: false},
+    finishedAt:         {type: Date, default: null},
     // Set on a retest audit created from a parent (Phase B linked retests).
     parentId:           {type: Schema.Types.ObjectId, ref: 'Audit', default: null},
     executiveSummary:   {
@@ -346,7 +348,7 @@ AuditSchema.statics.getAudits = (isAdmin, userId, filters) => {
         query.populate('reviewers', 'username firstname lastname')
         query.populate('approvals', 'username firstname lastname')
         query.populate('company', 'name')
-        query.select('id name auditType language creator collaborators reviewers company createdAt state isRetest parentId')
+        query.select('id name auditType language creator collaborators reviewers company createdAt state isRetest parentId finished finishedAt')
         query.exec()
         .then((rows) => {
             resolve(rows)
@@ -578,7 +580,7 @@ AuditSchema.statics.getGeneral = (isAdmin, auditId, userId) => {
         query.populate('collaborators', 'username firstname lastname')
         query.populate('reviewers', 'username firstname lastname')
         query.populate('company')
-        query.select('name auditType date date_start date_end summary collaborators language scope.name template customFields isRetest executiveSummary retestSummary')
+        query.select('name auditType date date_start date_end summary collaborators language scope.name template customFields isRetest executiveSummary retestSummary finished finishedAt')
         query.lean().exec()
         .then((row) => {
             if (!row)

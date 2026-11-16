@@ -75,7 +75,7 @@ async function refreshInternalArchive(audit, docxBuffer) {
             {$set: {
                 name: audit.name || 'Audit report', filename, originalName: `${audit.name || 'Audit'}.pdf`,
                 size: pdf.length, mimeType: 'application/pdf', company: audit.company?._id || audit.company || null,
-                reportDate: audit.date_end || audit.updatedAt || new Date(), auditType: audit.auditType || '',
+                reportDate: audit.date_end || audit.finishedAt || new Date(), auditType: audit.auditType || '',
                 audit: audit._id, internal: true
             }, $setOnInsert: {tags: [], notes: '', uploadedBy: audit.creator?._id || audit.creator}},
             {upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true}
@@ -109,7 +109,8 @@ async function syncAudit(auditId, {force = false} = {}) {
     return withAuditLock(auditId, async () => {
         try {
             const audit = await Audit.getAudit(true, auditId);
-            if (!audit || !audit.template || !audit.template.name) return null;
+            // Only finished audits are archived; reopening keeps the last archived PDF.
+            if (!audit || !audit.finished || !audit.template || !audit.template.name) return null;
             const currentArchive = await AuditArchive.findOne({audit: audit._id, internal: true}).select('updatedAt').lean();
             if (!force && currentArchive && currentArchive.updatedAt && audit.updatedAt && currentArchive.updatedAt >= audit.updatedAt)
                 return currentArchive;
@@ -140,7 +141,7 @@ async function syncExistingAudits() {
     const mongoose = require('mongoose');
     const Audit = mongoose.model('Audit');
     const AuditArchive = mongoose.model('AuditArchive');
-    const cursor = Audit.find({template: {$exists: true, $ne: null}}).select('_id updatedAt').lean().cursor();
+    const cursor = Audit.find({finished: true, template: {$exists: true, $ne: null}}).select('_id updatedAt').lean().cursor();
     for await (const audit of cursor) {
         try {
             const archive = await AuditArchive.findOne({audit: audit._id, internal: true}).select('updatedAt').lean();

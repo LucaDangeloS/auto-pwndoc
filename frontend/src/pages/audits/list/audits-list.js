@@ -11,6 +11,12 @@ import UserService from '@/services/user'
 import { $t } from '@/boot/i18n'
 import { rankSearchResults } from '@/services/search-ranking'
 
+const HIDE_FINISHED_KEY = 'audits.hideFinished'
+
+function readHideFinished() {
+    try { return localStorage.getItem(HIDE_FINISHED_KEY) === 'true' } catch (_) { return false }
+}
+
 export default {
     data: () => {
         return {
@@ -60,6 +66,8 @@ export default {
             // Search filter
             search: {finding: '', name: '', auditType: '', language: '', company: '', users: '', date: ''},
             myAudits: false,
+            hideFinished: readHideFinished(),
+            finishing: null,
             displayConnected: false,
             displayReadyForReview: false,
             // Errors messages
@@ -91,6 +99,12 @@ export default {
     computed: {
         setupLoading: function() {
             return this.languagesLoading || this.auditTypesLoading;
+        }
+    },
+
+    watch: {
+        hideFinished: function(value) {
+            try { localStorage.setItem(HIDE_FINISHED_KEY, String(value)) } catch (_) {}
         }
     },
 
@@ -411,8 +425,37 @@ export default {
                     users.indexOf(usersTerm) > -1 &&
                     date.indexOf(dateTerm) > -1 &&
                     ((this.myAudits && users.indexOf(username) > -1) || !this.myAudits) &&
+                    !(this.hideFinished && row.finished) &&
                     ((this.displayConnected && row.connected && row.connected.length > 0) || !this.displayConnected) &&
                     ((this.displayReadyForReview && users.indexOf(username) < 0 && row.state === 'REVIEW') || !this.displayReadyForReview)
+            })
+        },
+
+        toggleFinished: function(row) {
+            this.finishing = row._id
+            AuditService.setAuditFinished(row._id, !row.finished)
+            .then((data) => {
+                var result = data.data.datas
+                row.finished = result.finished
+                row.finishedAt = result.finishedAt
+                var warn = result.finished && !result.archived
+                Notify.create({
+                    message: $t(!result.finished ? 'auditReopenedMsg' : result.archived ? 'auditFinishedArchiveMsg' : 'auditFinishedNoTemplate'),
+                    color: warn ? 'warning' : 'positive',
+                    textColor: warn ? 'dark' : 'white',
+                    position: 'top-right'
+                })
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response?.data?.datas || err.message,
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            })
+            .finally(() => {
+                this.finishing = null
             })
         },
 

@@ -86,7 +86,7 @@ export default {
     logo() { const value = this.company?.logo; return value ? value.startsWith('data:image/') ? value : `data:image/png;base64,${value}` : null },
     address() { return [this.company?.address, this.company?.postalCode, this.company?.city].filter(Boolean).join(', ') },
     metrics() { return [
-      {label: `${this.$t('clientAudits')} (${this.archives.length})`, value: this.audits.filter(a => !a.isRetest).length},
+      {label: this.$t('clientAudits'), value: this.audits.filter(a => !a.isRetest).length},
       {label: this.$t('clientRetests'), value: this.audits.filter(a => a.isRetest).length},
       {label: this.$t('clientArchives'), value: this.archives.length},
       {label: this.$t('clientFindings'), value: this.audits.reduce((sum, audit) => sum + audit.findingCount, 0)}

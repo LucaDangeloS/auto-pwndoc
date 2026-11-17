@@ -1521,6 +1521,31 @@ const STEPS = [
         },
     },
 
+    // Repair shared archive/finished-audit fields across histories where
+    // branch-specific migrations previously reused the same numeric ids.
+    {
+        id: 47,
+        name: 'ensure-audit-archive-and-finished-fields',
+        async run(_srcDb, dstDb) {
+            await dstDb.collection('audits').updateMany(
+                {retestSummary: {$exists: false}},
+                {$set: {retestSummary: ''}}
+            );
+            await dstDb.collection('auditarchives').updateMany(
+                {internal: {$exists: false}},
+                {$set: {internal: false, audit: null}}
+            );
+            await dstDb.collection('auditarchives').createIndex(
+                {audit: 1},
+                {unique: true, partialFilterExpression: {internal: true, audit: {$type: 'objectId'}}}
+            );
+            await dstDb.collection('audits').updateMany(
+                {finished: {$exists: false}},
+                {$set: {finished: false, finishedAt: null}}
+            );
+        },
+    },
+
 ];
 
 // Runner

@@ -816,10 +816,6 @@ expressions.filters.convertHTML = function(input, style, listIds) {
             ulCount = (input.match(/<ul/g) || []).length;
         }
         
-        console.log(`📄 List count in convertHTML:`);
-        console.log(`   🔢 Numbered lists (<ol>): ${olCount}`);
-        console.log(`   🔘 Bullet lists (<ul>): ${ulCount}`);
-        
         // Convertir listIds en array si c'est une string
         let listIdsArray = [];
         if (listIds) {
@@ -840,14 +836,10 @@ expressions.filters.convertHTML = function(input, style, listIds) {
         if (olCount > 0 && listIdsArray.length === 0) {
             // Generate unpredictable IDs between 10000 and 99999
             listIdsArray = Array.from({length: olCount}, () => Math.floor(Math.random() * 90000) + 10000);
-            console.log(`🎲 Automatic generation of unpredictable IDs:`, listIdsArray);
         }
-        
-        console.log(`🆔 List IDs to use:`, listIdsArray);
         
         // TOTAL ELIMINATION: No longer modify numbering.xml at all
         // Use ONLY existing template definitions
-        console.log(`🚫 ELIMINATION: No modification of numbering.xml (olCount: ${olCount}, ulCount: ${ulCount})`);
         
         var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ''), style, listIdsArray)
     }
@@ -881,14 +873,10 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
                     }
                 }
                 globalAbstractNumId = nextAbstractNumId;
-                console.log(`🆕 First abstractNumId created for numbered lists: ${globalAbstractNumId}`);
             } else {
                 // Reuse existing abstractNumId
                 nextAbstractNumId = globalAbstractNumId;
-                console.log(`♻️ Reusing abstractNumId: ${globalAbstractNumId}`);
             }
-        } else {
-            console.log(`ℹ️ No numbered list (<ol>) detected, no abstractNumId creation`);
         }
         
         // Create abstract definition for numbered lists only if it's the first time AND we have numbered lists
@@ -922,9 +910,7 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
             
             numberingXml = numberingXml.replace('</w:numbering>', `${decimalAbstract}\n</w:numbering>`);
             abstractNumCreated = true;
-            console.log(`📝 Multi-level abstract definition created for abstractNumId: ${nextAbstractNumId}`);
         } else {
-            console.log(`🚫 Abstract definition ignored (already created) for abstractNumId: ${nextAbstractNumId}`);
         }
         
         // Create unique concrete numberings for each list (only if we have numbered lists and valid abstractNumId)
@@ -981,29 +967,12 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
             bulletDefinitionCreated = true;
             // Store dynamic ID for reuse
             globalBulletNumId = nextBulletNumId;
-            console.log(`📝 Simple definition created for bullets (ID: ${nextBulletNumId}, abstractNumId: ${bulletAbstractNumId})`);
-        } else if (ulCount > 0 && bulletDefinitionCreated) {
-            console.log(`♻️ Bullet definition already created, reusing ID: ${globalBulletNumId}`);
         }
         
         
         zip.file(numberingPath, numberingXml);
         
-        console.log(`✅ numbering.xml modified with success`);
-        console.log(`✅ numbering.xml modified successfully`);
-        if (olCount > 0 && nextAbstractNumId !== null) {
-            console.log(`   🔢 AbstractNumId used for numbered lists: ${nextAbstractNumId}`);
-            console.log(`   🔢 Numbered list IDs: ${listIdsArray.join(', ')}`);
-        }
-        if (bulletDefinitionCreated) {
-            console.log(`   🔘 Bullet ID: ${globalBulletNumId}`);
-        }
-        if (olCount === 0 && ulCount === 0) {
-            console.log(`   ℹ️ No list detected, numbering.xml not modified`);
-        }
-        
     } catch (error) {
-        console.log(`❌ Error modifying numbering.xml:`, error);
     }
 }
 
@@ -1786,13 +1755,6 @@ function cvssStrToObject40(cvss) {
         }
     }
     return res
-}
-
-function stripParagraphTags(input) {
-    console.log("JE STRIP MES PARAMETRES")
-    return input
-        .replace(/<\/?p[^>]*>/gi, '') // supprime toutes les balises <p> ou </p>
-        .trim();
 }
 
 function normalizeTaxonomies(taxonomies) {

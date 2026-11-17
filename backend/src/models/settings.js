@@ -9,6 +9,15 @@ var { DEFAULT_MCP_GUIDANCE } = require('../lib/mcp-guidance');
 const colorValidator = (v) => (/^#([0-9a-f]{3}){1,2}$/i).test(v);
 const optionalFillValidator = (v) => v === 'none' || colorValidator(v);
 
+// API and MCP keys: each belongs to the user who created it
+const keyEntry = {
+    name: { type: String, required: true },
+    key: { type: String, required: true },
+    creator: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    createdAt: { type: Date, default: Date.now },
+    lastUsedAt: { type: Date, default: null }
+};
+
 const SettingSchema = new Schema({
     report: { 
         enabled: {type: Boolean, default: true},
@@ -92,9 +101,7 @@ const SettingSchema = new Schema({
      },
     mcp: {
         enabled: { type: Boolean, default: false },
-        apiKey: { type: String, default: '' },
-        apiKeyCreatedAt: { type: Date, default: null },
-        creator: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+        keys: [keyEntry],
         guidance: {
         general: { type: String, default: DEFAULT_MCP_GUIDANCE.general },
         evidence: { type: String, default: DEFAULT_MCP_GUIDANCE.evidence },
@@ -130,13 +137,7 @@ const SettingSchema = new Schema({
       }
     },
     api: {
-      keys: [{
-        name: { type: String, required: true },
-        key: { type: String, required: true },
-        creator: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-        createdAt: { type: Date, default: Date.now },
-        lastUsedAt: { type: Date, default: null }
-      }]
+      keys: [keyEntry]
     },
     ai: {
       enabled: { type: Boolean, default: false },

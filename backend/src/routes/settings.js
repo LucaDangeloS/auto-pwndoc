@@ -30,18 +30,11 @@ module.exports = function(app) {
         return {_id: id.toString(), unavailable: true};
     }
 
-    async function populateKeyOwners(settings) {
+    // Keys are listed through their own endpoints, never with the settings document
+    function withoutKeys(settings) {
         var result = withRuntimeSettings(settings);
-        if (!result) return result;
-        var ownerIds = [];
-        if (result.mcp && result.mcp.creator) ownerIds.push(result.mcp.creator);
-        var users = await User.find({ _id: { $in: ownerIds } }).select('username firstname lastname').lean();
-        var byId = new Map(users.map(user => [user._id.toString(), ownerSummary(user)]));
-        if (result.mcp) {
-            result.mcp.creator = result.mcp.creator
-                ? byId.get(result.mcp.creator.toString()) || unavailableOwnerSummary(result.mcp.creator)
-                : null;
-        }
+        if (result && result.mcp) delete result.mcp.keys;
+        if (result) delete result.api;
         return result;
     }
     
@@ -49,8 +42,7 @@ module.exports = function(app) {
         // #swagger.tags = ['Settings']
 
         Settings.getAll()
-        .then(populateKeyOwners)
-        .then(settings => Response.Ok(res, settings))
+        .then(settings => Response.Ok(res, withoutKeys(settings)))
         .catch(err => Response.Internal(res, err));
     });
 
@@ -77,7 +69,10 @@ module.exports = function(app) {
         Settings.getAll()
         .then(current => {
             if (req.body.mcp) {
-                req.body.mcp.creator = current && current.mcp ? current.mcp.creator : null;
+                req.body.mcp.keys = current && current.mcp ? current.mcp.keys : [];
+            }
+            if (req.body.api) {
+                req.body.api.keys = current && current.api ? current.api.keys : [];
             }
             return Settings.update(req.body);
         })
@@ -99,149 +94,98 @@ module.exports = function(app) {
         .catch(err => Response.Internal(res, err));
     });
 
-    app.post("/api/settings/mcp/rotate-key", acl.hasPermission('settings:update'), async function(req, res) {
-        // #swagger.tags = ['Settings']
-
-        try {
-            var apiKey = crypto.randomBytes(32).toString('hex');
-            var apiKeyCreatedAt = new Date();
-            var creator = req.decodedToken.id;
-            await Settings.update({ $set: { 'mcp.apiKey': apiKey, 'mcp.apiKeyCreatedAt': apiKeyCreatedAt, 'mcp.creator': creator } });
-            var owner = await User.findById(creator).select('username firstname lastname').lean();
-            Response.Ok(res, { apiKey, apiKeyCreatedAt, creator: ownerSummary(owner) });
+    // API keys (REST) and MCP keys share the same lifecycle: each key belongs to
+    // its creator, is shown once on creation and can be claimed when ownerless.
+    function registerKeyRoutes(route, field, label, repairFilter) {
+        function keysOf(settings) {
+            var parent = settings && settings[field];
+            return (parent && parent.keys) || [];
         }
-        catch (err) {
-            Response.Internal(res, err);
-        }
-    });
 
-    app.post("/api/settings/mcp/claim-key", acl.hasPermission('settings:update'), async function(req, res) {
-        // #swagger.tags = ['Settings']
-
-        try {
-            var settings = await Settings.getAll();
-            if (!settings.mcp || !settings.mcp.apiKey)
-                return Response.BadParameters(res, 'No MCP API key exists');
-            var creator = req.decodedToken.id;
-            if (settings.mcp.creator && settings.mcp.creator.toString() !== creator)
-                return Response.BadParameters(res, 'MCP API key already has an owner');
-            if (!settings.mcp.creator) {
-                var claimed = await Settings.findOneAndUpdate(
-                    {'mcp.apiKey': settings.mcp.apiKey, 'mcp.creator': null},
-                    {$set: {'mcp.creator': creator}}
-                );
-                if (!claimed)
-                    return Response.BadParameters(res, 'MCP API key was already assigned');
+        app.get(route, acl.hasPermission('settings:update'), async function(req, res) {
+            // #swagger.tags = ['Settings']
+            try {
+                var keys = keysOf(await Settings.getAll());
+                var ownerIds = keys.map(key => key.creator).filter(Boolean);
+                var owners = await User.find({ _id: { $in: ownerIds } }).select('username firstname lastname').lean();
+                var ownersById = new Map(owners.map(owner => [owner._id.toString(), ownerSummary(owner)]));
+                Response.Ok(res, keys.map(k => ({
+                    id: k._id,
+                    name: k.name,
+                    creator: k.creator
+                        ? ownersById.get(k.creator.toString()) || unavailableOwnerSummary(k.creator)
+                        : null,
+                    keyPrefix: k.key.substring(0, 8),
+                    createdAt: k.createdAt,
+                    lastUsedAt: k.lastUsedAt
+                })));
             }
-            var repaired = await Audit.updateMany(
-                {creator: '000000000000000000000000'},
-                {$set: {creator}}
-            );
-            var owner = await User.findById(creator).select('username firstname lastname').lean();
-            Response.Ok(res, { creator: ownerSummary(owner), repairedAudits: repaired.modifiedCount || 0 });
-        }
-        catch (err) {
-            Response.Internal(res, err);
-        }
-    });
+            catch (err) { Response.Internal(res, err); }
+        });
 
-    app.delete("/api/settings/mcp/key", acl.hasPermission('settings:update'), async function(req, res) {
-        // #swagger.tags = ['Settings']
-
-        try {
-            await Settings.update({ $set: { 'mcp.apiKey': '', 'mcp.apiKeyCreatedAt': null, 'mcp.creator': null } });
-            Response.Ok(res, { apiKey: '', apiKeyCreatedAt: null, creator: null });
-        }
-        catch (err) {
-            Response.Internal(res, err);
-        }
-    });
-
-    app.get("/api/settings/api-keys", acl.hasPermission('settings:update'), async function(req, res) {
-        // #swagger.tags = ['Settings']
-        try {
-            var settings = await Settings.getAll();
-            var keys = (settings && settings.api && settings.api.keys) || [];
-            var ownerIds = keys.map(key => key.creator).filter(Boolean);
-            var owners = await User.find({ _id: { $in: ownerIds } }).select('username firstname lastname').lean();
-            var ownersById = new Map(owners.map(owner => [owner._id.toString(), ownerSummary(owner)]));
-            var safe = keys.map(k => ({
-                id: k._id,
-                name: k.name,
-                creator: k.creator
-                    ? ownersById.get(k.creator.toString()) || unavailableOwnerSummary(k.creator)
-                    : null,
-                keyPrefix: k.key.substring(0, 8),
-                createdAt: k.createdAt,
-                lastUsedAt: k.lastUsedAt
-            }));
-            Response.Ok(res, safe);
-        }
-        catch (err) { Response.Internal(res, err); }
-    });
-
-    app.post("/api/settings/api-keys", acl.hasPermission('settings:update'), async function(req, res) {
-        // #swagger.tags = ['Settings']
-        try {
-            var name = req.body && req.body.name;
-            if (!name || !name.trim()) return Response.BadParameters(res, 'name is required');
-            var key = crypto.randomBytes(32).toString('hex');
-            var createdAt = new Date();
-            var result = await Settings.findOneAndUpdate(
-                {},
-                { $push: { 'api.keys': { name: name.trim(), key, creator: req.decodedToken.id, createdAt, lastUsedAt: null } } },
-                { new: true, upsert: true }
-            );
-            var entry = result.api.keys[result.api.keys.length - 1];
-            var owner = await User.findById(entry.creator).select('username firstname lastname').lean();
-            Response.Ok(res, { id: entry._id, name: entry.name, creator: ownerSummary(owner), key, createdAt: entry.createdAt });
-        }
-        catch (err) { Response.Internal(res, err); }
-    });
-
-    app.post("/api/settings/api-keys/:id/claim", acl.hasPermission('settings:update'), async function(req, res) {
-        // #swagger.tags = ['Settings']
-        try {
-            var settings = await Settings.getAll();
-            var entry = settings && settings.api && settings.api.keys.id(req.params.id);
-            if (!entry)
-                return Response.NotFound(res, 'API key not found');
-            var creator = req.decodedToken.id;
-            if (entry.creator && entry.creator.toString() !== creator)
-                return Response.BadParameters(res, 'API key already has an owner');
-            if (!entry.creator) {
-                var claimed = await Settings.updateOne(
-                    { 'api.keys': { $elemMatch: { _id: entry._id, creator: null } } },
-                    { $set: { 'api.keys.$.creator': creator } }
+        app.post(route, acl.hasPermission('settings:update'), async function(req, res) {
+            // #swagger.tags = ['Settings']
+            try {
+                var name = req.body && req.body.name;
+                if (!name || typeof name !== 'string' || !name.trim()) return Response.BadParameters(res, 'name is required');
+                var key = crypto.randomBytes(32).toString('hex');
+                var result = await Settings.findOneAndUpdate(
+                    {},
+                    { $push: { [`${field}.keys`]: { name: name.trim(), key, creator: req.decodedToken.id, createdAt: new Date(), lastUsedAt: null } } },
+                    { new: true, upsert: true }
                 );
-                if (!claimed.modifiedCount)
-                    return Response.BadParameters(res, 'API key was already assigned');
+                var keys = keysOf(result);
+                var entry = keys[keys.length - 1];
+                var owner = await User.findById(entry.creator).select('username firstname lastname').lean();
+                Response.Ok(res, { id: entry._id, name: entry.name, creator: ownerSummary(owner), key, createdAt: entry.createdAt });
             }
-            var repaired = await Audit.updateMany(
-                {creator: entry._id},
-                {$set: {creator}}
-            );
-            var owner = await User.findById(creator).select('username firstname lastname').lean();
-            Response.Ok(res, {
-                id: entry._id,
-                creator: ownerSummary(owner),
-                repairedAudits: repaired.modifiedCount || 0
-            });
-        }
-        catch (err) { Response.Internal(res, err); }
-    });
+            catch (err) { Response.Internal(res, err); }
+        });
 
-    app.delete("/api/settings/api-keys/:id", acl.hasPermission('settings:update'), async function(req, res) {
-        // #swagger.tags = ['Settings']
-        try {
-            await Settings.findOneAndUpdate(
-                {},
-                { $pull: { 'api.keys': { _id: req.params.id } } }
-            );
-            Response.Ok(res, 'API key revoked');
-        }
-        catch (err) { Response.Internal(res, err); }
-    });
+        app.post(`${route}/:id/claim`, acl.hasPermission('settings:update'), async function(req, res) {
+            // #swagger.tags = ['Settings']
+            try {
+                var entry = keysOf(await Settings.getAll()).find(k => k._id.toString() === req.params.id);
+                if (!entry)
+                    return Response.NotFound(res, `${label} not found`);
+                var creator = req.decodedToken.id;
+                if (entry.creator && entry.creator.toString() !== creator)
+                    return Response.BadParameters(res, `${label} already has an owner`);
+                if (!entry.creator) {
+                    var claimed = await Settings.updateOne(
+                        { [`${field}.keys`]: { $elemMatch: { _id: entry._id, creator: null } } },
+                        { $set: { [`${field}.keys.$.creator`]: creator } }
+                    );
+                    if (!claimed.modifiedCount)
+                        return Response.BadParameters(res, `${label} was already assigned`);
+                }
+                var repaired = await Audit.updateMany(repairFilter(entry), {$set: {creator}});
+                var owner = await User.findById(creator).select('username firstname lastname').lean();
+                Response.Ok(res, {
+                    id: entry._id,
+                    creator: ownerSummary(owner),
+                    repairedAudits: repaired.modifiedCount || 0
+                });
+            }
+            catch (err) { Response.Internal(res, err); }
+        });
+
+        app.delete(`${route}/:id`, acl.hasPermission('settings:update'), async function(req, res) {
+            // #swagger.tags = ['Settings']
+            try {
+                await Settings.findOneAndUpdate(
+                    {},
+                    { $pull: { [`${field}.keys`]: { _id: req.params.id } } }
+                );
+                Response.Ok(res, `${label} revoked`);
+            }
+            catch (err) { Response.Internal(res, err); }
+        });
+    }
+
+    // Ownerless REST keys stored their own id as audit creator; ownerless MCP keys used the zero id.
+    registerKeyRoutes('/api/settings/api-keys', 'api', 'API key', entry => ({creator: entry._id}));
+    registerKeyRoutes('/api/settings/mcp-keys', 'mcp', 'MCP key', () => ({creator: '000000000000000000000000'}));
 
     app.get("/api/settings/export", acl.hasPermission("settings:read"), function(req, res) {
         // #swagger.tags = ['Settings']

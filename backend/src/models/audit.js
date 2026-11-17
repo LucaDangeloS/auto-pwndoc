@@ -626,6 +626,11 @@ AuditSchema.statics.updateGeneral = (isAdmin, auditId, userId, update) => {
     })
 }
 
+// Remove the sections that are not part of the audit's (new) audit type
+AuditSchema.statics.pruneSectionsForAuditType = (auditId, sectionFields) => {
+    return Audit.updateOne({_id: auditId}, {$pull: {sections: {field: {$nin: sectionFields || []}}}}).exec()
+}
+
 // Add to an existing audit any sections its audit type now includes but the
 // audit is missing (audit types and custom sections can change after creation)
 AuditSchema.statics.syncSectionsWithAuditType = (isAdmin, auditId, userId) => {

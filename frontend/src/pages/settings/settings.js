@@ -475,7 +475,7 @@ export default {
                 danger:{enabled:false,public:{nbdaydelete: 0}},
                 reviews:{enabled:false},
                 authentication:{enforce2fa:false,sso:{enabled:false,public:{providerId:'oauth2',providerName:'SSO',registrationEnabled:false,autoLinkExistingUsers:false,authorizationUrl:'',tokenUrl:'',userInfoUrl:'',scope:'openid profile email',subjectClaim:'sub',usernameClaim:'preferred_username',firstnameClaim:'given_name',lastnameClaim:'family_name',emailClaim:'email'},private:{clientId:'',clientSecret:''}}},
-                mcp:{enabled:false,apiKey:'',apiKeyCreatedAt:null,creator:null,appUrl:'',guidance:{...DEFAULT_MCP_GUIDANCE}},
+                mcp:{enabled:false,appUrl:'',guidance:{...DEFAULT_MCP_GUIDANCE}},
                 ai:{enabled:false,embeddingEnabled:false,visionEnabled:false,public:{provider:'openai',model:'gpt-4o',temperature:0.7,maxTokens:32000,embeddingProvider:'openai',embeddingModel:'text-embedding-3-small',embeddingMaxDistance:0.8,vulnerabilityProcessing:{autoTranslateOnSave:false,matchThreshold:0.35}},visionPublic:{visionProvider:'openai',visionModel:'gpt-4o',visionTemperature:0.7,visionMaxTokens:32000},private:{apiUrl:'',apiKey:'',systemPrompt:'',userPrompt:'',azure:{deploymentName:'',apiVersion:'2024-06-01'},embeddingApiUrl:'',embeddingApiKey:'',embeddingAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionApiUrl:'',visionApiKey:'',visionAzure:{deploymentName:'',apiVersion:'2024-06-01'},visionSystemPrompt:DEFAULT_VISION_SYSTEM_PROMPT,visionAnonymizeLlm:false,visionAnonymizeRegex:false,anonymizeReviewBeforeSend:false,visionAnonymizeRegexRules:DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})),generateSystemPrompt:'',generateUserPrompt:'',completeSystemPrompt:'',completeUserPrompt:'',rewriteSystemPrompt:'',rewriteUserPrompt:'',fillProofsSystemPrompt:'',fillProofsUserPrompt:'',executiveSummarySystemPrompt:'',executiveSummaryUserPrompt:'',severitySummarySystemPrompt:'',severitySummaryUserPrompt:'',vulnerabilityTranslationSystemPrompt:'',vulnerabilityTranslationUserPrompt:'',field_description_generateSystemPrompt:'',field_description_completeSystemPrompt:'',field_description_rewriteSystemPrompt:'',field_observation_generateSystemPrompt:'',field_observation_completeSystemPrompt:'',field_observation_rewriteSystemPrompt:'',field_remediation_generateSystemPrompt:'',field_remediation_completeSystemPrompt:'',field_remediation_rewriteSystemPrompt:'',field_poc_generateSystemPrompt:'',field_poc_completeSystemPrompt:'',field_poc_rewriteSystemPrompt:'',field_retestEvidence_generateSystemPrompt:'',field_retestEvidence_completeSystemPrompt:'',field_retestEvidence_rewriteSystemPrompt:''}},
                 report:{enabled:true,public:{chartTheme:{...DEFAULT_CHART_THEME},enableSpellCheck:true},private:{languageToolUrl:''}}
             },
@@ -489,7 +489,6 @@ export default {
             showEmbeddingApiKey: false,
             showVisionApiKey: false,
             showSsoClientSecret: false,
-            showMcpApiKey: false,
             reindexing: false,
             reindexStarted: false,
             activeSection: 'section-general',
@@ -535,13 +534,17 @@ export default {
                 ] },
                 { id: 'section-mcp', label: 'mcpSettings', children: [
                     { id: 'sub-mcp-server', label: 'mcpServer' },
-                    { id: 'sub-mcp-api-key', label: 'mcpApiKey' },
+                    { id: 'sub-mcp-api-key', label: 'mcpKeysTitle' },
                     { id: 'sub-mcp-guidance', label: 'mcpGuidanceTitle' },
                     { id: 'sub-mcp-sample-config', label: 'mcpSampleConfig' }
                 ] },
                 { id: 'section-actions', label: 'saveSettings' }
             ],
             apiKeys: [],
+            mcpKeys: [],
+            mcpKeyName: '',
+            mcpKeyCreating: false,
+            newlyCreatedMcpKey: null,
             apiKeyName: '',
             apiKeyCreating: false,
             newlyCreatedKey: null,
@@ -693,14 +696,14 @@ export default {
                         type: 'http',
                         url: this.mcpEndpointUrl,
                         headers: {
-                            'X-API-Key': this.settings.mcp.apiKey || 'YOUR_API_KEY_HERE'
+                            'X-API-Key': this.newlyCreatedMcpKey || 'YOUR_API_KEY_HERE'
                         }
                     }
                 }
             }, null, 2);
         },
         mcpCurlExample: function() {
-            var key = this.settings.mcp.apiKey || 'YOUR_API_KEY_HERE';
+            var key = this.newlyCreatedMcpKey || 'YOUR_API_KEY_HERE';
             return `curl -sk ${this.mcpEndpointUrl} \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: ${key}" \\
@@ -794,6 +797,10 @@ export default {
             .then(res => { this.apiKeys = res.data.datas || []; })
             .catch(() => {});
 
+            SettingsService.listMcpKeys()
+            .then(res => { this.mcpKeys = res.data.datas || []; })
+            .catch(() => {});
+
             SettingsService.getSettings()
             .then((data) => {
                 this.settings = this.$_.merge(
@@ -802,7 +809,7 @@ export default {
                       report: { enabled: true, public: { chartTheme: { ...DEFAULT_CHART_THEME }, enableSpellCheck: true }, private: { languageToolUrl: '' } },
                       reviews: { enabled: false, public: { minReviewers: 1 } },
                       authentication: { enforce2fa: false, sso: { enabled: false, public: { providerId: 'oauth2', providerName: 'SSO', registrationEnabled: false, autoLinkExistingUsers: false, authorizationUrl: '', tokenUrl: '', userInfoUrl: '', scope: 'openid profile email', subjectClaim: 'sub', usernameClaim: 'preferred_username', firstnameClaim: 'given_name', lastnameClaim: 'family_name', emailClaim: 'email' }, private: { clientId: '', clientSecret: '' } } },
-                      mcp: { enabled: false, apiKey: '', apiKeyCreatedAt: null, creator: null, appUrl: '', guidance: { ...DEFAULT_MCP_GUIDANCE } },
+                      mcp: { enabled: false, appUrl: '', guidance: { ...DEFAULT_MCP_GUIDANCE } },
                       ai: { enabled: false, embeddingEnabled: false, visionEnabled: false, public: { provider: 'openai', model: 'gpt-4o', temperature: 0.7, maxTokens: 32000, embeddingProvider: 'openai', embeddingModel: 'text-embedding-3-small', embeddingMaxDistance: 0.8, vulnerabilityProcessing: { autoTranslateOnSave: false, matchThreshold: 0.35 } }, visionPublic: { visionProvider: 'openai', visionModel: 'gpt-4o', visionTemperature: 0.7, visionMaxTokens: 32000 }, private: { apiUrl: '', apiKey: '', systemPrompt: '', userPrompt: '', azure: { deploymentName: '', apiVersion: '2024-06-01' }, embeddingApiUrl: '', embeddingApiKey: '', embeddingAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionApiUrl: '', visionApiKey: '', visionAzure: { deploymentName: '', apiVersion: '2024-06-01' }, visionSystemPrompt: DEFAULT_VISION_SYSTEM_PROMPT, visionAnonymizeLlm: false,  visionAnonymizeRegex: false, anonymizeReviewBeforeSend: false, visionAnonymizeRegexRules: DEFAULT_VISION_REGEX_RULES.map(rule => ({...rule})), fillProofsSystemPrompt: '', fillProofsUserPrompt: '', executiveSummarySystemPrompt: '', executiveSummaryUserPrompt: '', severitySummarySystemPrompt: '', severitySummaryUserPrompt: '', vulnerabilityTranslationSystemPrompt: '', vulnerabilityTranslationUserPrompt: '', field_description_generateSystemPrompt: '', field_description_completeSystemPrompt: '', field_description_rewriteSystemPrompt: '', field_observation_generateSystemPrompt: '', field_observation_completeSystemPrompt: '', field_observation_rewriteSystemPrompt: '', field_remediation_generateSystemPrompt: '', field_remediation_completeSystemPrompt: '', field_remediation_rewriteSystemPrompt: '', field_poc_generateSystemPrompt: '', field_poc_completeSystemPrompt: '', field_poc_rewriteSystemPrompt: '', field_retestEvidence_generateSystemPrompt: '', field_retestEvidence_completeSystemPrompt: '', field_retestEvidence_rewriteSystemPrompt: '' } }
                     },
                     data.data.datas
@@ -1117,54 +1124,52 @@ export default {
             }
         },
 
-        rotateMcpKey: function() {
-            Dialog.create({
-                title: $t('mcpGenerateKey'),
-                message: $t('mcpRotateKeyConfirm'),
-                ok: {label: $t('btn.confirm'), color: 'negative'},
-                cancel: {label: $t('btn.cancel'), color: 'white'}
-            })
-            .onOk(() => {
-                SettingsService.rotateMcpKey()
-                .then((res) => {
-                    this.settings.mcp.apiKey = res.data.datas.apiKey;
-                    this.settings.mcp.apiKeyCreatedAt = res.data.datas.apiKeyCreatedAt;
-                    this.settings.mcp.creator = res.data.datas.creator;
-                    this.settingsOrig = this.$_.cloneDeep(this.settings);
-                    Notify.create({ message: $t('mcpKeyRotated'), color: 'positive', textColor: 'white', position: 'top-right' });
-                })
-                .catch((err) => {
-                    Notify.create({ message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right' });
+        createMcpKey: function() {
+            if (!this.mcpKeyName.trim()) {
+                Notify.create({ message: $t('apiKeyNameRequired'), color: 'warning', textColor: 'dark', position: 'top-right' });
+                return;
+            }
+            this.mcpKeyCreating = true;
+            SettingsService.createMcpKey(this.mcpKeyName.trim())
+            .then((res) => {
+                var created = res.data.datas;
+                this.newlyCreatedMcpKey = created.key;
+                this.mcpKeys.push({
+                    id: created.id,
+                    name: created.name,
+                    creator: created.creator,
+                    keyPrefix: created.key.substring(0, 8),
+                    createdAt: created.createdAt,
+                    lastUsedAt: null
                 });
-            });
+                this.mcpKeyName = '';
+                notifySuccess('mcpKeyCreated');
+            })
+            .catch((err) => { notifyError(err); })
+            .finally(() => { this.mcpKeyCreating = false; });
         },
 
-        clearMcpKey: function() {
+        revokeMcpKey: function(id) {
             Dialog.create({
-                title: $t('mcpClearKeyConfirmTitle'),
-                message: $t('mcpClearKeyConfirmMessage'),
-                ok: { label: $t('mcpClearKey'), color: 'negative', unelevated: true, noCaps: true },
+                title: $t('apiKeyRevoke'),
+                message: $t('mcpKeyRevokeConfirm'),
+                ok: { label: $t('apiKeyRevoke'), color: 'negative', unelevated: true, noCaps: true },
                 cancel: { label: $t('btn.cancel'), color: 'grey-7', flat: true, noCaps: true }
             }).onOk(() => {
-                SettingsService.clearMcpKey()
+                SettingsService.deleteMcpKey(id)
                 .then(() => {
-                    this.settings.mcp.apiKey = '';
-                    this.settings.mcp.apiKeyCreatedAt = null;
-                    this.settings.mcp.creator = null;
-                    this.settingsOrig = this.$_.cloneDeep(this.settings);
-                    notifySuccess('mcpKeyCleared');
+                    this.mcpKeys = this.mcpKeys.filter(k => k.id !== id);
+                    this.newlyCreatedMcpKey = null;
+                    notifySuccess('mcpKeyRevoked');
                 })
-                .catch((err) => {
-                    notifyError(err);
-                });
+                .catch((err) => { notifyError(err); });
             });
         },
 
-        claimMcpKey: function() {
-            SettingsService.claimMcpKey()
+        claimMcpKey: function(key) {
+            SettingsService.claimMcpKey(key.id)
             .then((res) => {
-                this.settings.mcp.creator = res.data.datas.creator;
-                this.settingsOrig = this.$_.cloneDeep(this.settings);
+                key.creator = res.data.datas.creator;
                 notifySuccess('apiKeyClaimed');
             })
             .catch((err) => { notifyError(err); });

@@ -17,14 +17,15 @@ async function compilePdfNow(docxBuffer) {
     const workDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pwndoc-report-'));
     try {
         const inputPath = path.join(workDir, 'report.docx');
+        const outputPath = path.join(workDir, 'report.pdf');
         await fs.promises.writeFile(inputPath, docxBuffer);
         await fs.promises.mkdir(officeProfileDir, {recursive: true});
-        const conversion = await execFileAsync('soffice', ['--headless', `-env:UserInstallation=file://${officeProfileDir}`, '--convert-to', 'pdf', '--outdir', workDir, inputPath], {
+        const fieldUpdaterPath = path.join(__dirname, '../scripts/refresh_docx_fields.py');
+        const conversion = await execFileAsync('python3', [fieldUpdaterPath, inputPath, outputPath, officeProfileDir], {
             timeout: 120000,
             maxBuffer: 1024 * 1024 * 4,
             env: {...process.env, HOME: workDir}
         });
-        const outputPath = path.join(workDir, 'report.pdf');
         const pdf = await fs.promises.readFile(outputPath).catch(async err => {
             const files = await fs.promises.readdir(workDir).catch(() => []);
             throw new Error(`LibreOffice did not create report.pdf (files: ${files.join(', ') || 'none'}; stdout: ${(conversion.stdout || '').trim() || 'empty'}; stderr: ${(conversion.stderr || '').trim() || 'empty'}): ${err.message}`);

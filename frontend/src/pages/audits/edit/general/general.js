@@ -67,6 +67,8 @@ export default {
             auditTypes: [],
             // List of CustomFields
             customFields: [],
+            // Custom section definitions, used to name sections lost on an audit type change
+            customSections: [],
             finishing: false,
             canFinish: UserService.isAllowed('audits:update'),
             AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
@@ -132,6 +134,7 @@ export default {
         this.getTemplates();
         this.getLanguages();
         this.getAuditTypes();
+        this.getCustomSections();
 
         this.$socket.emit('menu', {menu: 'general', room: this.auditId});
 
@@ -327,6 +330,56 @@ export default {
             .catch((err) => {
                 console.log(err)
             })
+        },
+
+        getCustomSections: function() {
+            DataService.getSections()
+            .then((data) => {
+                this.customSections = data.data.datas;
+            })
+            .catch((err) => {
+                console.log(err)
+            })
+        },
+
+        // Warn about sections that will be deleted and pages that will be hidden before switching type
+        changeAuditType: function(name) {
+            if (!name || name === this.audit.auditType) return
+            var current = this.auditTypes.find(type => type.name === this.audit.auditType) || {sections: [], hidden: []}
+            var next = this.auditTypes.find(type => type.name === name)
+            if (!next) return
+            var nextTemplate = (next.templates || []).find(t => t && t.locale === this.audit.language)
+            var nextTemplateId = nextTemplate ? this.templateId(nextTemplate.template) : ''
+
+            var lost = (current.sections || []).filter(field => !(next.sections || []).includes(field))
+                .map(field => (this.customSections.find(s => s.field === field) || {}).name || field)
+            var pageLabels = {findings: $t('findings'), network: $t('networkScan')}
+            var hidden = (next.hidden || []).filter(page => !(current.hidden || []).includes(page)).map(page => pageLabels[page] || page)
+            var template = nextTemplateId && nextTemplateId !== this.templateId(this.audit.template)
+                ? (this.templates.find(t => t._id === nextTemplateId) || {}).name : ''
+
+            var apply = () => {
+                this.audit.auditType = name
+                if (nextTemplateId) this.audit.template = nextTemplateId
+            }
+            var esc = this.$_.escape
+            var messages = []
+            if (lost.length) messages.push(esc($t('auditTypeChangeSections', {sections: lost.join(', ')})))
+            if (hidden.length) messages.push(esc($t('auditTypeChangeHidden', {pages: hidden.join(', ')})))
+            if (template) messages.push(esc($t('auditTypeChangeTemplate', {template: template})))
+            if (!messages.length) {
+                apply()
+                return
+            }
+            messages.push(esc($t('auditTypeChangeOnSave')))
+            Dialog.create({
+                title: $t('auditTypeChangeTitle'),
+                message: messages.join('<br><br>'),
+                html: true,
+                ok: {label: $t('btn.confirm'), color: lost.length ? 'negative' : 'primary'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
+            })
+            .onOk(apply)
         },
 
         createSelectCompany: function(val, done) {

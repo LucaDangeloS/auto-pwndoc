@@ -44,7 +44,9 @@ export default {
       filterCompany: null,
       filterYear: null,
       filterTag: null,
+      filterSource: null,
       expandedGroups: {},
+      expandedDefault: null,
       selectionMode: false,
       selectedIds: [],
       dragActive: false,
@@ -109,6 +111,10 @@ export default {
       return [...tags].sort((a, b) => a.localeCompare(b))
     },
 
+    sourceOptions() {
+      return ['internal', 'uploaded'].map(value => ({ value, label: $t(`archiveSource_${value}`) }))
+    },
+
     auditTypeOptions() {
       const types = new Set([
         ...this.auditTypes.map(type => type.name),
@@ -118,7 +124,7 @@ export default {
     },
 
     hasActiveFilters() {
-      return !!(this.filter || this.filterCompany || this.filterYear || this.filterTag)
+      return !!(this.filter || this.filterCompany || this.filterYear || this.filterTag || this.filterSource)
     },
 
     filteredArchives() {
@@ -127,6 +133,7 @@ export default {
         if (this.filterCompany && this.companyKey(archive) !== this.filterCompany) return false
         if (this.filterYear && this.archiveYear(archive) !== this.filterYear) return false
         if (this.filterTag && !(archive.tags || []).includes(this.filterTag)) return false
+        if (this.filterSource && (this.filterSource === 'internal') !== !!archive.internal) return false
         if (!needle) return true
         return [archive.name, archive.originalName, archive.company?.name, archive.auditType, archive.notes, ...(archive.tags || [])]
           .some(value => value && value.toLowerCase().includes(needle))
@@ -209,6 +216,14 @@ export default {
     this.pageObserver = null
     this.resizeTimer = null
     this.viewerDestroyPromise = Promise.resolve()
+  },
+
+  watch: {
+    // A new filter shows its matches expanded again, overriding expand/collapse all
+    hasActiveFilters() {
+      this.expandedGroups = {}
+      this.expandedDefault = null
+    }
   },
 
   mounted() {
@@ -305,8 +320,9 @@ export default {
     },
 
     isGroupExpanded(key) {
-      if (this.hasActiveFilters) return true
       if (key in this.expandedGroups) return this.expandedGroups[key]
+      if (this.expandedDefault !== null) return this.expandedDefault
+      if (this.hasActiveFilters) return true
       return this.groups.length <= 5
     },
 
@@ -314,11 +330,17 @@ export default {
       this.expandedGroups = { ...this.expandedGroups, [key]: value }
     },
 
+    setAllGroupsExpanded(value) {
+      this.expandedGroups = {}
+      this.expandedDefault = value
+    },
+
     clearFilters() {
       this.filter = ''
       this.filterCompany = null
       this.filterYear = null
       this.filterTag = null
+      this.filterSource = null
     },
 
     canModify(archive) {

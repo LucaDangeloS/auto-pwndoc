@@ -1494,6 +1494,33 @@ const STEPS = [
         },
     },
 
+    {
+        id: 46,
+        name: 'move-mcp-key-to-per-user-keys',
+        async run(_srcDb, dstDb) {
+            const settings = dstDb.collection('settings');
+            const docs = await settings.find({}, {projection: {mcp: 1}}).toArray();
+            for (const doc of docs) {
+                const mcp = doc.mcp || {};
+                const keys = Array.isArray(mcp.keys) ? mcp.keys : [];
+                if (mcp.apiKey && !keys.some(entry => entry.key === mcp.apiKey)) {
+                    keys.push({
+                        _id: new mongoose.Types.ObjectId(),
+                        name: 'MCP key',
+                        key: mcp.apiKey,
+                        creator: mcp.creator || null,
+                        createdAt: mcp.apiKeyCreatedAt || new Date(),
+                        lastUsedAt: null
+                    });
+                }
+                await settings.updateOne(
+                    {_id: doc._id},
+                    {$set: {'mcp.keys': keys}, $unset: {'mcp.apiKey': '', 'mcp.apiKeyCreatedAt': '', 'mcp.creator': ''}}
+                );
+            }
+        },
+    },
+
 ];
 
 // Runner

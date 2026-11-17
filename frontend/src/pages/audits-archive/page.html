@@ -54,12 +54,21 @@
                 <div class="col-6">
                   <q-select v-model="filterTag" :options="tagOptions" outlined dense clearable options-sanitize :label="$t('archiveTags')" />
                 </div>
+                <div class="col-12">
+                  <q-select v-model="filterSource" :options="sourceOptions" emit-value map-options outlined dense clearable :label="$t('archiveSource')" />
+                </div>
               </div>
             </div>
             <div class="row items-center no-wrap">
               <span class="text-caption archive-muted">{{ filteredArchives.length }} / {{ archives.length }}</span>
               <q-space />
               <q-btn v-if="hasActiveFilters" flat dense no-caps size="sm" icon="filter_alt_off" :label="$t('archiveClearFilters')" @click="clearFilters" />
+              <q-btn v-if="groups.length > 1" flat dense round size="sm" icon="unfold_more" :aria-label="$t('archiveExpandAll')" @click="setAllGroupsExpanded(true)">
+                <q-tooltip>{{ $t('archiveExpandAll') }}</q-tooltip>
+              </q-btn>
+              <q-btn v-if="groups.length > 1" flat dense round size="sm" icon="unfold_less" :aria-label="$t('archiveCollapseAll')" @click="setAllGroupsExpanded(false)">
+                <q-tooltip>{{ $t('archiveCollapseAll') }}</q-tooltip>
+              </q-btn>
               <q-btn
                 flat
                 dense

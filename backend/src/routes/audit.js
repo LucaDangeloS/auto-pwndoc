@@ -7,6 +7,7 @@ module.exports = function(app, io) {
     var _ = require('lodash');
     var utils = require('../lib/utils');
     var Settings = require('mongoose').model('Settings');
+    var AuditType = require('mongoose').model('AuditType');
     var User = require('mongoose').model('User');
     var VulnerabilityTaxonomy = require('mongoose').model('VulnerabilityTaxonomy');
 
@@ -190,7 +191,9 @@ module.exports = function(app, io) {
         .then(() => Audit.findById(req.params.auditId).select('template').lean())
         .then(audit => {
             io.to(req.params.auditId).emit('updateAudit');
-            // The PDF is compiled into the audit archive in the background (audit-archive-sync).
+            // Every (re)finish recompiles the report and overwrites the internal archive PDF, in the background.
+            if (update.finished && audit && audit.template)
+                require('../lib/audit-archive-sync').syncAudit(req.params.auditId, {force: true});
             Response.Ok(res, {...update, archived: update.finished && !!(audit && audit.template)})
         })
         .catch(err => Response.Internal(res, err))
@@ -287,6 +290,16 @@ module.exports = function(app, io) {
             }
         }
 
+        var newAuditType = null;
+        if (req.body.auditType !== undefined && req.body.auditType !== audit.auditType) {
+            newAuditType = typeof req.body.auditType === 'string' ? await AuditType.getByName(req.body.auditType) : null;
+            if (!newAuditType) {
+                Response.BadParameters(res, 'Audit type not found');
+                return;
+            }
+            update.auditType = newAuditType.name;
+        }
+
         // Optional parameters
         if (req.body.name) update.name = req.body.name;
         if (req.body.date) update.date = req.body.date;
@@ -316,7 +329,12 @@ module.exports = function(app, io) {
         if (settings.reviews.enabled && settings.reviews.private.removeApprovalsUponUpdate) update.approvals = [];
 
         Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, update)
-        .then(msg => {
+        .then(async msg => {
+            // Sections outside the new audit type are dropped; missing ones are added
+            if (newAuditType) {
+                await Audit.pruneSectionsForAuditType(req.params.auditId, newAuditType.sections);
+                await Audit.syncSectionsWithAuditType(true, req.params.auditId);
+            }
             io.to(req.params.auditId).emit('updateAudit');
             Response.Ok(res, msg)
         })

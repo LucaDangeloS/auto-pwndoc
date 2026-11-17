@@ -1872,55 +1872,99 @@
             <q-separator />
 
             <q-card-section>
-                <div class="text-bold" id="sub-mcp-api-key">{{$t('mcpApiKey')}}</div>
-                <div class="text-grey-8 q-mt-xs">{{$t('mcpApiKeyHint')}}</div>
+                <div class="text-bold" id="sub-mcp-api-key">{{$t('mcpKeysTitle')}}</div>
+                <div class="text-grey-8 q-mt-xs">{{$t('mcpKeysHint')}}</div>
             </q-card-section>
             <q-card-section>
                 <div class="row items-center q-col-gutter-md">
                     <div class="col-12 col-md">
                         <q-input
-                            :label="$t('mcpApiKey')"
-                            v-model="settings.mcp.apiKey"
+                            :label="$t('apiKeyName')"
+                            v-model="mcpKeyName"
                             outlined
-                            readonly
-                            :type="showMcpApiKey ? 'text' : 'password'"
+                            dense
                             hide-bottom-space
-                        >
-                            <template v-slot:append>
-                                <q-btn
-                                    flat round dense size="sm"
-                                    :icon="showMcpApiKey ? 'visibility_off' : 'visibility'"
-                                    :aria-label="showMcpApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey')"
-                                    @click="showMcpApiKey = !showMcpApiKey"
-                                >
-                                    <q-tooltip>{{ showMcpApiKey ? $t('aiHideApiKey') : $t('aiShowApiKey') }}</q-tooltip>
-                                </q-btn>
-                                <q-btn
-                                    flat round dense size="sm"
-                                    icon="content_copy"
-                                    :disable="!settings.mcp.apiKey"
-                                    :aria-label="$t('mcpCopyKey')"
-                                    @click="copyText(settings.mcp.apiKey)"
-                                >
-                                    <q-tooltip>{{ $t('mcpCopyKey') }}</q-tooltip>
-                                </q-btn>
-                            </template>
-                        </q-input>
+                            :disable="!canEdit"
+                            @keyup.enter="createMcpKey"
+                        />
                     </div>
-                    <div class="col-12 col-md-auto row items-center no-wrap q-gutter-x-sm">
-                        <q-btn color="primary" no-caps icon="vpn_key" :label="$t('mcpGenerateKey')" :disable="!canEdit" @click="rotateMcpKey" />
-                        <q-btn v-if="settings.mcp.apiKey && !settings.mcp.creator" outline color="primary" no-caps icon="person_add" :label="$t('apiKeyClaim')" :disable="!canEdit" @click="claimMcpKey" />
-                        <q-btn outline color="negative" no-caps icon="delete" :label="$t('mcpClearKey')" :disable="!canEdit || !settings.mcp.apiKey" @click="clearMcpKey" />
+                    <div class="col-12 col-md-auto">
+                        <q-btn
+                            color="primary"
+                            no-caps
+                            icon="vpn_key"
+                            :label="$t('mcpKeyCreate')"
+                            :loading="mcpKeyCreating"
+                            :disable="!canEdit"
+                            @click="createMcpKey"
+                        />
                     </div>
                 </div>
-                <div class="row q-col-gutter-x-md">
-                    <div class="col-12 col-md text-caption text-grey-7 q-mt-xs">
-                        {{settings.mcp.apiKeyCreatedAt ? $t('mcpKeyCreatedAt') + ': ' + new Date(settings.mcp.apiKeyCreatedAt).toLocaleString() : $t('mcpNoApiKey')}}
-                        <template v-if="settings.mcp.apiKey">
-                            &nbsp;&middot;&nbsp;{{$t('apiKeyOwner')}}: {{settings.mcp.creator ? (settings.mcp.creator.unavailable ? $t('apiKeyOwnerUnavailable') : settings.mcp.creator.username) : $t('apiKeyOwnerMissing')}}
-                        </template>
+
+                <q-banner v-if="newlyCreatedMcpKey" class="bg-warning q-my-md" rounded>
+                    <template v-slot:avatar>
+                        <q-icon name="warning" color="dark" />
+                    </template>
+                    <div class="text-bold text-dark q-mb-xs">{{$t('apiKeyOnceWarning')}}</div>
+                    <div class="row items-center q-col-gutter-sm">
+                        <div class="col">
+                            <div
+                                class="q-px-sm q-py-xs text-caption"
+                                style="font-family:monospace; word-break:break-all; user-select:all; background:rgba(255,255,255,0.9); color:#1d1d1d; border-radius:4px; border:1px solid rgba(0,0,0,0.15);"
+                            >{{ newlyCreatedMcpKey }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <q-btn flat round dense icon="content_copy" color="dark" @click="copyText(newlyCreatedMcpKey)">
+                                <q-tooltip>{{$t('mcpCopyConfig')}}</q-tooltip>
+                            </q-btn>
+                        </div>
                     </div>
+                </q-banner>
+
+                <div v-if="mcpKeys.length === 0" class="text-grey-6 text-caption q-py-sm">
+                    {{$t('mcpNoKeys')}}
                 </div>
+                <q-list v-else bordered separator class="rounded-borders q-mt-md">
+                    <q-item v-for="k in mcpKeys" :key="k.id">
+                        <q-item-section>
+                            <q-item-label>{{k.name}}</q-item-label>
+                            <q-item-label caption>
+                                {{$t('apiKeyPrefix')}}: {{k.keyPrefix}}...
+                                &nbsp;&middot;&nbsp;
+                                {{$t('apiKeyOwner')}}: {{k.creator ? (k.creator.unavailable ? $t('apiKeyOwnerUnavailable') : k.creator.username) : $t('apiKeyOwnerMissing')}}
+                                &nbsp;&middot;&nbsp;
+                                {{$t('apiKeyCreatedAt')}}: {{new Date(k.createdAt).toLocaleDateString()}}
+                                &nbsp;&middot;&nbsp;
+                                {{k.lastUsedAt ? $t('apiKeyLastUsed') + ': ' + new Date(k.lastUsedAt).toLocaleString() : $t('apiKeyNeverUsed')}}
+                            </q-item-label>
+                        </q-item-section>
+                        <q-item-section side>
+                            <div class="row no-wrap">
+                                <q-btn
+                                    v-if="!k.creator"
+                                    flat round dense
+                                    icon="person_add"
+                                    color="primary"
+                                    :disable="!canEdit"
+                                    :aria-label="$t('apiKeyClaim')"
+                                    @click="claimMcpKey(k)"
+                                >
+                                    <q-tooltip>{{$t('apiKeyClaim')}}</q-tooltip>
+                                </q-btn>
+                                <q-btn
+                                    flat round dense
+                                    icon="delete"
+                                    color="negative"
+                                    :disable="!canEdit"
+                                    :aria-label="$t('apiKeyRevoke')"
+                                    @click="revokeMcpKey(k.id)"
+                                >
+                                    <q-tooltip>{{$t('apiKeyRevoke')}}</q-tooltip>
+                                </q-btn>
+                            </div>
+                        </q-item-section>
+                    </q-item>
+                </q-list>
             </q-card-section>
 
             <q-separator />

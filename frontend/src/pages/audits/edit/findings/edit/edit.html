@@ -399,6 +399,14 @@
                 <span class="row items-center">
                   {{ $t('affectedAssets') }}
                   <template-hint template-var="{@affected | convertHTML}" :description="$t('templateHintFindingScope')" class="q-ml-xs" />
+                  <q-space />
+                  <q-btn
+                    v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                    flat dense no-caps color="primary" icon="playlist_add"
+                    :label="$t('addAuditScopeToAffectedAssets')"
+                    :disable="loading || !auditScopeItems.length"
+                    @click="addAuditScopeToAffectedAssets"
+                  />
                 </span>
               </q-card-section>
               <q-separator />

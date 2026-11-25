@@ -27,6 +27,10 @@ export default {
     return api.delete(`audit-archives/${archiveId}`)
   },
 
+  bulkDeleteArchives(archiveIds) {
+    return api.delete('audit-archives/bulk', { data: { archiveIds } })
+  },
+
   getArchiveFile(archiveId, signal) {
     return api.get(`audit-archives/${archiveId}/file`, { responseType: 'arraybuffer', signal })
   },

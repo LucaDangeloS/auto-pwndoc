@@ -94,6 +94,13 @@
                 :disable="selectedCount === 0"
                 @click="openBulkDialog"
               />
+              <q-btn
+                v-if="selectedDeletableCount"
+                flat dense no-caps color="white" icon="delete"
+                :label="$t('btn.delete')"
+                :disable="selectedDeletableCount !== selectedCount || saving"
+                @click="confirmBulkDelete"
+              />
             </template>
           </q-banner>
 

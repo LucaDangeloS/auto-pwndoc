@@ -112,6 +112,7 @@ module.exports = function(app) {
         var filters = {};
         if (req.query.company === 'none' || mongoose.isValidObjectId(req.query.company)) filters.company = req.query.company;
         if (typeof req.query.tag === 'string' && req.query.tag) filters.tag = req.query.tag;
+        if (req.query.internal === 'true' || req.query.internal === 'false') filters.internal = req.query.internal === 'true';
 
         AuditArchive.getAll(filters)
         .then(msg => Response.Ok(res, msg))
@@ -226,6 +227,29 @@ module.exports = function(app) {
             for (var id of archiveIds)
                 await AuditArchive.assertCanModify(id, req.decodedToken.id, allowedAll);
             Response.Ok(res, await AuditArchive.bulkUpdate(archiveIds, metadata.update));
+        }
+        catch (err) {
+            handleError(res, err);
+        }
+    });
+
+    app.delete('/api/audit-archives/bulk', acl.hasPermission('audit-archives:delete'), async function(req, res) {
+        var archiveIds = req.body.archiveIds;
+        if (!Array.isArray(archiveIds) || archiveIds.length === 0 || !archiveIds.every(id => mongoose.isValidObjectId(id))) {
+            Response.BadParameters(res, 'Required parameters: archiveIds');
+            return;
+        }
+
+        try {
+            var allowedAll = acl.isTokenAllowed(req.decodedToken, 'audit-archives:delete-all');
+            // Validate the entire selection before removing any report.
+            var archives = await Promise.all([...new Set(archiveIds)].map(id =>
+                AuditArchive.assertCanModify(id, req.decodedToken.id, allowedAll)));
+            var result = await AuditArchive.bulkDelete(archives.map(archive => archive._id));
+            for (var archive of archives) {
+                try { fs.unlinkSync(archivePath(archive.filename)); } catch (_err) {}
+            }
+            Response.Ok(res, {deleted: result.deletedCount});
         }
         catch (err) {
             handleError(res, err);

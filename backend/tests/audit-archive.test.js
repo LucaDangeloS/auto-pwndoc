@@ -81,6 +81,32 @@ module.exports = function(request, app) {
       expect(response.body.datas[0].name).toBe('Legacy External Pentest');
     });
 
+    it('Filter uploaded and internally generated PDFs', async () => {
+      var response = await request(app).get('/api/audit-archives?internal=false')
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(response.body.datas.map(archive => archive._id)).toContain(archiveId);
+
+      response = await request(app).get('/api/audit-archives?internal=true')
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(response.body.datas.map(archive => archive._id)).not.toContain(archiveId);
+    });
+
+    it('Reject invalid and missing bulk selection before removing any PDFs', async () => {
+      var response = await request(app).delete('/api/audit-archives/bulk')
+        .set('Cookie', [`token=JWT ${userToken}`])
+        .send({archiveIds: ['invalid']});
+      expect(response.status).toBe(422);
+
+      response = await request(app).delete('/api/audit-archives/bulk')
+        .set('Cookie', [`token=JWT ${userToken}`])
+        .send({archiveIds: [archiveId, '000000000000000000000000']});
+      expect(response.status).toBe(404);
+
+      response = await request(app).get('/api/audit-archives')
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(response.body.datas.map(archive => archive._id)).toContain(archiveId);
+    });
+
     it('Stream archived PDF file', async () => {
       var response = await request(app).get(`/api/audit-archives/${archiveId}/file`)
         .set('Cookie', [`token=JWT ${userToken}`]);
@@ -109,6 +135,29 @@ module.exports = function(request, app) {
       response = await request(app).get('/api/audit-archives')
         .set('Cookie', [`token=JWT ${userToken}`]);
       expect(response.body.datas).toHaveLength(0);
+    });
+
+    it('Bulk delete selected PDFs and their files', async () => {
+      var fs = require('fs');
+      var path = require('path');
+      var uploads = await Promise.all(['First', 'Second'].map(name =>
+        request(app).post('/api/audit-archives')
+          .set('Cookie', [`token=JWT ${userToken}`])
+          .send({name, originalName: `${name}.pdf`, mimeType: 'application/pdf', file: validPdf})));
+      var archives = uploads.map(response => response.body.datas);
+      expect(uploads.every(response => response.status === 201)).toBe(true);
+
+      var response = await request(app).delete('/api/audit-archives/bulk')
+        .set('Cookie', [`token=JWT ${userToken}`])
+        .send({archiveIds: archives.map(archive => archive._id)});
+      expect(response.status).toBe(200);
+      expect(response.body.datas.deleted).toBe(2);
+
+      response = await request(app).get('/api/audit-archives')
+        .set('Cookie', [`token=JWT ${userToken}`]);
+      expect(response.body.datas).toHaveLength(0);
+      for (var archive of archives)
+        expect(fs.existsSync(path.join(__basedir, '..', 'audit-archives', archive.filename))).toBe(false);
     });
 
     describe('Archive metadata and company organisation', () => {
@@ -188,6 +237,15 @@ module.exports = function(request, app) {
         response = await request(app).delete(`/api/audit-archives/${orgArchiveId}`)
           .set('Cookie', [`token=JWT ${plainUserToken}`]);
         expect(response.status).toBe(403);
+
+        response = await request(app).delete('/api/audit-archives/bulk')
+          .set('Cookie', [`token=JWT ${plainUserToken}`])
+          .send({archiveIds: [orgArchiveId]});
+        expect(response.status).toBe(403);
+
+        response = await request(app).get('/api/audit-archives')
+          .set('Cookie', [`token=JWT ${userToken}`]);
+        expect(response.body.datas.map(archive => archive._id)).toContain(orgArchiveId);
       });
 
       it('Update archive metadata', async () => {

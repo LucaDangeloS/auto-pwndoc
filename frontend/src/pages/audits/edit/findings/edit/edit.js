@@ -230,6 +230,10 @@ export default {
   },
 
   computed: {
+    auditScopeItems() {
+      const scope = this.localAudit?.scope || this.audit?.scope || [];
+      return (Array.isArray(scope) ? scope : []).filter(item => typeof item === 'string' && item.trim()).map(item => item.trim());
+    },
     aiSimilarReady() {
       return isEmbeddingEnabled(this.$settings);
     },
@@ -349,6 +353,19 @@ export default {
         .catch((err) => {
           console.log(err);
         });
+    },
+
+    addAuditScopeToAffectedAssets() {
+      const editor = this.$refs.basiceditor_scope?.editor;
+      if (!editor || !editor.isEditable || !this.auditScopeItems.length) return;
+      this.markUserEdited();
+      editor.commands.insertContentAt(editor.state.doc.content.size, {
+        type: 'bulletList',
+        content: this.auditScopeItems.map(item => ({
+          type: 'listItem',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: item }] }],
+        })),
+      });
     },
 
 

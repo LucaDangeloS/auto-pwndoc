@@ -37,6 +37,7 @@ AuditArchiveSchema.statics.getAll = function(filters = {}) {
     if (filters.company === 'none') query.company = null;
     else if (filters.company) query.company = filters.company;
     if (filters.tag) query.tags = filters.tag;
+    if (typeof filters.internal === 'boolean') query.internal = filters.internal;
     return populated(this.find(query))
         .sort({reportDate: -1, createdAt: -1})
         .exec();
@@ -86,6 +87,10 @@ AuditArchiveSchema.statics.deleteArchive = function(archiveId) {
             if (!row) throw({fn: 'NotFound', message: 'Archived audit not found'});
             return row;
         });
+}
+
+AuditArchiveSchema.statics.bulkDelete = function(archiveIds) {
+    return this.deleteMany({_id: {$in: archiveIds}}).exec();
 }
 
 var AuditArchive = mongoose.model('AuditArchive', AuditArchiveSchema);

@@ -181,6 +181,10 @@ export default {
       return this.selectedIds.length
     },
 
+    selectedDeletableCount() {
+      return this.archives.filter(archive => this.selectedIds.includes(archive._id) && this.canModify(archive).delete).length
+    },
+
     pageScale() {
       if (!this.basePageSize) return 1
       return Math.min((this.containerWidth - PAGE_GUTTER) / this.basePageSize.width, MAX_PAGE_SCALE)
@@ -817,6 +821,32 @@ export default {
             this.getArchives()
           })
           .catch(err => this.notifyError(err))
+      })
+    },
+
+    confirmBulkDelete() {
+      if (!this.selectedCount || this.selectedDeletableCount !== this.selectedCount) return
+      Dialog.create({
+        title: $t('archiveBulkDeleteConfirm', { count: this.selectedCount }),
+        message: $t('archiveBulkDeleteWarning'),
+        ok: { label: $t('btn.delete'), color: 'negative' },
+        cancel: { label: $t('btn.cancel'), color: 'white' }
+      }).onOk(() => {
+        this.saving = true
+        AuditArchiveService.bulkDeleteArchives(this.selectedIds)
+          .then(() => {
+            if (this.selectedArchive && this.selectedIds.includes(this.selectedArchive._id)) {
+              this.renderToken++
+              this.destroyViewer()
+              this.selectedArchive = null
+            }
+            this.selectedIds = []
+            this.selectionMode = false
+            Notify.create({ message: $t('archiveBulkDeleteOk'), color: 'positive', textColor: 'white', position: 'top-right' })
+            return this.getArchives()
+          })
+          .catch(err => this.notifyError(err))
+          .finally(() => { this.saving = false })
       })
     },
 

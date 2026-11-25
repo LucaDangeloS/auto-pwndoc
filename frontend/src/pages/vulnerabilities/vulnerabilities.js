@@ -203,6 +203,8 @@ export default {
             const detail = this.currentVulnerability.details[this.currentDetailsIndex] || {};
             return {
                 findingTitle: detail.title || '',
+                findingDescription: detail.description || '',
+                findingReferences: this.currentVulnerability.references || [],
                 locale: this.currentLanguage || ''
             };
         },

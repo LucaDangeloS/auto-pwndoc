@@ -19,7 +19,7 @@ module.exports = function(app) {
 
     async function generateProofField(fieldName, context, aiSettings) {
         var result = await aiService.generate({
-            action: 'generate',
+            action: 'proof-completion',
             text: '',
             fieldName,
             context,
@@ -30,7 +30,7 @@ module.exports = function(app) {
 
     async function completeProofPoc(pocHtml, context, aiSettings) {
         var result = await aiService.generate({
-            action: 'complete',
+            action: 'proof-completion',
             text: pocHtml,
             fieldName: 'poc',
             context,
@@ -119,11 +119,6 @@ module.exports = function(app) {
             return true;
         }
         return text.length < 20;
-    }
-
-    function existingFieldForContext(fieldName, value) {
-        if (fieldName === 'title') return isPlaceholderTitle(value) ? '' : value;
-        return isWeakExistingContent(value) ? '' : value;
     }
 
     function hasArrayContent(value) {
@@ -229,76 +224,104 @@ module.exports = function(app) {
         return Boolean(htmlToPlainText(value));
     }
 
-    async function buildGeneratedProofResult({ pocHtml, locale, findingTitle, findingDescription, findingRemediation, findingReferences, findingCvssv3, findingCvssv4, auditContext, visionSummary, overwriteFilledFields, anonymizationReviewed, approvedAnonymization }, aiSettings) {
-        var shouldOverwrite = overwriteFilledFields !== false;
-        var generationContext = {
-            findingTitle: existingFieldForContext('title', findingTitle) || '',
-            findingDescription: existingFieldForContext('description', findingDescription) || '',
-            findingPoc: pocHtml,
-            findingPocVision: visionSummary || '',
-            auditContext: auditContext || '',
-            proofCompletion: true,
-            locale: locale || 'en'
+    function proofInputContext(input) {
+        return {
+            locale: input.locale || 'en',
+            findingPoc: input.pocHtml || input.findingPoc || '',
+            findingPocVision: input.visionSummary || '',
+            auditContext: input.auditContext || '',
+            currentTitle: input.findingTitle || '',
+            currentDescription: input.findingDescription || '',
+            currentObservation: input.findingObservation || '',
+            currentScope: input.findingScope || '',
+            currentRemediation: input.findingRemediation || '',
+            currentReferences: input.findingReferences || [],
+            currentCvssv3: input.findingCvssv3 || '',
+            currentCvssv4: input.findingCvssv4 || ''
         };
-        if (anonymizationReviewed && approvedAnonymization) {
-            // The user reviewed (and possibly edited) the anonymized context in
-            // the "review before send" step; generate() will use those values
-            // verbatim and skip re-anonymization.
-            generationContext.anonymizationReviewed = true;
-            generationContext.approvedAnonymization = approvedAnonymization;
-        }
+    }
 
-        // Score against the CVSS version the app is configured to use by
-        // default; the other version keeps its existing value (or, for 4.0,
-        // the metric conversion from the generated 3.1 vector).
+    const proofAnonymizationFields = ['description', 'remediation', 'poc'];
+
+    async function buildGeneratedProofResult(input, aiSettings) {
+        var { pocHtml, findingTitle, findingDescription, findingRemediation, findingReferences,
+            findingCvssv3, findingCvssv4, anonymizationReviewed, approvedAnonymization } = input;
+        var shouldOverwrite = input.overwriteFilledFields !== false;
+        var generationContext = proofInputContext(input);
+        var approved = anonymizationReviewed && approvedAnonymization;
+        var contextKeys = Object.keys(generationContext).filter(key => key.startsWith('current') || key === 'findingPoc' || key === 'auditContext');
+        if (!approved || !contextKeys.every(key => typeof approved[key] === 'string')) {
+            var prepared = await aiService.anonymizeContext({
+                fieldNames: proofAnonymizationFields, context: generationContext, aiSettings
+            });
+            approved = { ...prepared.fields, ...approved };
+        }
+        generationContext = {
+            ...generationContext,
+            anonymizationReviewed: true,
+            approvedAnonymization: approved,
+            resolvedFindingTitle: approved.currentTitle,
+            resolvedFindingDescription: approved.currentDescription,
+            resolvedFindingReferences: approved.currentReferences
+        };
+
+        // Score against the configured CVSS version and preserve the other value.
         var defaultCvssVersion = '3.1';
         try {
             var fullSettings = await Settings.getAll();
-            if (fullSettings && fullSettings.report && fullSettings.report.public && fullSettings.report.public.defaultCvssVersion) {
-                defaultCvssVersion = fullSettings.report.public.defaultCvssVersion;
-            }
+            defaultCvssVersion = fullSettings?.report?.public?.defaultCvssVersion || defaultCvssVersion;
         } catch (_) { /* keep 3.1 */ }
-        var wantCvssV4 = defaultCvssVersion === '4.0';
+        var scoreField = defaultCvssVersion === '4.0' ? 'cvssv4' : 'cvssv3';
+        var scoreVersion = scoreField === 'cvssv4' ? '4.0' : '3.1';
+        var currentScore = scoreField === 'cvssv4' ? findingCvssv4 : findingCvssv3;
 
-        var generatedFields = await Promise.all([
-            generateProofFieldMaybe('title', findingTitle, generationContext, aiSettings, shouldOverwrite),
-            generateProofFieldMaybe('description', findingDescription, generationContext, aiSettings, shouldOverwrite),
-            generateProofFieldMaybe('remediation', findingRemediation, generationContext, aiSettings, shouldOverwrite),
-            generateProofFieldMaybe('references', findingReferences, generationContext, aiSettings, shouldOverwrite),
-            wantCvssV4
-                ? Promise.resolve(findingCvssv3 || '')
-                : generateProofFieldMaybe('cvssv3', findingCvssv3, generationContext, aiSettings, shouldOverwrite),
-            wantCvssV4
-                ? generateProofFieldMaybe('cvssv4', findingCvssv4, generationContext, aiSettings, shouldOverwrite)
-                : Promise.resolve(findingCvssv4 || ''),
+        var generatedTitle = await generateProofFieldMaybe('title', findingTitle, generationContext, aiSettings, shouldOverwrite);
+        var title = generatedTitle || findingTitle || 'Generated from proof';
+        if (generatedTitle && generatedTitle !== findingTitle) {
+            generationContext.resolvedFindingTitle = title;
+        }
+        var generatedDescription = await generateProofFieldMaybe('description', findingDescription, generationContext, aiSettings, shouldOverwrite);
+        var description = generatedDescription || findingDescription || '';
+        if (generatedDescription && generatedDescription !== findingDescription) {
+            generationContext.resolvedFindingDescription = aiService._htmlToContextText(description, 4000);
+        }
+
+        var [referencesAndRemediation, generatedScore, poc] = await Promise.all([
+            (async () => {
+                var generatedReferences = await generateProofFieldMaybe('references', findingReferences, generationContext, aiSettings, shouldOverwrite);
+                var hasNewReferences = generatedReferences !== findingReferences && hasArrayContent(generatedReferences);
+                var references = hasNewReferences ? generatedReferences : (findingReferences || []);
+                var remediationContext = {
+                    ...generationContext,
+                    resolvedFindingReferences: hasNewReferences
+                        ? aiService.formatFindingReferences(references)
+                        : generationContext.resolvedFindingReferences
+                };
+                var remediation = await generateProofFieldMaybe('remediation', findingRemediation, remediationContext, aiSettings, shouldOverwrite);
+                return { references, remediation: remediation || findingRemediation || '' };
+            })(),
+            generateProofFieldMaybe(scoreField, currentScore, generationContext, aiSettings, shouldOverwrite),
             completeProofPoc(pocHtml, generationContext, aiSettings)
         ]);
-        var references = Array.isArray(generatedFields[3]) ? generatedFields[3] : normalizeReferences(generatedFields[3]);
-        var cvssv3 = normalizeCvssVector(generatedFields[4], '3.1') || findingCvssv3 || '';
-        if (!wantCvssV4 && !cvssv3) {
-            // The default-version score is the one the user asked for — retry
-            // once when the first attempt yields no usable vector.
-            cvssv3 = normalizeCvssVector(await generateProofField('cvssv3', generationContext, aiSettings), '3.1') || '';
+        var score = normalizeCvssVector(generatedScore, scoreVersion) || normalizeCvssVector(currentScore, scoreVersion);
+        if (!score) {
+            score = normalizeCvssVector(await generateProofField(scoreField, generationContext, aiSettings), scoreVersion);
         }
-        var cvssv4 = normalizeCvssVector(generatedFields[5], '4.0')
-            || normalizeCvssVector(findingCvssv4, '4.0')
+        var cvssv3 = scoreField === 'cvssv3' ? score : findingCvssv3 || '';
+        var cvssv4 = (scoreField === 'cvssv4' ? score : normalizeCvssVector(findingCvssv4, '4.0'))
             || cvss31ToCvss40Fallback(cvssv3);
-        if (wantCvssV4 && !cvssv4) {
-            cvssv4 = normalizeCvssVector(await generateProofField('cvssv4', generationContext, aiSettings), '4.0') || '';
-        }
 
         return {
             vulnId: '__generated_from_proof__',
             generatedFromProof: true,
             distance: null,
-            title: htmlToPlainText(generatedFields[0]) || findingTitle || 'Generated from proof',
+            title,
             vulnType: '',
             category: '',
             taxonomies: [],
-            description: generatedFields[1],
-            remediation: generatedFields[2],
-            poc: generatedFields[6],
-            references,
+            description,
+            ...referencesAndRemediation,
+            poc,
             cvssv3,
             cvssv4
         };
@@ -403,17 +426,11 @@ module.exports = function(app) {
             var { fieldName, fieldNames, context, text, proofCompletion } = req.body;
             var mergedContext = Object.assign({}, context || {});
             if (text !== undefined) mergedContext.text = text;
-            if (proofCompletion) {
-                // Mirror buildGeneratedProofResult: weak/placeholder title and
-                // description are blanked before generation, so preview exactly
-                // what generation would receive.
-                mergedContext.findingTitle = existingFieldForContext('title', mergedContext.findingTitle) || '';
-                mergedContext.findingDescription = existingFieldForContext('description', mergedContext.findingDescription) || '';
-            }
+            if (proofCompletion) mergedContext = proofInputContext(mergedContext);
 
             var result = await aiService.anonymizeContext({
                 fieldName: fieldName || '',
-                fieldNames: Array.isArray(fieldNames) ? fieldNames : undefined,
+                fieldNames: proofCompletion ? proofAnonymizationFields : fieldNames,
                 context: mergedContext,
                 aiSettings
             });
@@ -616,6 +633,8 @@ module.exports = function(app) {
                 locale,
                 findingTitle,
                 findingDescription,
+                findingObservation,
+                findingScope,
                 findingRemediation,
                 findingReferences,
                 findingCvssv3,
@@ -638,6 +657,8 @@ module.exports = function(app) {
                     locale,
                     findingTitle,
                     findingDescription,
+                    findingObservation,
+                    findingScope,
                     findingRemediation,
                     findingReferences,
                     findingCvssv3,
@@ -714,6 +735,8 @@ module.exports = function(app) {
                 locale,
                 findingTitle,
                 findingDescription,
+                findingObservation,
+                findingScope,
                 findingRemediation,
                 findingReferences,
                 findingCvssv3,
@@ -733,6 +756,8 @@ module.exports = function(app) {
                 locale,
                 findingTitle,
                 findingDescription,
+                findingObservation,
+                findingScope,
                 findingRemediation,
                 findingReferences,
                 findingCvssv3,

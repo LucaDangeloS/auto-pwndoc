@@ -315,6 +315,8 @@ async function translateDetail(sourceDetail, fromLocale, toLocale, aiSettings) {
 }
 
 module.exports = {
+    DEFAULT_TRANSLATION_SYSTEM_PROMPT,
+    DEFAULT_TRANSLATION_USER_PROMPT,
     translateVulnerability,
     translateVulnerabilityUpdate,
     translateDetail,

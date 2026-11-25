@@ -42,7 +42,13 @@ module.exports = function(app) {
         // #swagger.tags = ['Settings']
 
         Settings.getAll()
-        .then(settings => Response.Ok(res, withoutKeys(settings)))
+        .then(settings => {
+            var result = withoutKeys(settings);
+            if (result && req.query.includeAiPrompts === '1') {
+                result.aiPromptSettings = require('../lib/ai-service').getPromptSettings(result.ai?.private || {});
+            }
+            Response.Ok(res, result);
+        })
         .catch(err => Response.Internal(res, err));
     });
 

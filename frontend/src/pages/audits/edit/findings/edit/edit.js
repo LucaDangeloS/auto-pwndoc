@@ -296,6 +296,7 @@ export default {
         findingTitle: this.finding.title,
         findingDescription: this.finding.description,
         findingPoc: this.finding.poc,
+        findingReferences: this.finding.references || [],
         auditContext: audit.summary || '',
         auditName: audit.name || '',
         locale: audit.language || '',
@@ -812,6 +813,8 @@ export default {
         locale,
         findingTitle: this.finding.title || '',
         findingDescription: this.finding.description || '',
+        findingObservation: this.finding.observation || '',
+        findingScope: this.finding.scope || '',
         findingRemediation: this.finding.remediation || '',
         findingReferences: this.finding.references || [],
         findingCvssv3: this.finding.cvssv3 || '',
@@ -840,14 +843,8 @@ export default {
         if (this.proofAnonReviewNeeded) {
           this._setProofCompletionStep('review', 'active');
           const previewResponse = await AiService.anonymizePreview({
-            fieldNames: ['description', 'remediation', 'poc'],
             proofCompletion: true,
-            context: {
-              findingTitle: payloadBase.findingTitle,
-              findingDescription: payloadBase.findingDescription,
-              findingPoc: payloadBase.pocHtml,
-              auditContext: payloadBase.auditContext,
-            },
+            context: payloadBase,
           }, this._similarController.signal);
           const anon = previewResponse.data.datas || {};
           if (anon.anonymized) {

@@ -206,6 +206,12 @@ const SettingSchema = new Schema({
         // user can review/edit the anonymized context before it is sent to the
         // generation model.
         anonymizeReviewBeforeSend: { type: Boolean, default: false },
+        ...Object.fromEntries([
+          'proof_title', 'proof_description', 'proof_references', 'proof_remediation',
+          'proof_cvssv3', 'proof_cvssv4', 'proof_poc',
+          'executiveSummaryComplete', 'executiveSummaryRewrite', 'severitySummaryComplete', 'severitySummaryRewrite',
+          'retestSummaryComplete', 'retestSummaryRewrite'
+        ].flatMap(prefix => ['SystemPrompt', 'UserPrompt'].map(kind => [prefix + kind, { type: String, default: '' }]))),
         generateSystemPrompt: { type: String, default: '' },
         generateUserPrompt: { type: String, default: '' },
         completeSystemPrompt: { type: String, default: '' },

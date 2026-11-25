@@ -1,8 +1,8 @@
 import { api } from 'boot/axios'
 
 export default {
-  getSettings() {
-    return api.get(`settings`)
+  getSettings(includeAiPrompts = false) {
+    return api.get('settings', { params: includeAiPrompts ? { includeAiPrompts: 1 } : {} })
   },
 
   getPublicSettings() {

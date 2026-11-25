@@ -22,7 +22,7 @@
         >
           <div class="ai-anon-field-label text-caption text-weight-medium text-uppercase q-mb-xs">
             <q-icon name="visibility" size="14px" class="q-mr-xs" />
-            {{ $t(f.labelKey) }}
+            {{ f.current ? $t('aiPromptCurrentField', { field: $te(f.labelKey) ? $t(f.labelKey) : f.labelKey }) : $t(f.labelKey) }}
           </div>
           <q-input
             v-model="edited[f.key]"
@@ -67,6 +67,13 @@ const FIELD_META = [
   { key: 'findingTitle', labelKey: 'aiAnonReviewFieldFindingTitle' },
   { key: 'findingDescription', labelKey: 'aiAnonReviewFieldFindingDescription' },
   { key: 'findingPoc', labelKey: 'aiAnonReviewFieldFindingPoc' },
+  { key: 'findingReferences', labelKey: 'references' },
+  ...[
+    ['currentTitle', 'aiAnonReviewFieldFindingTitle'], ['currentDescription', 'fieldDescription'],
+    ['currentObservation', 'fieldObservation'], ['currentScope', 'affectedAssets'],
+    ['currentRemediation', 'fieldRemediation'], ['currentReferences', 'references'],
+    ['currentCvssv3', 'CVSS 3.1'], ['currentCvssv4', 'CVSS 4.0'],
+  ].map(([key, labelKey]) => ({ key, labelKey, current: true })),
   { key: 'auditContext', labelKey: 'aiAnonReviewFieldAuditContext' },
   { key: 'text', labelKey: 'aiAnonReviewFieldText' },
   { key: 'visionSummary', labelKey: 'aiAnonReviewFieldVisionSummary' },

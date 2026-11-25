@@ -9,6 +9,7 @@ const assistant = source('components', 'ai-assistant.js');
 const editor = source('components', 'editor.vue');
 const modal = source('components', 'similar-vuln-modal.vue');
 const settings = source('pages', 'settings', 'settings.js');
+const settingsTemplate = source('pages', 'settings', 'settings.html');
 
 assert(
     assistant.includes('options && options.selectionRange') &&
@@ -17,14 +18,11 @@ assert(
     'rewrite must preserve and reuse the selected range through review and regeneration'
 );
 
-for (const action of ['generate', 'complete', 'rewrite']) {
-    const prompt = new RegExp(`field_description_${action}SystemPrompt:[\\s\\S]*?never use bullet points or numbered lists`, 'i');
-    assert(prompt.test(settings), `description ${action} must require prose instead of lists`);
-}
 assert(
-    settings.includes('LEGACY_DESCRIPTION_PROMPT_MARKERS') &&
-        settings.includes('this.settings.ai.private[key] = DEFAULT_PROMPTS[key]'),
-    'stored legacy description defaults must be upgraded without replacing custom prompts'
+    settings.includes('SettingsService.getSettings(true)') &&
+        settingsTemplate.includes('promptValue(operation.prefix') &&
+        !settingsTemplate.includes('v-model="settings.ai.private.generateSystemPrompt"'),
+    'settings must use server-provided prompt defaults and a single editor per operation and field'
 );
 
 assert(

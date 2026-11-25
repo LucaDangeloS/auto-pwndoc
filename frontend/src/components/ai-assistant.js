@@ -176,6 +176,7 @@ function buildAiPayload(action, text, fieldName, aiContext) {
             overallRisk: aiContext && aiContext.overallRisk ? aiContext.overallRisk : '',
             findingsDigest: aiContext && aiContext.findingsDigest ? aiContext.findingsDigest : '',
             findingDescription: aiContext && aiContext.findingDescription ? aiContext.findingDescription : '',
+            findingReferences: aiContext?.findingReferences || [],
             findingPoc: aiContext && aiContext.findingPoc ? aiContext.findingPoc : '',
             auditContext: aiContext && aiContext.auditContext ? aiContext.auditContext : ''
         }
